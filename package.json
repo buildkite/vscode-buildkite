@@ -1,0 +1,51 @@
+{
+  "name": "buildkite-vscode",
+  "displayName": "Buildkite",
+  "description": "VS Code extension for Buildkite",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.106.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "buildkite.setToken",
+        "title": "Buildkite: Set API Token"
+      },
+      {
+        "command": "buildkite.clearToken",
+        "title": "Buildkite: Clear API Token"
+      },
+      {
+        "command": "buildkite.listPipelines",
+        "title": "Buildkite: List Pipelines"
+      },
+      {
+        "command": "buildkite.listJobs",
+        "title": "Buildkite: List Jobs"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/vscode": "^1.106.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.48.0"
+  }
+}
