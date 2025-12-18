@@ -2,6 +2,20 @@ import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
+import { initTreeViews } from "./treeViews/treeViews";
+import { openBuildUrl } from "./commands/openBuildUrl";
+import { retryBuild } from "./commands/retryBuild";
+
+/**
+ * Sets the buildkite.hasToken context for view visibility.
+ */
+async function updateTokenContext(hasToken: boolean): Promise<void> {
+  await vscode.commands.executeCommand(
+    "setContext",
+    "buildkite.hasToken",
+    hasToken,
+  );
+}
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -9,10 +23,16 @@ import { listJobs } from "./job/jobCommands";
  * Buildkite API tokens, pipelines, and jobs.
  * @param context - The extension context provided by VS Code
  */
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   AuthManager.initialize(context);
 
-  // Register Auth Commands
+  // Initialize tree views first
+  initTreeViews(context);
+
+  // Set context for view visibility after tree views are initialized
+  const hasToken = await AuthManager.getToken();
+  await updateTokenContext(!!hasToken);
+
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.setToken", async () => {
       const token = await vscode.window.showInputBox({
@@ -22,6 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (token) {
         await AuthManager.setToken(token);
+        await updateTokenContext(true);
         vscode.window.showInformationMessage(
           "Buildkite API Token saved securely.",
         );
@@ -29,6 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
       await AuthManager.clearToken();
+      await updateTokenContext(false);
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
     }),
   );
@@ -43,6 +65,11 @@ export function activate(context: vscode.ExtensionContext) {
   // We need to add each command available to the array of subscriptions
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
+    vscode.commands.registerCommand("buildkite.build.retry", retryBuild),
   );
 }
 
