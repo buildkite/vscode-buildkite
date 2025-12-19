@@ -2,6 +2,16 @@
  * Buildkite API type definitions
  */
 
+
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+// Pull request information attached to a build
+export interface PullRequest {
+  id: string;
+  base: string;
+  repository: string;
+}
+
 export interface Pipeline {
   id: string;
   graphql_id: string;
@@ -31,7 +41,7 @@ export interface Build {
   message: string;
   commit: string;
   branch: string;
-  env: Record<string, unknown>;
+  env: Record<string, string>;
   source: string;
   creator: {
     id: string;
@@ -44,8 +54,8 @@ export interface Build {
   scheduled_at: string;
   started_at: string | null;
   finished_at: string | null;
-  meta_data: Record<string, unknown>;
-  pull_request: Record<string, unknown> | null;
+  meta_data: Record<string, JsonValue>;
+  pull_request: PullRequest | null;
   pipeline: {
     id: string;
     graphql_id: string;

@@ -21,6 +21,13 @@ export function initTreeViews(context: vscode.ExtensionContext): void {
       },
     ),
   );
+
+  // Register dispose to clean up polling timers
+  context.subscriptions.push({
+    dispose: () => {
+      pipelinesTreeProvider.dispose();
+    },
+  });
 }
 
 export function getPipelinesTreeProvider(): PipelinesTreeProvider {

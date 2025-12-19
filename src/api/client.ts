@@ -1,5 +1,5 @@
 import { AuthManager } from "./auth";
-import { Pipeline, Build } from "./types";
+import { Pipeline, Build, JsonValue } from "./types";
 
 /**
  * Represents a Buildkite organization as returned by;
@@ -56,7 +56,7 @@ export class BuildkiteClient {
    * @returns The parsed JSON response
    * @throws {Error} If authentication fails or the API returns an error
    */
-  async get<T = unknown>(endpoint: string): Promise<T> {
+  async get<T = JsonValue>(endpoint: string): Promise<T> {
     const token = await AuthManager.requireToken();
     if (!token) {
       throw new Error("Authentication required");
@@ -95,7 +95,7 @@ export class BuildkiteClient {
    * @returns The parsed JSON response
    * @throws {Error} If authentication fails or the API returns an error
    */
-  async put<T = unknown>(endpoint: string, body?: unknown): Promise<T> {
+  async put<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
     const token = await AuthManager.requireToken();
     if (!token) {
       throw new Error("Authentication required");
@@ -129,24 +129,12 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
-  /**
-   * Fetches all pipelines for an organization.
-   * @param orgSlug - The organization slug
-   * @returns Array of pipelines
-   */
   async getPipelines(orgSlug: string): Promise<Pipeline[]> {
     return this.get<Pipeline[]>(
       `/organizations/${orgSlug}/pipelines?per_page=100`,
     );
   }
 
-  /**
-   * Fetches recent builds for a pipeline.
-   * @param orgSlug - The organization slug
-   * @param pipelineSlug - The pipeline slug
-   * @param perPage - Number of builds to fetch (default: 10)
-   * @returns Array of builds
-   */
   async getBuilds(
     orgSlug: string,
     pipelineSlug: string,
@@ -157,13 +145,16 @@ export class BuildkiteClient {
     );
   }
 
-  /**
-   * Retries/rebuilds a specific build.
-   * @param orgSlug - The organization slug
-   * @param pipelineSlug - The pipeline slug
-   * @param buildNumber - The build number to retry
-   * @returns The newly created build
-   */
+  async getBuild(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Build> {
+    return this.get<Build>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}`,
+    );
+  }
+
   async retryBuild(
     orgSlug: string,
     pipelineSlug: string,

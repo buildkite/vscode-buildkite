@@ -24,23 +24,11 @@
       "buildkite": [
         {
           "id": "buildkite.pipelines",
-          "name": "Pipelines",
-          "when": "buildkite.hasToken"
-        },
-        {
-          "id": "buildkite.empty-view",
-          "name": "",
-          "when": "!buildkite.hasToken"
+          "name": "Pipelines"
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "buildkite.empty-view",
-        "contents": "Sign in to Buildkite to view pipelines.\n[Set API Token](command:buildkite.setToken)",
-        "when": "!buildkite.hasToken"
-      }
-    ],
+
     "commands": [
       {
         "command": "buildkite.setToken",
