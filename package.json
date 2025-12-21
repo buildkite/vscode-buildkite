@@ -11,6 +11,24 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "buildkite",
+          "title": "Buildkite",
+          "icon": "resources/buildkite-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "buildkite": [
+        {
+          "id": "buildkite.pipelines",
+          "name": "Pipelines"
+        }
+      ]
+    },
+
     "commands": [
       {
         "command": "buildkite.setToken",
@@ -27,8 +45,47 @@
       {
         "command": "buildkite.listJobs",
         "title": "Buildkite: List Jobs"
+      },
+      {
+        "command": "buildkite.pipelines.refresh",
+        "title": "Refresh Pipelines",
+        "category": "Buildkite",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "buildkite.build.open",
+        "title": "View on Buildkite",
+        "category": "Buildkite",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "buildkite.build.retry",
+        "title": "Retry Build",
+        "category": "Buildkite",
+        "icon": "$(debug-restart)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "buildkite.pipelines.refresh",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "buildkite.build.open",
+          "when": "viewItem == build",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.build.retry",
+          "when": "viewItem == build",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+  <!-- Buildkite logo scaled to fit 24x24 -->
+  <g transform="translate(2, 4) scale(0.04167)">
+    <path fill="currentColor" d="M320 160v160l160-80V80l-160 80Z"/>
+    <path fill="currentColor" d="M320 0v160l160-80L320 0Z"/>
+    <path fill="currentColor" d="M160 80v160l160-80V0L160 80Z"/>
+    <path fill="currentColor" d="M0 0v160l160 80V80L0 0Z"/>
+  </g>
+</svg>

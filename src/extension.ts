@@ -1,5 +1,8 @@
 import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
+import { initTreeViews, getPipelinesTreeProvider } from "./treeViews/treeViews";
+import { openBuildUrl } from "./commands/openBuildUrl";
+import { retryBuild } from "./commands/retryBuild";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
 
@@ -11,8 +14,8 @@ import { listJobs } from "./job/jobCommands";
  */
 export function activate(context: vscode.ExtensionContext) {
   AuthManager.initialize(context);
+  initTreeViews(context);
 
-  // Register Auth Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.setToken", async () => {
       const token = await vscode.window.showInputBox({
@@ -22,6 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (token) {
         await AuthManager.setToken(token);
+        await getPipelinesTreeProvider().refresh();
         vscode.window.showInformationMessage(
           "Buildkite API Token saved securely.",
         );
@@ -29,20 +33,21 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
       await AuthManager.clearToken();
+      await getPipelinesTreeProvider().refresh();
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
     }),
   );
 
-  // Register Pipeline Commands
-  // We need to add each command available to the array of subscriptions
+  // Register Pipeline and Job Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.listPipelines", listPipelines),
+    vscode.commands.registerCommand("buildkite.listJobs", listJobs),
   );
 
-  // Register Job Commands
-  // We need to add each command available to the array of subscriptions
+  // Register Build Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.listJobs", listJobs),
+    vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
+    vscode.commands.registerCommand("buildkite.build.retry", retryBuild),
   );
 }
 
