@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
 import { initTreeViews, getPipelinesTreeProvider } from "./treeViews/treeViews";
+import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
 import { openBuildUrl } from "./commands/openBuildUrl";
 import { retryBuild } from "./commands/retryBuild";
 import { listPipelines } from "./pipeline/pipelineCommands";
@@ -15,6 +16,7 @@ import { listJobs } from "./job/jobCommands";
 export function activate(context: vscode.ExtensionContext) {
   AuthManager.initialize(context);
   initTreeViews(context);
+  initStatusBar(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.setToken", async () => {
@@ -26,6 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (token) {
         await AuthManager.setToken(token);
         await getPipelinesTreeProvider().refresh();
+        await getStatusBarManager()?.refresh();
         vscode.window.showInformationMessage(
           "Buildkite API Token saved securely.",
         );
@@ -34,6 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
       await AuthManager.clearToken();
       await getPipelinesTreeProvider().refresh();
+      await getStatusBarManager()?.refresh();
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
     }),
   );

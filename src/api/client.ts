@@ -57,12 +57,21 @@ export class BuildkiteClient {
    * @throws {Error} If authentication fails or the API returns an error
    */
   async get<T = JsonValue>(endpoint: string): Promise<T> {
+    const response = await this.fetch(endpoint);
+    return response.json() as Promise<T>;
+  }
+
+  private async fetch(endpoint: string): Promise<Response> {
     const token = await AuthManager.requireToken();
     if (!token) {
       throw new Error("Authentication required");
     }
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const url = endpoint.startsWith("http")
+      ? endpoint
+      : `${this.baseUrl}${endpoint}`;
+
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -84,7 +93,45 @@ export class BuildkiteClient {
       );
     }
 
-    return response.json() as Promise<T>;
+    return response;
+  }
+
+  /**
+   * Fetches all pages of a paginated endpoint.
+   * Uses the Link header to find the next page URL.
+   */
+  private async getAllPages<T>(endpoint: string): Promise<T[]> {
+    const results: T[] = [];
+    let nextUrl: string | null = endpoint;
+
+    while (nextUrl) {
+      const response = await this.fetch(nextUrl);
+      const data = (await response.json()) as T[];
+      results.push(...data);
+
+      // Parse Link header for next page
+      const linkHeader = response.headers.get("Link");
+      nextUrl = this.parseNextLink(linkHeader);
+    }
+
+    return results;
+  }
+
+  private parseNextLink(linkHeader: string | null): string | null {
+    if (!linkHeader) {
+      return null;
+    }
+
+    // Link header format: <url>; rel="next", <url>; rel="prev", ...
+    const links = linkHeader.split(",");
+    for (const link of links) {
+      const match = link.match(/<([^>]+)>;\s*rel="next"/);
+      if (match) {
+        return match[1];
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -130,7 +177,7 @@ export class BuildkiteClient {
   }
 
   async getPipelines(orgSlug: string): Promise<Pipeline[]> {
-    return this.get<Pipeline[]>(
+    return this.getAllPages<Pipeline>(
       `/organizations/${orgSlug}/pipelines?per_page=100`,
     );
   }
