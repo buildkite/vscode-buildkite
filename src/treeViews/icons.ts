@@ -1,4 +1,4 @@
-import { BuildState } from "../api/types";
+import { Build, BuildState } from "../api/types";
 
 /**
  * Maps Buildkite build states to VS Code codicon names.
@@ -29,4 +29,42 @@ export function getIconForBuild(state: BuildState): string {
     default:
       return "circle-outline";
   }
+}
+
+/**
+ * Priority order for build states (higher = more critical).
+ * Used to determine which state to display when aggregating multiple builds.
+ */
+const STATE_PRIORITY: Record<BuildState, number> = {
+  failed: 100,
+  canceling: 90,
+  canceled: 80,
+  running: 70,
+  creating: 60,
+  scheduled: 50,
+  blocked: 40,
+  passed: 30,
+  skipped: 20,
+  not_run: 10,
+};
+
+/**
+ * Gets the icon for the most critical state among multiple builds.
+ * Uses "worst state wins" logic: failed > running > passed, etc.
+ *
+ * @param builds - Array of builds to aggregate
+ * @returns The codicon name for the most critical state
+ */
+export function getAggregateIcon(builds: Build[]): string {
+  if (builds.length === 0) {
+    return "circle-outline";
+  }
+
+  const worstState = builds.reduce((worst, build) => {
+    const currentPriority = STATE_PRIORITY[build.state] ?? 0;
+    const worstPriority = STATE_PRIORITY[worst] ?? 0;
+    return currentPriority > worstPriority ? build.state : worst;
+  }, builds[0].state);
+
+  return getIconForBuild(worstState);
 }

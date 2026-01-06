@@ -9,6 +9,9 @@
   "categories": [
     "Other"
   ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -63,8 +66,22 @@
         "title": "Retry Build",
         "category": "Buildkite",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "buildkite.statusBar.showPipelines",
+        "title": "Buildkite: Show Workspace Pipelines"
       }
     ],
+    "configuration": {
+      "title": "Buildkite",
+      "properties": {
+        "buildkite.statusBar.showWhenNoMatch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show status bar even when no matching pipeline is found for the current workspace"
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {
