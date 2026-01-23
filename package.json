@@ -62,8 +62,8 @@
         "icon": "$(globe)"
       },
       {
-        "command": "buildkite.build.retry",
-        "title": "Retry Build",
+        "command": "buildkite.build.rebuild",
+        "title": "Rebuild",
         "category": "Buildkite",
         "icon": "$(debug-restart)"
       },
@@ -97,9 +97,19 @@
           "group": "inline"
         },
         {
-          "command": "buildkite.build.retry",
+          "command": "buildkite.build.rebuild",
           "when": "viewItem == build",
           "group": "inline"
+        },
+        {
+          "command": "buildkite.build.open",
+          "when": "viewItem == build",
+          "group": "navigation@1"
+        },
+        {
+          "command": "buildkite.build.rebuild",
+          "when": "viewItem == build",
+          "group": "navigation@2"
         }
       ]
     }

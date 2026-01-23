@@ -202,7 +202,7 @@ export class BuildkiteClient {
     );
   }
 
-  async retryBuild(
+  async rebuildBuild(
     orgSlug: string,
     pipelineSlug: string,
     buildNumber: number,
