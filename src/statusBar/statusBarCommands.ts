@@ -9,7 +9,7 @@ interface PipelineQuickPickItem extends vscode.QuickPickItem {
 }
 
 interface ActionQuickPickItem extends vscode.QuickPickItem {
-  action: "view" | "open" | "retry";
+  action: "view" | "open" | "rebuild";
 }
 
 export async function showPipelineQuickPick(
@@ -74,9 +74,9 @@ async function showActionsQuickPick(
     });
 
     actions.push({
-      label: "$(debug-restart) Retry Build",
-      description: `Retry build #${build.number}`,
-      action: "retry",
+      label: "$(debug-restart) Rebuild",
+      description: `Rebuild #${build.number}`,
+      action: "rebuild",
     });
   }
 
@@ -106,15 +106,15 @@ async function showActionsQuickPick(
       await vscode.env.openExternal(vscode.Uri.parse(pipeline.web_url));
       break;
 
-    case "retry":
+    case "rebuild":
       if (build) {
-        await retryBuildFromStatusBar(pipeline, build, orgSlug, client);
+        await rebuildBuildFromStatusBar(pipeline, build, orgSlug, client);
       }
       break;
   }
 }
 
-async function retryBuildFromStatusBar(
+async function rebuildBuildFromStatusBar(
   pipeline: Pipeline,
   build: Build,
   orgSlug: string,
@@ -122,10 +122,10 @@ async function retryBuildFromStatusBar(
 ): Promise<void> {
   const confirm = await vscode.window.showQuickPick(
     [
-      { label: "Yes", description: `Retry build #${build.number}` },
+      { label: "Yes", description: `Rebuild #${build.number}` },
       { label: "No", description: "Cancel" },
     ],
-    { placeHolder: `Retry build #${build.number} for ${pipeline.name}?` },
+    { placeHolder: `Rebuild #${build.number} for ${pipeline.name}?` },
   );
 
   if (confirm?.label !== "Yes") {
@@ -136,11 +136,11 @@ async function retryBuildFromStatusBar(
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: `Retrying build #${build.number}...`,
+        title: `Rebuilding #${build.number}...`,
         cancellable: false,
       },
       async () => {
-        await client.retryBuild(orgSlug, pipeline.slug, build.number);
+        await client.rebuildBuild(orgSlug, pipeline.slug, build.number);
       },
     );
 
@@ -152,7 +152,7 @@ async function retryBuildFromStatusBar(
     vscode.commands.executeCommand("buildkite.statusBar.refresh");
   } catch (error) {
     vscode.window.showErrorMessage(
-      `Failed to retry build: ${error instanceof Error ? error.message : "Unknown error"}`,
+      `Failed to rebuild: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 }
