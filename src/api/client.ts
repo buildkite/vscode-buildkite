@@ -1,5 +1,5 @@
 import { AuthManager } from "./auth";
-import { Pipeline, Build, JsonValue } from "./types";
+import { Pipeline, Build, Job, JsonValue } from "./types";
 
 /**
  * Represents a Buildkite organization as returned by;
@@ -209,6 +209,27 @@ export class BuildkiteClient {
   ): Promise<Build> {
     return this.put<Build>(
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/rebuild`,
+    );
+  }
+
+  async getJobs(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Job[]> {
+    const build = await this.getBuild(orgSlug, pipelineSlug, buildNumber);
+    return build.jobs || [];
+  }
+
+
+  async retryJob(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+    jobId: string,
+  ): Promise<Job> {
+    return this.put<Job>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/retry`,
     );
   }
 }

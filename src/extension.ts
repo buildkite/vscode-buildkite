@@ -4,6 +4,7 @@ import { initTreeViews, getPipelinesTreeProvider } from "./treeViews/treeViews";
 import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
 import { openBuildUrl } from "./commands/openBuildUrl";
 import { retryBuild } from "./commands/retryBuild";
+import { retryJob } from "./commands/retryJob";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
 
@@ -52,6 +53,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
     vscode.commands.registerCommand("buildkite.build.retry", retryBuild),
+  );
+
+  // Register Job Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.job.retry", retryJob),
   );
 }
 

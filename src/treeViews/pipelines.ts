@@ -3,11 +3,17 @@ import { BuildkiteClient } from "../api/client";
 import { AuthManager } from "../api/auth";
 import { PipelineNode } from "./nodes/pipelineNode";
 import { BuildNode } from "./nodes/buildNode";
+import { JobNode } from "./nodes/jobNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState } from "../api/types";
 
-type PipelineTreeNode = PipelineNode | BuildNode | ErrorNode | NoTokenNode;
+type PipelineTreeNode =
+  | PipelineNode
+  | BuildNode
+  | JobNode
+  | ErrorNode
+  | NoTokenNode;
 
 // Polling interval for running builds (in milliseconds)
 const RUNNING_BUILD_POLL_INTERVAL = 10000; // 10 seconds
@@ -112,6 +118,46 @@ export class PipelinesTreeProvider
           const cached = this.buildCache.get(build.id) || build;
           return new BuildNode(cached, element.pipeline, element.orgSlug);
         });
+      }
+
+      if (element instanceof BuildNode) {
+        try {
+          const jobs = await this.client.getJobs(
+            element.orgSlug,
+            element.pipeline.slug,
+            element.build.number,
+          );
+
+          if (jobs.length === 0) {
+            if (
+              element.build.state === "scheduled" ||
+              element.build.state === "creating" ||
+              element.build.state === "not_run"
+            ) {
+              return [
+                new ErrorNode(
+                  "No jobs available yet. Jobs will appear when the build starts.",
+                ),
+              ];
+            }
+            return [new ErrorNode("No jobs found")];
+          }
+
+          return jobs.map(
+            (job) =>
+              new JobNode(
+                job,
+                element.build.number,
+                element.pipeline.slug,
+                element.orgSlug,
+              ),
+          );
+        } catch (error) {
+          if (error instanceof Error) {
+            return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
+          }
+          return [new ErrorNode("Failed to load jobs")];
+        }
       }
 
       return [];

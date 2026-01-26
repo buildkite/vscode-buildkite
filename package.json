@@ -68,6 +68,12 @@
         "icon": "$(debug-restart)"
       },
       {
+        "command": "buildkite.job.retry",
+        "title": "Retry Job",
+        "category": "Buildkite",
+        "icon": "$(debug-restart)"
+      },
+      {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
       }
@@ -99,6 +105,11 @@
         {
           "command": "buildkite.build.retry",
           "when": "viewItem == build",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.job.retry",
+          "when": "viewItem == job.retriable",
           "group": "inline"
         }
       ]
