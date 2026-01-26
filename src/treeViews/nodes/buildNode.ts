@@ -8,7 +8,10 @@ export class BuildNode extends vscode.TreeItem {
     public readonly pipeline: Pipeline,
     public readonly orgSlug: string,
   ) {
-    super(BuildNode.getLabel(build), vscode.TreeItemCollapsibleState.None);
+    super(
+      BuildNode.getLabel(build),
+      vscode.TreeItemCollapsibleState.Collapsed,
+    );
 
     this.iconPath = new vscode.ThemeIcon(getIconForBuild(build.state));
     this.tooltip = this.getTooltip();
