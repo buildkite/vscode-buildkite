@@ -168,23 +168,6 @@ export class BuildkiteClient {
           "Buildkite API rate limit reached. Please wait before retrying.",
         );
       }
-      if (response.status === 422) {
-        let errorMessage = "Invalid request";
-        try {
-          const errorData = await response.json();
-          if (
-            errorData &&
-            typeof errorData === "object" &&
-            "message" in errorData &&
-            typeof errorData.message === "string"
-          ) {
-            errorMessage = errorData.message;
-          }
-        } catch {
-          // If parsing fails, use default message
-        }
-        throw new Error(errorMessage);
-      }
       throw new Error(
         `Buildkite API error: ${response.status} ${response.statusText}`,
       );
