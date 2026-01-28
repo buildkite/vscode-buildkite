@@ -10,7 +10,7 @@ export async function cancelBuild(node: BuildNode): Promise<void> {
   }
 
   const confirmation = await vscode.window.showWarningMessage(
-    `Cancel build #${node.build.number} on ${node.pipeline.name}?`,
+    `Cancel build #${node.build.number} (${node.build.state}) on ${node.pipeline.name}?`,
     { modal: true },
     "Cancel Build",
   );
@@ -20,8 +20,17 @@ export async function cancelBuild(node: BuildNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
-    await client.cancelBuild(node.orgSlug, node.pipeline.slug, node.build.number);
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `Canceling build #${node.build.number}...`,
+        cancellable: false,
+      },
+      async () => {
+        const client = new BuildkiteClient();
+        await client.cancelBuild(node.orgSlug, node.pipeline.slug, node.build.number);
+      },
+    );
 
     vscode.window.showInformationMessage(
       `Build #${node.build.number} has been canceled`,
