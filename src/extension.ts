@@ -4,6 +4,7 @@ import { initTreeViews, getPipelinesTreeProvider } from "./treeViews/treeViews";
 import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
 import { openBuildUrl } from "./commands/openBuildUrl";
 import { rebuildBuild } from "./commands/rebuildBuild";
+import { unblockBuild } from "./commands/unblockBuild";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
 
@@ -52,6 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
     vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
+    vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
   );
 }
 

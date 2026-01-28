@@ -10,9 +10,11 @@ export class BuildNode extends vscode.TreeItem {
   ) {
     super(BuildNode.getLabel(build), vscode.TreeItemCollapsibleState.None);
 
-    this.iconPath = new vscode.ThemeIcon(getIconForBuild(build.state));
+    // Show lock icon for blocked builds, regardless of state
+    const iconName = this.build.blocked ? "lock" : getIconForBuild(build.state);
+    this.iconPath = new vscode.ThemeIcon(iconName);
     this.tooltip = this.getTooltip();
-    this.contextValue = "build";
+    this.contextValue = this.build.blocked ? "build:blocked" : "build";
 
     this.command = {
       command: "buildkite.build.open",
@@ -29,6 +31,7 @@ export class BuildNode extends vscode.TreeItem {
     const lines = [
       `Build #${this.build.number}`,
       `State: ${this.build.state}`,
+      `Blocked: ${this.build.blocked ? "Yes" : "No"}`,
       `Branch: ${this.build.branch}`,
     ];
 

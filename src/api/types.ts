@@ -63,6 +63,7 @@ export interface Build {
     name: string;
     slug: string;
   };
+  jobs?: Job[];
 }
 
 export type BuildState =
@@ -76,3 +77,31 @@ export type BuildState =
   | "not_run"
   | "blocked"
   | "creating";
+
+export interface Job {
+  id: string;
+  type: string;
+  name: string | null;
+  label?: string | null;
+  state: JobState;
+  web_url: string;
+  unblockable?: boolean;
+  unblock_url?: string | null;
+}
+
+export type JobState =
+  | "pending"
+  | "waiting"
+  | "assigned"
+  | "accepted"
+  | "running"
+  | "passed"
+  | "failed"
+  | "canceled"
+  | "canceling"
+  | "timing_out"
+  | "timed_out"
+  | "skipped"
+  | "broken"
+  | "blocked"
+  | "unblocked";

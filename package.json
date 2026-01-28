@@ -68,6 +68,12 @@
         "icon": "$(debug-restart)"
       },
       {
+        "command": "buildkite.build.unblock",
+        "title": "Unblock",
+        "category": "Buildkite",
+        "icon": "$(unlock)"
+      },
+      {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
       }
@@ -92,24 +98,34 @@
       ],
       "view/item/context": [
         {
-          "command": "buildkite.build.open",
-          "when": "viewItem == build",
-          "group": "inline"
+          "command": "buildkite.build.unblock",
+          "when": "viewItem == build:blocked",
+          "group": "inline@1"
         },
         {
           "command": "buildkite.build.rebuild",
-          "when": "viewItem == build",
-          "group": "inline"
+          "when": "viewItem == build || viewItem == build:blocked",
+          "group": "inline@2"
         },
         {
           "command": "buildkite.build.open",
-          "when": "viewItem == build",
+          "when": "viewItem == build || viewItem == build:blocked",
+          "group": "inline@3"
+        },
+        {
+          "command": "buildkite.build.open",
+          "when": "viewItem == build || viewItem == build:blocked",
           "group": "navigation@1"
         },
         {
           "command": "buildkite.build.rebuild",
-          "when": "viewItem == build",
+          "when": "viewItem == build || viewItem == build:blocked",
           "group": "navigation@2"
+        },
+        {
+          "command": "buildkite.build.unblock",
+          "when": "viewItem == build:blocked",
+          "group": "navigation@4"
         }
       ]
     }
