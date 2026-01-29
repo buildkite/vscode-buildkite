@@ -6,6 +6,7 @@ import { openBuildUrl } from "./commands/openBuildUrl";
 import { rebuildBuild } from "./commands/rebuildBuild";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
+import { registerBuildkiteSchema } from "./yaml/schemaRegistration";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -17,6 +18,9 @@ export function activate(context: vscode.ExtensionContext) {
   AuthManager.initialize(context);
   initTreeViews(context);
   initStatusBar(context);
+
+  // Register YAML schema with fallback (remote -> local)
+  registerBuildkiteSchema(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.setToken", async () => {

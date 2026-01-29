@@ -4,6 +4,34 @@ A VS Code extension we are building, with the goal of providing a seamless integ
 
 A prior knowledge of TypeScript is not required, but it is recommended that you have some familiarity with it or JavaScript. See the [useful resources](#useful-resources) to read more about TypeScript.
 
+## Features
+
+### YAML Validation and Autocomplete
+
+The extension provides intelligent editing support for Buildkite pipeline YAML files:
+
+- **Validation**: Real-time error checking against the official Buildkite pipeline schema
+- **Autocomplete**: Context-aware suggestions for pipeline properties and values
+- **Hover Documentation**: Inline documentation for Buildkite configuration options
+
+These features work automatically for files matching these patterns:
+- `.buildkite/pipeline.yml` or `.buildkite/pipeline.yaml`
+- `.buildkite/*.yml` or `.buildkite/*.yaml`
+- `buildkite.yml` or `buildkite.yaml` (root level)
+
+**Schema Source:**
+The extension uses an intelligent fallback mechanism:
+1. **Primary**: Fetches the latest schema from [buildkite/pipeline-schema](https://github.com/buildkite/pipeline-schema) (always up-to-date)
+2. **Fallback**: Uses bundled local schema if remote is unavailable (works offline)
+
+> **Note:** YAML support requires the [YAML Language Support by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension, which will be installed automatically.
+
+### Build Management
+
+- View and manage Buildkite pipelines and builds
+- Status bar integration showing build status
+- Quick actions to open builds in browser and rebuild
+
 ## Getting Started
 
 ### 1. Install Dependencies
