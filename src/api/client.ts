@@ -168,9 +168,19 @@ export class BuildkiteClient {
           "Buildkite API rate limit reached. Please wait before retrying.",
         );
       }
-      throw new Error(
-        `Buildkite API error: ${response.status} ${response.statusText}`,
-      );
+
+      // Try to get error details from response body
+      let errorMessage = `Buildkite API error: ${response.status} ${response.statusText}`;
+      try {
+        const errorBody = await response.text();
+        if (errorBody) {
+          errorMessage += `\n${errorBody}`;
+        }
+      } catch {
+        // Ignore if we can't read the body
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response.json() as Promise<T>;
@@ -227,10 +237,12 @@ export class BuildkiteClient {
     pipelineSlug: string,
     buildNumber: number,
     jobId: string,
+    fields?: Record<string, string | string[]>,
   ): Promise<Job> {
+    const body: JsonValue = fields ? { fields } : {};
     return this.put<Job>(
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/unblock`,
-      {}, // Send empty object as body
+      body,
     );
   }
 }

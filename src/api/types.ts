@@ -87,6 +87,7 @@ export interface Job {
   web_url: string;
   unblockable?: boolean;
   unblock_url?: string | null;
+  fields?: BlockStepField[];
 }
 
 export type JobState =
@@ -105,3 +106,17 @@ export type JobState =
   | "broken"
   | "blocked"
   | "unblocked";
+
+export interface BlockStepField {
+  key: string;
+  // Text field properties
+  text?: string;
+  hint?: string;
+  required?: boolean;
+  default?: string | string[];
+  format?: string;
+  // Select field properties
+  select?: string;
+  options?: Array<string | { label: string; value: string }>;
+  multiple?: boolean;
+}
