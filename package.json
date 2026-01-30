@@ -109,7 +109,7 @@
         },
         {
           "command": "buildkite.build.cancel",
-          "when": "viewItem == build",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
           "group": "inline"
         },
         {
@@ -124,7 +124,7 @@
         },
         {
           "command": "buildkite.build.cancel",
-          "when": "viewItem == build",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
           "group": "navigation@3"
         }
       ]
