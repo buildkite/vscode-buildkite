@@ -238,11 +238,15 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
     const jobs = build.jobs || [];
 
     // Filter for unblockable jobs
-    // Manual jobs that haven't been unblocked yet (unblocked_at is null/undefined)
-    // The unblocked_at field is the most reliable indicator - it's set during the
-    // unblock transaction and persists permanently
+    // Check both unblockable (state == BLOCKED) and unblocked_at (never unblocked)
+    // for defense-in-depth against edge cases and race conditions.
+    // - unblockable: API-provided field that's true when job.state == "blocked"
+    // - unblocked_at: Timestamp set during unblock, persists permanently (never cleared)
     const unblockableJobs = jobs.filter(
-      (job: Job) => job.type === "manual" && !job.unblocked_at,
+      job =>
+        job.type === "manual" &&
+        job.unblockable === true &&
+        !job.unblocked_at,
     );
 
     if (unblockableJobs.length === 0) {
