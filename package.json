@@ -68,6 +68,12 @@
         "icon": "$(debug-restart)"
       },
       {
+        "command": "buildkite.build.cancel",
+        "title": "Cancel Build",
+        "category": "Buildkite",
+        "icon": "$(circle-slash)"
+      },
+      {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
       }
@@ -102,6 +108,11 @@
           "group": "inline"
         },
         {
+          "command": "buildkite.build.cancel",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
+          "group": "inline"
+        },
+        {
           "command": "buildkite.build.open",
           "when": "viewItem == build",
           "group": "navigation@1"
@@ -110,6 +121,11 @@
           "command": "buildkite.build.rebuild",
           "when": "viewItem == build",
           "group": "navigation@2"
+        },
+        {
+          "command": "buildkite.build.cancel",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
+          "group": "navigation@3"
         }
       ]
     }

@@ -12,7 +12,7 @@ export class BuildNode extends vscode.TreeItem {
 
     this.iconPath = new vscode.ThemeIcon(getIconForBuild(build.state));
     this.tooltip = this.getTooltip();
-    this.contextValue = "build";
+    this.contextValue = `build-${build.state}`;
 
     this.command = {
       command: "buildkite.build.open",

@@ -68,6 +68,7 @@ export interface Build {
 export type BuildState =
   | "passed"
   | "failed"
+  | "failing"
   | "running"
   | "scheduled"
   | "canceled"
