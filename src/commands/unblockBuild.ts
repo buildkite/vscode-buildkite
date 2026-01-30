@@ -62,7 +62,7 @@ async function collectTextFieldValue(
           }
           return null;
         }
-      : field.required !== false
+      : field.required === true
       ? (input) => {
           if (!input.trim()) {
             return `${label} is required`;
@@ -73,7 +73,7 @@ async function collectTextFieldValue(
   });
 
   // Handle required fields
-  if (field.required !== false && !value) {
+  if (field.required === true && !value) {
     vscode.window.showErrorMessage(
       `${label} is required. Unblock cancelled.`,
     );
@@ -124,7 +124,7 @@ async function collectSelectFieldValue(
     );
 
     if (!selected || selected.length === 0) {
-      if (field.required !== false) {
+      if (field.required === true) {
         vscode.window.showErrorMessage(
           `${label} is required. Unblock cancelled.`,
         );
@@ -151,7 +151,7 @@ async function collectSelectFieldValue(
   );
 
   if (!selected) {
-    if (field.required !== false) {
+    if (field.required === true) {
       vscode.window.showErrorMessage(
         `${label} is required. Unblock cancelled.`,
       );
