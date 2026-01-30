@@ -14,17 +14,7 @@ The extension provides intelligent editing support for Buildkite pipeline YAML f
 - **Autocomplete**: Context-aware suggestions for pipeline properties and values
 - **Hover Documentation**: Inline documentation for Buildkite configuration options
 
-These features work automatically for files matching these patterns:
-- `.buildkite/pipeline.yml` or `.buildkite/pipeline.yaml`
-- `.buildkite/*.yml` or `.buildkite/*.yaml`
-- `buildkite.yml` or `buildkite.yaml` (root level)
-
-**Schema Source:**
-The extension uses an intelligent fallback mechanism:
-1. **Primary**: Fetches the latest schema from [buildkite/pipeline-schema](https://github.com/buildkite/pipeline-schema) (always up-to-date)
-2. **Fallback**: Uses bundled local schema if remote is unavailable (works offline)
-
-> **Note:** YAML support requires the [YAML Language Support by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension, which will be installed automatically.
+These features work automatically for Buildkite pipeline files through the [YAML Language Support by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension, which will be installed automatically as a dependency. The schema is provided via [SchemaStore.org](https://www.schemastore.org/), which includes the official [Buildkite pipeline schema](https://github.com/buildkite/pipeline-schema).
 
 ### Build Management
 
