@@ -245,4 +245,14 @@ export class BuildkiteClient {
       body,
     );
   }
+
+  async cancelBuild(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Build> {
+    return this.put<Build>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/cancel`,
+    );
+  }
 }
