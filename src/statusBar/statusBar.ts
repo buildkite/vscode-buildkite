@@ -51,7 +51,7 @@ export class StatusBarManager {
     );
 
     // Listen for git extension repository changes
-    const gitApi = this.getGitApi();
+    const gitApi = await this.getGitApi();
     if (gitApi) {
       this.disposables.push(
         gitApi.onDidOpenRepository(async () => {
@@ -75,20 +75,34 @@ export class StatusBarManager {
     );
   }
 
-  private getGitApi(): GitAPI | undefined {
+  private async getGitApi(): Promise<GitAPI | undefined> {
     const gitExtension =
       vscode.extensions.getExtension<GitExtension>("vscode.git");
     if (!gitExtension) {
       return undefined;
     }
     if (!gitExtension.isActive) {
-      return undefined;
+      await gitExtension.activate();
     }
-    return gitExtension.exports.getAPI(1);
+    const api = gitExtension.exports.getAPI(1);
+    
+    // Wait for the Git API to be fully initialized (repositories discovered)
+    if (api.state === "uninitialized") {
+      await new Promise<void>((resolve) => {
+        const disposable = api.onDidChangeState((state) => {
+          if (state === "initialized") {
+            disposable.dispose();
+            resolve();
+          }
+        });
+      });
+    }
+    
+    return api;
   }
 
   private async detectWorkspaceRemotes(): Promise<void> {
-    const gitApi = this.getGitApi();
+    const gitApi = await this.getGitApi();
     if (!gitApi) {
       this.workspaceRemoteUrls = [];
       return;
@@ -316,6 +330,10 @@ export class StatusBarManager {
       }
       return;
     }
+
+    // Re-detect remotes and refresh pipelines when command is invoked
+    await this.detectWorkspaceRemotes();
+    await this.refresh();
 
     // Handle no matching pipelines
     if (this.matchedPipelines.length === 0) {
