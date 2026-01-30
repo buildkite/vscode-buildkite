@@ -87,6 +87,14 @@ export interface Job {
   web_url: string;
   unblockable?: boolean;
   unblock_url?: string | null;
+  unblocked_at?: string | null;
+  unblocked_by?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url: string;
+    created_at: string;
+  } | null;
   fields?: BlockStepField[];
 }
 

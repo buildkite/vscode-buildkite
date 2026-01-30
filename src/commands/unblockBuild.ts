@@ -238,11 +238,11 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
     const jobs = build.jobs || [];
 
     // Filter for unblockable jobs
-    // Block steps are typically type "manual" and could be in various states
+    // Manual jobs that haven't been unblocked yet (unblocked_at is null/undefined)
+    // The unblocked_at field is the most reliable indicator - it's set during the
+    // unblock transaction and persists permanently
     const unblockableJobs = jobs.filter(
-      (job: Job) =>
-        job.type === "manual" &&
-        (job.state === "blocked" || job.state === "waiting"),
+      (job: Job) => job.type === "manual" && !job.unblocked_at,
     );
 
     if (unblockableJobs.length === 0) {
