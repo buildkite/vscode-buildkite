@@ -115,7 +115,7 @@
         },
         {
           "command": "buildkite.build.cancel",
-          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing)$/ || viewItem == build:blocked",
           "group": "inline"
         },
         {
@@ -134,13 +134,13 @@
           "group": "navigation@2"
         },
         {
-          "command": "buildkite.build.cancel",
-          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/ || viewItem == build:blocked",
+          "command": "buildkite.build.unblock",
+          "when": "viewItem == build:blocked",
           "group": "navigation@3"
         },
         {
-          "command": "buildkite.build.unblock",
-          "when": "viewItem == build:blocked",
+          "command": "buildkite.build.cancel",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing)$/ || viewItem == build:blocked",
           "group": "navigation@4"
         }
       ]
