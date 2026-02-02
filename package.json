@@ -62,8 +62,8 @@
         "icon": "$(globe)"
       },
       {
-        "command": "buildkite.build.retry",
-        "title": "Retry Build",
+        "command": "buildkite.build.rebuild",
+        "title": "Rebuild",
         "category": "Buildkite",
         "icon": "$(debug-restart)"
       },
@@ -72,6 +72,18 @@
         "title": "Retry Job",
         "category": "Buildkite",
         "icon": "$(debug-restart)"
+      },
+      {        
+        "command": "buildkite.build.cancel",
+        "title": "Cancel Build",
+        "category": "Buildkite",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "buildkite.job.viewLog",
+        "title": "View Job Log",
+        "category": "Buildkite",
+        "icon": "$(output)"
       },
       {
         "command": "buildkite.statusBar.showPipelines",
@@ -103,7 +115,7 @@
           "group": "inline"
         },
         {
-          "command": "buildkite.build.retry",
+          "command": "buildkite.build.rebuild",
           "when": "viewItem == build",
           "group": "inline"
         },
@@ -111,6 +123,36 @@
           "command": "buildkite.job.retry",
           "when": "viewItem == job.retriable",
           "group": "inline"
+        },
+        {          
+          "command": "buildkite.build.cancel",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.build.open",
+          "when": "viewItem == build",
+          "group": "navigation@1"
+        },
+        {
+          "command": "buildkite.build.rebuild",
+          "when": "viewItem == build",
+          "group": "navigation@2"
+        },
+        {
+          "command": "buildkite.build.cancel",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
+          "group": "navigation@3"
+        },
+        {
+          "command": "buildkite.job.viewLog",
+          "when": "viewItem =~ /^job-/",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.job.viewLog",
+          "when": "viewItem =~ /^job-/",
+          "group": "navigation@1"
         }
       ]
     }
