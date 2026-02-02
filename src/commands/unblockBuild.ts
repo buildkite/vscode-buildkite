@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { BuildkiteClient } from "../api/client";
-import { Job, BlockStepField } from "../api/types";
+import { Job, BlockStepField, TextStepField, SelectStepField, isTextStepField, isSelectStepField } from "../api/types";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
@@ -44,7 +44,7 @@ function normalizeOption(
  * Collects text field value using input box
  */
 async function collectTextFieldValue(
-  field: BlockStepField,
+  field: TextStepField,
 ): Promise<string | undefined> {
   const label = field.text || field.key;
   const prompt = field.hint || `Enter value for ${label}`;
@@ -87,7 +87,7 @@ async function collectTextFieldValue(
  * Collects select field value using quick pick
  */
 async function collectSelectFieldValue(
-  field: BlockStepField,
+  field: SelectStepField,
 ): Promise<string | string[] | undefined> {
   if (!field.options || field.options.length === 0) {
     const fieldName = field.select || field.key;
@@ -169,13 +169,11 @@ async function collectSelectFieldValue(
 async function collectSingleFieldValue(
   field: BlockStepField,
 ): Promise<string | string[] | undefined> {
-  // Text field
-  if (field.text !== undefined) {
+  if (isTextStepField(field)) {
     return collectTextFieldValue(field);
   }
 
-  // Select field
-  if (field.select !== undefined && field.options) {
+  if (isSelectStepField(field)) {
     return collectSelectFieldValue(field);
   }
 

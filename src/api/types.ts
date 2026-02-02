@@ -116,16 +116,49 @@ export type JobState =
   | "blocked"
   | "unblocked";
 
-export interface BlockStepField {
+/**
+ * Base properties shared by all block step field types
+ */
+interface BaseStepField {
   key: string;
-  // Text field properties
-  text?: string;
   hint?: string;
   required?: boolean;
-  default?: string | string[];
+}
+
+/**
+ * Text input field for block steps
+ */
+export interface TextStepField extends BaseStepField {
+  text: string;
+  default?: string;
   format?: string;
-  // Select field properties
-  select?: string;
-  options?: Array<string | { label: string; value: string }>;
+}
+
+/**
+ * Select/dropdown field for block steps
+ */
+export interface SelectStepField extends BaseStepField {
+  select: string;
+  options: Array<string | { label: string; value: string }>;
   multiple?: boolean;
+  default?: string | string[];
+}
+
+/**
+ * Discriminated union of all block step field types
+ */
+export type BlockStepField = TextStepField | SelectStepField;
+
+/**
+ * Type guard to check if a field is a text field
+ */
+export function isTextStepField(field: BlockStepField): field is TextStepField {
+  return 'text' in field;
+}
+
+/**
+ * Type guard to check if a field is a select field
+ */
+export function isSelectStepField(field: BlockStepField): field is SelectStepField {
+  return 'select' in field;
 }
