@@ -3,11 +3,13 @@ import { BuildkiteClient } from "../api/client";
 import { AuthManager } from "../api/auth";
 import { PipelineNode } from "./nodes/pipelineNode";
 import { BuildNode } from "./nodes/buildNode";
+import { JobNode } from "./nodes/jobNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState } from "../api/types";
+import { Logger } from "../job/jobLogOutput";
 
-type PipelineTreeNode = PipelineNode | BuildNode | ErrorNode | NoTokenNode;
+type PipelineTreeNode = PipelineNode | BuildNode | JobNode | ErrorNode | NoTokenNode;
 
 // Polling interval for running builds (in milliseconds)
 const RUNNING_BUILD_POLL_INTERVAL = 10000; // 10 seconds
@@ -112,6 +114,40 @@ export class PipelinesTreeProvider
           const cached = this.buildCache.get(build.id) || build;
           return new BuildNode(cached, element.pipeline, element.orgSlug);
         });
+      }
+
+      if (element instanceof BuildNode) {
+        const logger = Logger.getInstance();
+        logger.debug(`Fetching jobs for build #${element.build.number}`);
+
+        try {
+          const jobs = await this.client.getJobs(
+            element.orgSlug,
+            element.pipeline.slug,
+            element.build.number,
+          );
+
+          if (jobs.length === 0) {
+            return [new ErrorNode("No jobs found for this build")];
+          }
+
+          logger.info(`Found ${jobs.length} jobs for build #${element.build.number}`);
+
+          return jobs.map((job) =>
+            new JobNode(
+              job,
+              element.orgSlug,
+              element.pipeline.slug,
+              element.build.number,
+            ),
+          );
+        } catch (error) {
+          logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
+          if (error instanceof Error) {
+            return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
+          }
+          return [new ErrorNode("Failed to load jobs")];
+        }
       }
 
       return [];

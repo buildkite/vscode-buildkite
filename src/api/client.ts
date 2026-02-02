@@ -1,5 +1,5 @@
 import { AuthManager } from "./auth";
-import { Pipeline, Build, JsonValue } from "./types";
+import { Pipeline, Build, Job, JsonValue } from "./types";
 
 /**
  * Represents a Buildkite organization as returned by;
@@ -220,5 +220,40 @@ export class BuildkiteClient {
     return this.put<Build>(
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/cancel`,
     );
+  }
+
+  /**
+   * Fetches all jobs for a specific build.
+   * @param orgSlug - The organization slug
+   * @param pipelineSlug - The pipeline slug
+   * @param buildNumber - The build number
+   * @returns Array of jobs for the build
+   */
+  async getJobs(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Job[]> {
+    const build = await this.getBuild(orgSlug, pipelineSlug, buildNumber);
+    // The build endpoint includes jobs in the response
+    // We need to fetch it with ?include_retried_jobs=true to get all jobs
+    const buildWithJobs = await this.get<Build & { jobs: Job[] }>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}?include_retried_jobs=true`,
+    );
+    return buildWithJobs.jobs || [];
+  }
+
+  /**
+   * Fetches the raw log content for a specific job.
+   * @param job - The job object containing the raw_log_url
+   * @returns The raw log content as text
+   */
+  async getJobLog(job: Job): Promise<string> {
+    if (!job.raw_log_url) {
+      return "No log available for this job.";
+    }
+
+    const response = await this.fetch(job.raw_log_url);
+    return response.text();
   }
 }

@@ -8,17 +8,15 @@ export class BuildNode extends vscode.TreeItem {
     public readonly pipeline: Pipeline,
     public readonly orgSlug: string,
   ) {
-    super(BuildNode.getLabel(build), vscode.TreeItemCollapsibleState.None);
+    // Make build nodes collapsible to show jobs
+    super(BuildNode.getLabel(build), vscode.TreeItemCollapsibleState.Collapsed);
 
     this.iconPath = new vscode.ThemeIcon(getIconForBuild(build.state));
     this.tooltip = this.getTooltip();
     this.contextValue = `build-${build.state}`;
 
-    this.command = {
-      command: "buildkite.build.open",
-      title: "Open Build",
-      arguments: [this],
-    };
+    // Remove the default command so clicking the node expands it to show jobs
+    // Users can still use context menu to open the build URL
   }
 
   private static getLabel(build: Build): string {

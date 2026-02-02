@@ -74,6 +74,12 @@
         "icon": "$(circle-slash)"
       },
       {
+        "command": "buildkite.job.viewLog",
+        "title": "View Job Log",
+        "category": "Buildkite",
+        "icon": "$(output)"
+      },
+      {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
       }
@@ -126,6 +132,16 @@
           "command": "buildkite.build.cancel",
           "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
           "group": "navigation@3"
+        },
+        {
+          "command": "buildkite.job.viewLog",
+          "when": "viewItem =~ /^job-/",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.job.viewLog",
+          "when": "viewItem =~ /^job-/",
+          "group": "navigation@1"
         }
       ]
     }
