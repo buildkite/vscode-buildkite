@@ -10,7 +10,8 @@
     "Other"
   ],
   "extensionDependencies": [
-    "vscode.git"
+    "vscode.git",
+    "redhat.vscode-yaml"
   ],
   "main": "./out/extension.js",
   "contributes": {
