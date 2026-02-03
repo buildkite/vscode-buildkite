@@ -1,18 +1,18 @@
 import * as vscode from "vscode";
 import { BuildkiteClient } from "../api/client";
-import { Job, BlockStepField, TextStepField, SelectStepField, isTextStepField, isSelectStepField } from "../api/types";
-import { BuildNode } from "../treeViews/nodes/buildNode";
+import { BlockStepField, TextStepField, SelectStepField, isTextStepField, isSelectStepField } from "../api/types";
+import { JobNode } from "../treeViews/nodes/jobNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
 /**
  * Builds confirmation message with field summary
  */
 function buildConfirmationMessage(
-  buildNumber: number,
   jobName: string,
+  buildNumber: number,
   fieldValues?: Record<string, string | string[]>,
 ): string {
-  let message = `Build #${buildNumber} is waiting on approval for the ${jobName} step.`;
+  let message = `Job "${jobName}" in build #${buildNumber} is waiting on approval.`;
 
   if (fieldValues && Object.keys(fieldValues).length > 0) {
     message += "\n\nField values:";
@@ -201,86 +201,37 @@ async function collectFieldValues(
   return values;
 }
 
-export async function unblockBuild(node: BuildNode): Promise<void> {
-  if (!node || !(node instanceof BuildNode)) {
-    vscode.window.showErrorMessage("Invalid build node");
+/**
+ * Checks if a job can be unblocked
+ */
+function canUnblockJob(job: JobNode): boolean {
+  return (
+    job.job.type === "manual" &&
+    job.job.unblockable === true &&
+    !job.job.unblocked_at
+  );
+}
+
+export async function unblockJob(node: JobNode): Promise<void> {
+  if (!node || !(node instanceof JobNode)) {
+    vscode.window.showErrorMessage("Invalid job node");
     return;
   }
 
-  // Check if build is blocked
-  if (!node.build.blocked) {
-    vscode.window.showInformationMessage(
-      `Build #${node.build.number} is not blocked`,
+  if (!canUnblockJob(node)) {
+    vscode.window.showWarningMessage(
+      `Cannot unblock job: Job must be a manual block step that hasn't been unblocked yet.`,
     );
     return;
   }
+
+  const jobName = node.job.name || node.job.label || "Unnamed job";
 
   try {
-    // Fetch build with jobs
-    const build = await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: `Fetching jobs for build #${node.build.number}...`,
-        cancellable: false,
-      },
-      async () => {
-        const client = new BuildkiteClient();
-        return client.getBuild(
-          node.orgSlug,
-          node.pipeline.slug,
-          node.build.number,
-        );
-      },
-    );
-
-    const jobs = build.jobs || [];
-
-    // Filter for unblockable jobs
-    // Check both unblockable (state == BLOCKED) and unblocked_at (never unblocked)
-    // for defense-in-depth against edge cases and race conditions.
-    // - unblockable: API-provided field that's true when job.state == "blocked"
-    // - unblocked_at: Timestamp set during unblock, persists permanently (never cleared)
-    const unblockableJobs = jobs.filter(
-      job =>
-        job.type === "manual" &&
-        job.unblockable === true &&
-        !job.unblocked_at,
-    );
-
-    if (unblockableJobs.length === 0) {
-      vscode.window.showErrorMessage(
-        `No unblockable jobs found in build #${node.build.number}`,
-      );
-      return;
-    }
-
-    // If multiple blocked jobs, show QuickPick for selection
-    let selectedJob: Job;
-    if (unblockableJobs.length > 1) {
-      const selected = await vscode.window.showQuickPick(
-        unblockableJobs.map((job: Job) => ({
-          label: job.name || job.label || "Unnamed job",
-          description: `State: ${job.state}`,
-          job,
-        })),
-        {
-          placeHolder: "Select a job to unblock",
-          ignoreFocusOut: true,
-        },
-      );
-
-      if (!selected) {
-        return;
-      }
-      selectedJob = selected.job;
-    } else {
-      selectedJob = unblockableJobs[0];
-    }
-
     // Collect field values if job has fields
     let fieldValues: Record<string, string | string[]> | undefined;
-    if (selectedJob.fields && selectedJob.fields.length > 0) {
-      fieldValues = await collectFieldValues(selectedJob.fields);
+    if (node.job.fields && node.job.fields.length > 0) {
+      fieldValues = await collectFieldValues(node.job.fields);
       if (!fieldValues) {
         // User cancelled field input
         return;
@@ -288,9 +239,8 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
     }
 
     // Show confirmation dialog
-    const jobName = selectedJob.name || selectedJob.label || "Unnamed job";
     const confirmation = await vscode.window.showWarningMessage(
-      buildConfirmationMessage(node.build.number, jobName, fieldValues),
+      buildConfirmationMessage(jobName, node.buildNumber, fieldValues),
       { modal: true },
       "Unblock",
     );
@@ -299,35 +249,29 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
       return;
     }
 
-    // Execute unblock with progress indicator
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: `Unblocking job '${jobName}'...`,
-        cancellable: false,
-      },
-      async () => {
-        const client = new BuildkiteClient();
-        await client.unblockJob(
-          node.orgSlug,
-          node.pipeline.slug,
-          node.build.number,
-          selectedJob.id,
-          fieldValues,
-        );
-      },
+    // Execute unblock
+    const client = new BuildkiteClient();
+    await client.unblockJob(
+      node.orgSlug,
+      node.pipelineSlug,
+      node.buildNumber,
+      node.job.id,
+      fieldValues,
     );
 
     vscode.window.showInformationMessage(
-      `Job '${jobName}' in build #${node.build.number} has been unblocked`,
+      `Job "${jobName}" has been unblocked`,
     );
 
-    // Refresh the tree to show the updated build state
     const treeProvider = getPipelinesTreeProvider();
     await treeProvider.refresh();
   } catch (error) {
     if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to unblock: ${error.message}`);
+      vscode.window.showErrorMessage(`Failed to unblock job: ${error.message}`);
+    } else {
+      vscode.window.showErrorMessage(
+        "Failed to unblock job: An unknown error occurred",
+      );
     }
   }
 }
