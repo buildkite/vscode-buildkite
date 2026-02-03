@@ -1,4 +1,4 @@
-import { Build, BuildState } from "../api/types";
+import { Build, BuildState, JobState } from "../api/types";
 
 /**
  * Maps Buildkite build states to VS Code codicon names.
@@ -70,4 +70,39 @@ export function getAggregateIcon(builds: Build[]): string {
   }, builds[0].state);
 
   return getIconForBuild(worstState);
+}
+
+/**
+ * Maps Buildkite job states to VS Code codicon names.
+ * Codicons: https://code.visualstudio.com/api/references/icons-in-labels
+ */
+export function getIconForJob(state: JobState): string {
+  switch (state) {
+    case "passed":
+      return "pass";
+    case "failed":
+      return "error";
+    case "running":
+      return "sync~spin";
+    case "scheduled":
+      return "clock";
+    case "canceled":
+      return "circle-slash";
+    case "canceling":
+      return "loading~spin";
+    case "skipped":
+      return "dash";
+    case "not_run":
+      return "circle-outline";
+    case "blocked":
+      return "debug-pause";
+    case "waiting":
+      return "clock";
+    case "waiting_failed":
+      return "error";
+    case "timed_out":
+      return "error";
+    default:
+      return "circle-outline";
+  }
 }
