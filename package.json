@@ -69,12 +69,6 @@
         "icon": "$(debug-restart)"
       },
       {
-        "command": "buildkite.build.unblock",
-        "title": "Unblock",
-        "category": "Buildkite",
-        "icon": "$(unlock)"
-      },
-      {
         "command": "buildkite.build.cancel",
         "title": "Cancel Build",
         "category": "Buildkite",
@@ -85,6 +79,12 @@
         "title": "Retry Job",
         "category": "Buildkite",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "buildkite.job.unblock",
+        "title": "Unblock Job",
+        "category": "Buildkite",
+        "icon": "$(unlock)"
       },
       {
         "command": "buildkite.statusBar.showPipelines",
@@ -111,11 +111,6 @@
       ],
       "view/item/context": [
         {
-          "command": "buildkite.build.unblock",
-          "when": "viewItem == build:blocked",
-          "group": "inline@1"
-        },
-        {
           "command": "buildkite.build.rebuild",
           "when": "viewItem == build || viewItem == build:blocked",
           "group": "inline@2"
@@ -127,7 +122,7 @@
         },
         {
           "command": "buildkite.job.retry",
-          "when": "viewItem == job.retriable",
+          "when": "viewItem =~ /^job\\.retriable/",
           "group": "inline"
         },
         {
@@ -146,14 +141,9 @@
           "group": "navigation@2"
         },
         {
-          "command": "buildkite.build.unblock",
-          "when": "viewItem == build:blocked",
-          "group": "navigation@3"
-        },
-        {
           "command": "buildkite.build.cancel",
           "when": "viewItem =~ /^build-(creating|scheduled|running|failing)$/ || viewItem == build:blocked",
-          "group": "navigation@4"
+          "group": "navigation@3"
         }
       ]
     }

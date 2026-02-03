@@ -26,7 +26,8 @@ export interface Organization {
  * Handles authentication and API requests.
  */
 export class BuildkiteClient {
-  private baseUrl = "https://api.buildkite.com/v2";
+  //private baseUrl = "https://api.buildkite.com/v2";
+  private baseUrl = "https://api.buildkite.localhost/v2";
   private organization: Organization | undefined;
 
   /**
