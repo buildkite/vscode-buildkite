@@ -46,6 +46,10 @@ export async function retryJob(node: JobNode): Promise<void> {
   } catch (error) {
     if (error instanceof Error) {
       vscode.window.showErrorMessage(`Failed to retry job: ${error.message}`);
+    } else {
+      vscode.window.showErrorMessage(
+        "Failed to retry job: An unknown error occurred",
+      );
     }
   }
 }

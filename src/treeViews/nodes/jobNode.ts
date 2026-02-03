@@ -23,7 +23,7 @@ export class JobNode extends vscode.TreeItem {
 
   private getTooltip(): string {
     const lines = [
-      `Job: ${this.job.name || this.job.step_key || this.job.type}`,
+      `Job: ${this.job.name || this.job.step_key || this.job.type || "Unknown Job"}`,
       `State: ${this.job.state}`,
     ];
 
