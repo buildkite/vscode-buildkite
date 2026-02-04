@@ -9,7 +9,12 @@ import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState } from "../api/types";
 import { Logger } from "../job/jobLogOutput";
 
-type PipelineTreeNode = PipelineNode | BuildNode | JobNode | ErrorNode | NoTokenNode;
+type PipelineTreeNode =
+  | PipelineNode
+  | BuildNode
+  | JobNode
+  | ErrorNode
+  | NoTokenNode;
 
 // Polling interval for running builds (in milliseconds)
 const RUNNING_BUILD_POLL_INTERVAL = 10000; // 10 seconds

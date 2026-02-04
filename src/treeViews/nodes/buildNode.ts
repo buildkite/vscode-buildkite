@@ -8,8 +8,10 @@ export class BuildNode extends vscode.TreeItem {
     public readonly pipeline: Pipeline,
     public readonly orgSlug: string,
   ) {
-    // Make build nodes collapsible to show jobs
-    super(BuildNode.getLabel(build), vscode.TreeItemCollapsibleState.Collapsed);
+    super(
+      BuildNode.getLabel(build),
+      vscode.TreeItemCollapsibleState.Collapsed,
+    );
 
     this.iconPath = new vscode.ThemeIcon(getIconForBuild(build.state));
     this.tooltip = this.getTooltip();

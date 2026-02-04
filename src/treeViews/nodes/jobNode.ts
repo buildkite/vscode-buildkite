@@ -12,7 +12,7 @@ export class JobNode extends vscode.TreeItem {
     super(JobNode.getLabel(job), vscode.TreeItemCollapsibleState.None);
 
     this.iconPath = new vscode.ThemeIcon(getIconForJob(job.state));
-    //this.tooltip = this.getTooltip();
+    this.tooltip = this.getTooltip();
     // Set context value based on whether job can be retried 
     this.contextValue = canRetryJob(job) ? "job.retriable" : "job";
     this.command = {
@@ -26,9 +26,9 @@ export class JobNode extends vscode.TreeItem {
     return job.name || job.step_key || job.type || "Unknown Job";
   }
 
- private getTooltip(): string {
+  private getTooltip(): string {
     const lines = [
-      `Job: ${this.job.name || this.job.step_key || this.job.type}`,
+      `Job: ${this.job.name || this.job.step_key || this.job.type || "Unknown Job"}`,
       `State: ${this.job.state}`,
     ];
 
@@ -56,4 +56,3 @@ export class JobNode extends vscode.TreeItem {
     return lines.join("\n");
   }
 }
- 
