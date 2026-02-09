@@ -18,12 +18,6 @@ export class BuildNode extends vscode.TreeItem {
     this.iconPath = new vscode.ThemeIcon(iconName);
     this.tooltip = this.getTooltip();
     this.contextValue = this.build.blocked ? "build:blocked" : `build-${build.state}`;
-
-    this.command = {
-      command: "buildkite.build.open",
-      title: "Open Build",
-      arguments: [this],
-    };
   }
 
   private static getLabel(build: Build): string {
