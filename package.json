@@ -119,12 +119,7 @@
           "command": "buildkite.build.rebuild",
           "when": "viewItem == build",
           "group": "inline"
-        },
-        {
-          "command": "buildkite.job.retry",
-          "when": "viewItem == job.retriable",
-          "group": "inline"
-        },
+        }, 
         {          
           "command": "buildkite.build.cancel",
           "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
@@ -152,12 +147,12 @@
         },
         {
           "command": "buildkite.job.viewLog",
-          "when": "viewItem =~ /^job-/",
+          "when": "viewItem =~ /^job/",
           "group": "inline"
         },
         {
-          "command": "buildkite.job.viewLog",
-          "when": "viewItem =~ /^job-/",
+          "command": "buildkite.job.openLogUrl",
+          "when": "viewItem =~ /^job/",
           "group": "navigation@1"
         }
       ]

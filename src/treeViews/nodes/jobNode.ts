@@ -13,13 +13,8 @@ export class JobNode extends vscode.TreeItem {
 
     this.iconPath = new vscode.ThemeIcon(getIconForJob(job.state));
     this.tooltip = this.getTooltip();
-    // Set context value based on whether job can be retried 
+    // Set context value to match menu conditions in package.json
     this.contextValue = canRetryJob(job) ? "job.retriable" : "job";
-    this.command = {
-      command: "buildkite.job.viewLog",
-      title: "View Job Log",
-      arguments: [this],
-    };    
   }
 
   private static getLabel(job: Job): string {
@@ -54,5 +49,5 @@ export class JobNode extends vscode.TreeItem {
     }
 
     return lines.join("\n");
-  }
+  } 
 }
