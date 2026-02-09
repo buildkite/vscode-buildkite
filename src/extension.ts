@@ -5,6 +5,7 @@ import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
 import { openBuildUrl } from "./commands/openBuildUrl";
 import { rebuildBuild } from "./commands/rebuildBuild";
 import { cancelBuild } from "./commands/cancelBuild";
+import { unblockBuild } from "./commands/unblockBuild";
 import { retryJob } from "./commands/retryJob";
 import { unblockJob } from "./commands/unblockJob";
 import { listPipelines } from "./pipeline/pipelineCommands";
@@ -56,6 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
     vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
     vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
+    vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
   );
 
   // Register Job Commands

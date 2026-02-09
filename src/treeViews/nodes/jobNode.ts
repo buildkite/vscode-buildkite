@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Job, JobState, canRetryJob } from "../../api/types";
+import { Job, canRetryJob } from "../../api/types";
 import { getIconForJob } from "../icons";
 
 /**
@@ -95,6 +95,18 @@ export class JobNode extends vscode.TreeItem {
     if (this.job.finished_at) {
       lines.push(
         `Finished: ${new Date(this.job.finished_at).toLocaleString()}`,
+      );
+    }
+
+    if (this.job.unblocked_by) {
+      lines.push(
+        `Unblocked by: ${this.job.unblocked_by.name || "Unknown"}`,
+      );
+    }
+
+    if (this.job.unblocked_at) {
+      lines.push(
+        `Unblocked at: ${new Date(this.job.unblocked_at).toLocaleString()}`,
       );
     }
 

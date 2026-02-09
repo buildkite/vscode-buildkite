@@ -26,8 +26,7 @@ export interface Organization {
  * Handles authentication and API requests.
  */
 export class BuildkiteClient {
-  //private baseUrl = "https://api.buildkite.com/v2";
-  private baseUrl = "https://api.buildkite.localhost/v2";
+  private baseUrl = "https://api.buildkite.com/v2";
   private organization: Organization | undefined;
 
   /**
@@ -228,7 +227,7 @@ export class BuildkiteClient {
     pipelineSlug: string,
     buildNumber: number,
     jobId: string,
-    fields?: Record<string, string | string[]>,
+    fields?: Record<string, string>,
   ): Promise<Job> {
     const body: JsonValue = fields ? { fields } : {};
     return this.put<Job>(

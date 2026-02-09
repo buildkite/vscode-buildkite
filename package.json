@@ -75,6 +75,12 @@
         "icon": "$(circle-slash)"
       },
       {
+        "command": "buildkite.build.unblock",
+        "title": "Unblock Build",
+        "category": "Buildkite",
+        "icon": "$(unlock)"
+      },
+      {
         "command": "buildkite.job.retry",
         "title": "Retry Job",
         "category": "Buildkite",
@@ -111,6 +117,11 @@
       ],
       "view/item/context": [
         {
+          "command": "buildkite.build.open",
+          "when": "viewItem == build || viewItem == build:blocked",
+          "group": "inline"
+        },
+        {
           "command": "buildkite.build.rebuild",
           "when": "viewItem == build || viewItem == build:blocked",
           "group": "inline@2"
@@ -118,7 +129,12 @@
         {
           "command": "buildkite.build.cancel",
           "when": "viewItem =~ /^build-(creating|scheduled|running|failing)$/ || viewItem == build:blocked",
-          "group": "inline"
+          "group": "inline@3"
+        },
+        {
+          "command": "buildkite.build.unblock",
+          "when": "viewItem == build:blocked",
+          "group": "inline@4"
         },
         {
           "command": "buildkite.job.retry",
@@ -126,9 +142,9 @@
           "group": "inline"
         },
         {
-          "command": "buildkite.build.open",
-          "when": "viewItem == build || viewItem == build:blocked",
-          "group": "inline@3"
+          "command": "buildkite.job.unblock",
+          "when": "viewItem =~ /^job\\.unblockable/",
+          "group": "inline"
         },
         {
           "command": "buildkite.build.open",
@@ -144,6 +160,16 @@
           "command": "buildkite.build.cancel",
           "when": "viewItem =~ /^build-(creating|scheduled|running|failing)$/ || viewItem == build:blocked",
           "group": "navigation@3"
+        },
+        {
+          "command": "buildkite.build.unblock",
+          "when": "viewItem == build:blocked",
+          "group": "navigation@4"
+        },
+        {
+          "command": "buildkite.job.unblock",
+          "when": "viewItem =~ /^job\\.unblockable/",
+          "group": "navigation"
         }
       ]
     }

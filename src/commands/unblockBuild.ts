@@ -1,38 +1,23 @@
 import * as vscode from "vscode";
 import { BuildkiteClient } from "../api/client";
-import { BlockStepField, TextStepField, SelectStepField, isTextStepField, isSelectStepField } from "../api/types";
-import { JobNode } from "../treeViews/nodes/jobNode";
+import { Job } from "../api/types";
+import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
+import { BlockStepField, TextStepField, SelectStepField, isTextStepField, isSelectStepField } from "../api/types";
 
 /**
- * Builds confirmation message with field summary
+ * Checks if a job can be unblocked
  */
-function buildConfirmationMessage(
-  jobName: string,
-  buildNumber: number,
-  fieldValues?: Record<string, string | string[]>,
-): string {
-  let message = `Job "${jobName}" in build #${buildNumber} is waiting on approval.`;
-
-  if (fieldValues && Object.keys(fieldValues).length > 0) {
-    message += "\n\nField values:";
-    for (const [key, value] of Object.entries(fieldValues)) {
-      // Format value for display
-      const displayValue = Array.isArray(value)
-        ? value.join(", ")
-        : value.length > 50
-        ? value.substring(0, 47) + "..."
-        : value;
-      message += `\n• ${key}: ${displayValue}`;
-    }
-  }
-
-  return message;
+function canUnblockJob(job: Job): boolean {
+  return (
+    job.type === "manual" &&
+    job.unblockable === true &&
+    !job.unblocked_at
+  );
 }
 
 /**
  * Normalizes option format to consistent label/value structure
- * Handles both string options and object options
  */
 function normalizeOption(
   opt: string | { label: string; value: string },
@@ -72,7 +57,6 @@ async function collectTextFieldValue(
       : undefined,
   });
 
-  // Handle required fields
   if (field.required === true && !value) {
     vscode.window.showErrorMessage(
       `${label} is required. Unblock cancelled.`,
@@ -101,10 +85,8 @@ async function collectSelectFieldValue(
   const label = field.select || field.key;
   const prompt = field.hint || `Select value for ${label}`;
 
-  // Normalize options to consistent format
   const normalizedOptions = field.options.map(normalizeOption);
 
-  // Handle multi-select
   if (field.multiple) {
     const selected = await vscode.window.showQuickPick(
       normalizedOptions.map((opt) => ({
@@ -133,11 +115,9 @@ async function collectSelectFieldValue(
       return "";
     }
 
-    // Return as array - API will convert to newline-delimited string
     return selected.map((item) => item.value);
   }
 
-  // Handle single-select
   const selected = await vscode.window.showQuickPick(
     normalizedOptions.map((opt) => ({
       label: opt.label,
@@ -182,7 +162,6 @@ async function collectSingleFieldValue(
 
 /**
  * Collects values for all fields from the user
- * Returns undefined if user cancels
  */
 async function collectFieldValues(
   fields: BlockStepField[],
@@ -192,7 +171,6 @@ async function collectFieldValues(
   for (const field of fields) {
     const value = await collectSingleFieldValue(field);
     if (value === undefined) {
-      // User cancelled
       return undefined;
     }
     values[field.key] = value;
@@ -202,45 +180,64 @@ async function collectFieldValues(
 }
 
 /**
- * Checks if a job can be unblocked
+ * Unblocks the first unblockable job in a build
  */
-function canUnblockJob(job: JobNode): boolean {
-  return (
-    job.job.type === "manual" &&
-    job.job.unblockable === true &&
-    !job.job.unblocked_at
-  );
-}
-
-export async function unblockJob(node: JobNode): Promise<void> {
-  if (!node || !(node instanceof JobNode)) {
-    vscode.window.showErrorMessage("Invalid job node");
+export async function unblockBuild(node: BuildNode): Promise<void> {
+  if (!node || !(node instanceof BuildNode)) {
+    vscode.window.showErrorMessage("Invalid build node");
     return;
   }
 
-  if (!canUnblockJob(node)) {
+  if (!node.build.blocked) {
     vscode.window.showWarningMessage(
-      `Cannot unblock job: Job must be a manual block step that hasn't been unblocked yet.`,
+      `Build #${node.build.number} is not blocked`,
     );
     return;
   }
 
-  const jobName = node.job.name || node.job.label || "Unnamed job";
-
   try {
-    // Collect field values if job has fields
+    const client = new BuildkiteClient();
+
+    const jobs = await client.getJobs(
+      node.orgSlug,
+      node.pipeline.slug,
+      node.build.number,
+    );
+
+    const unblockableJob = jobs.find(canUnblockJob);
+
+    if (!unblockableJob) {
+      vscode.window.showWarningMessage(
+        `No unblockable jobs found in build #${node.build.number}`,
+      );
+      return;
+    }
+
+    const jobName = unblockableJob.name || unblockableJob.label || "Unnamed job";
+
     let fieldValues: Record<string, string | string[]> | undefined;
-    if (node.job.fields && node.job.fields.length > 0) {
-      fieldValues = await collectFieldValues(node.job.fields);
+    if (unblockableJob.fields && unblockableJob.fields.length > 0) {
+      fieldValues = await collectFieldValues(unblockableJob.fields);
       if (!fieldValues) {
-        // User cancelled field input
         return;
       }
     }
 
-    // Show confirmation dialog
+    let message = `Unblock "${jobName}" in build #${node.build.number}?`;
+    if (fieldValues && Object.keys(fieldValues).length > 0) {
+      message += "\n\nField values:";
+      for (const [key, value] of Object.entries(fieldValues)) {
+        const displayValue = Array.isArray(value)
+          ? value.join(", ")
+          : value.length > 50
+          ? value.substring(0, 47) + "..."
+          : value;
+        message += `\n• ${key}: ${displayValue}`;
+      }
+    }
+
     const confirmation = await vscode.window.showWarningMessage(
-      buildConfirmationMessage(jobName, node.buildNumber, fieldValues),
+      message,
       { modal: true },
       "Unblock",
     );
@@ -248,9 +245,6 @@ export async function unblockJob(node: JobNode): Promise<void> {
     if (confirmation !== "Unblock") {
       return;
     }
-
-    // Execute unblock
-    const client = new BuildkiteClient();
 
     // Normalize field values: convert arrays to newline-delimited strings
     const normalizedFields = fieldValues
@@ -269,9 +263,9 @@ export async function unblockJob(node: JobNode): Promise<void> {
       async () => {
         await client.unblockJob(
           node.orgSlug,
-          node.pipelineSlug,
-          node.buildNumber,
-          node.job.id,
+          node.pipeline.slug,
+          node.build.number,
+          unblockableJob.id,
           normalizedFields,
         );
       },
@@ -285,10 +279,10 @@ export async function unblockJob(node: JobNode): Promise<void> {
     await treeProvider.refresh();
   } catch (error) {
     if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to unblock job: ${error.message}`);
+      vscode.window.showErrorMessage(`Failed to unblock build: ${error.message}`);
     } else {
       vscode.window.showErrorMessage(
-        "Failed to unblock job: An unknown error occurred",
+        "Failed to unblock build: An unknown error occurred",
       );
     }
   }
