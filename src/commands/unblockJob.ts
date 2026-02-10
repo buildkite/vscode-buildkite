@@ -33,7 +33,10 @@ export async function unblockJob(node: JobNode): Promise<void> {
 
     // Show confirmation dialog
     const confirmation = await vscode.window.showWarningMessage(
-      buildConfirmationMessage(jobName, node.buildNumber, fieldValues),
+      buildConfirmationMessage(
+        `Job "${jobName}" in build #${node.buildNumber} is waiting on approval.`,
+        fieldValues,
+      ),
       { modal: true },
       "Unblock",
     );

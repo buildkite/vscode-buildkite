@@ -1,21 +1,26 @@
 import * as vscode from "vscode";
 import { BlockStepField, TextStepField, SelectStepField, isTextStepField, isSelectStepField } from "../api/types";
 
+const MAX_DISPLAY_LENGTH = 50;
+const ELLIPSIS = "...";
+
 export function buildConfirmationMessage(
-  jobName: string,
-  buildNumber: number,
+  firstLine: string,
   fieldValues?: Record<string, string | string[]>,
 ): string {
-  let message = `Job "${jobName}" in build #${buildNumber} is waiting on approval.`;
+  let message = firstLine;
 
   if (fieldValues && Object.keys(fieldValues).length > 0) {
     message += "\n\nField values:";
     for (const [key, value] of Object.entries(fieldValues)) {
-      const displayValue = Array.isArray(value)
-        ? value.join(", ")
-        : value.length > 50
-        ? value.substring(0, 47) + "..."
-        : value;
+      let displayValue: string;
+      if (Array.isArray(value)) {
+        displayValue = value.join(", ");
+      } else if (value.length > MAX_DISPLAY_LENGTH) {
+        displayValue = value.substring(0, MAX_DISPLAY_LENGTH - ELLIPSIS.length) + ELLIPSIS;
+      } else {
+        displayValue = value;
+      }
       message += `\n• ${key}: ${displayValue}`;
     }
   }

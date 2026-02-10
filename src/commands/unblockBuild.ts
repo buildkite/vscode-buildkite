@@ -3,7 +3,7 @@ import { BuildkiteClient } from "../api/client";
 import { canUnblockJob } from "../api/types";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
-import { collectFieldValues } from "./blockStepHelpers";
+import { buildConfirmationMessage, collectFieldValues } from "./blockStepHelpers";
 
 export async function unblockBuild(node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
@@ -46,21 +46,11 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
       }
     }
 
-    let message = `Unblock "${jobName}" in build #${node.build.number}?`;
-    if (fieldValues && Object.keys(fieldValues).length > 0) {
-      message += "\n\nField values:";
-      for (const [key, value] of Object.entries(fieldValues)) {
-        const displayValue = Array.isArray(value)
-          ? value.join(", ")
-          : value.length > 50
-          ? value.substring(0, 47) + "..."
-          : value;
-        message += `\n• ${key}: ${displayValue}`;
-      }
-    }
-
     const confirmation = await vscode.window.showWarningMessage(
-      message,
+      buildConfirmationMessage(
+        `Unblock "${jobName}" in build #${node.build.number}?`,
+        fieldValues,
+      ),
       { modal: true },
       "Unblock",
     );
