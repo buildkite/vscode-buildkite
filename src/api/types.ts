@@ -156,7 +156,7 @@ export function canUnblockJob(job: Job): boolean {
   return (
     job.type === "manual" &&
     job.unblockable === true &&
-    !job.unblocked_at
+    job.unblocked_at === null
   );
 }
 
