@@ -13,10 +13,8 @@ export class JobNode extends vscode.TreeItem {
 
     this.iconPath = new vscode.ThemeIcon(this.getIcon());
     this.tooltip = this.getTooltip();
-    // Set context value based on job capabilities
     this.contextValue = this.getContextValue();
 
-    // Set click command for unblockable jobs
     if (canUnblockJob(job)) {
       this.command = {
         command: "buildkite.job.unblock",
@@ -27,17 +25,14 @@ export class JobNode extends vscode.TreeItem {
   }
 
   private getIcon(): string {
-    // Show pass icon for unblocked jobs
     if (this.job.unblocked_at) {
       return "pass";
     }
 
-    // Show lock icon for blocked manual jobs (block steps)
     if (this.job.state === "blocked" && this.job.type === "manual") {
       return "lock";
     }
 
-    // Use standard state-based icon for all other jobs
     return getIconForJob(this.job.state);
   }
 

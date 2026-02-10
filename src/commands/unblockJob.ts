@@ -21,7 +21,6 @@ export async function unblockJob(node: JobNode): Promise<void> {
   const jobName = node.job.name || node.job.label || "Unnamed job";
 
   try {
-    // Collect field values if job has fields
     let fieldValues: Record<string, string | string[]> | undefined;
     if (node.job.fields && node.job.fields.length > 0) {
       fieldValues = await collectFieldValues(node.job.fields);
@@ -31,7 +30,6 @@ export async function unblockJob(node: JobNode): Promise<void> {
       }
     }
 
-    // Show confirmation dialog
     const confirmation = await vscode.window.showWarningMessage(
       buildConfirmationMessage(
         `Job "${jobName}" in build #${node.buildNumber} is waiting on approval.`,
@@ -45,7 +43,6 @@ export async function unblockJob(node: JobNode): Promise<void> {
       return;
     }
 
-    // Execute unblock
     const client = new BuildkiteClient();
 
     // Normalize field values: convert arrays to newline-delimited strings

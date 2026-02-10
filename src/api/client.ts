@@ -169,7 +169,6 @@ export class BuildkiteClient {
         );
       }
 
-      // Try to get error details from response body
       let errorMessage = `Buildkite API error: ${response.status} ${response.statusText}`;
       try {
         const errorBody = await response.text();
