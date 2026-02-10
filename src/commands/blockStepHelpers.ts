@@ -108,7 +108,11 @@ async function collectSelectFieldValue(
       },
     );
 
-    if (!selected || selected.length === 0) {
+    if (!selected) {
+      return undefined;
+    }
+
+    if (selected.length === 0) {
       if (field.required === true) {
         vscode.window.showErrorMessage(
           `${label} is required. Unblock cancelled.`,
@@ -134,13 +138,7 @@ async function collectSelectFieldValue(
   );
 
   if (!selected) {
-    if (field.required === true) {
-      vscode.window.showErrorMessage(
-        `${label} is required. Unblock cancelled.`,
-      );
-      return undefined;
-    }
-    return typeof field.default === "string" ? field.default : "";
+    return undefined;
   }
 
   return selected.value;
