@@ -76,7 +76,7 @@
       },
       {
         "command": "buildkite.build.unblock",
-        "title": "Unblock Build",
+        "title": "Unblock Next Job",
         "category": "Buildkite",
         "icon": "$(unlock)"
       },

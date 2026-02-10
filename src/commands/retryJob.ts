@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { BuildkiteClient } from "../api/client";
 import { JobNode } from "../treeViews/nodes/jobNode";
-import { canRetryJob } from "../api/types";
+import { canRetryJob, getJobDisplayName } from "../api/types";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
 export async function retryJob(node: JobNode): Promise<void> {
@@ -17,7 +17,7 @@ export async function retryJob(node: JobNode): Promise<void> {
     return;
   }
 
-  const jobLabel = node.job.name || node.job.step_key || node.job.type;
+  const jobLabel = getJobDisplayName(node.job);
   const confirmation = await vscode.window.showWarningMessage(
     `Retry job "${jobLabel}" in build #${node.buildNumber}?`,
     { modal: true },

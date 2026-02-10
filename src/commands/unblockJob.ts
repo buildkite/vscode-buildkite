@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { BuildkiteClient } from "../api/client";
-import { canUnblockJob } from "../api/types";
+import { canUnblockJob, getJobDisplayName } from "../api/types";
 import { JobNode } from "../treeViews/nodes/jobNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 import { buildConfirmationMessage, collectFieldValues } from "./blockStepHelpers";
@@ -18,7 +18,7 @@ export async function unblockJob(node: JobNode): Promise<void> {
     return;
   }
 
-  const jobName = node.job.name || node.job.label || "Unnamed job";
+  const jobName = getJobDisplayName(node.job);
 
   try {
     let fieldValues: Record<string, string | string[]> | undefined;

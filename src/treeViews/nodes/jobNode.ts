@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Job, canRetryJob, canUnblockJob } from "../../api/types";
+import { Job, canRetryJob, canUnblockJob, getJobDisplayName } from "../../api/types";
 import { getIconForJob } from "../icons";
 
 export class JobNode extends vscode.TreeItem {
@@ -51,12 +51,12 @@ export class JobNode extends vscode.TreeItem {
   }
 
   private static getLabel(job: Job): string {
-    return job.name || job.label || job.step_key || job.type || "Unknown Job";
+    return getJobDisplayName(job);
   }
 
   private getTooltip(): string {
     const lines = [
-      `Job: ${this.job.name || this.job.label || this.job.step_key || this.job.type || "Unknown Job"}`,
+      `Job: ${getJobDisplayName(this.job)}`,
       `State: ${this.job.state}`,
     ];
 

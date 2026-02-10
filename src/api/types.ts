@@ -160,6 +160,14 @@ export function canUnblockJob(job: Job): boolean {
   );
 }
 
+/**
+ * Gets a human-readable display name for a job.
+ * Falls back through multiple fields to find the best available name.
+ */
+export function getJobDisplayName(job: Job): string {
+  return job.name || job.label || job.step_key || job.type || "Unnamed job";
+}
+
 export type JobState =
   | "pending"
   | "waiting"
