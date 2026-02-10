@@ -148,6 +148,18 @@ export function canRetryJob(job: Job): boolean {
   return false;
 }
 
+/**
+ * Checks if a job can be unblocked.
+ * Jobs can be unblocked if they are manual block steps that haven't been unblocked yet.
+ */
+export function canUnblockJob(job: Job): boolean {
+  return (
+    job.type === "manual" &&
+    job.unblockable === true &&
+    !job.unblocked_at
+  );
+}
+
 export type JobState =
   | "pending"
   | "waiting"

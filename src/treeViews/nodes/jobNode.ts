@@ -1,17 +1,6 @@
 import * as vscode from "vscode";
-import { Job, canRetryJob } from "../../api/types";
+import { Job, canRetryJob, canUnblockJob } from "../../api/types";
 import { getIconForJob } from "../icons";
-
-/**
- * Checks if a job can be unblocked
- */
-function canUnblockJob(job: Job): boolean {
-  return (
-    job.type === "manual" &&
-    job.unblockable === true &&
-    !job.unblocked_at
-  );
-}
 
 export class JobNode extends vscode.TreeItem {
   constructor(
