@@ -70,7 +70,7 @@ async function collectTextFieldValue(
     return undefined;
   }
 
-  return value || defaultValue;
+  return value !== undefined ? value : defaultValue;
 }
 
 async function collectSelectFieldValue(
