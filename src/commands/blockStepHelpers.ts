@@ -77,10 +77,8 @@ async function collectSelectFieldValue(
   field: SelectStepField,
 ): Promise<string | string[] | undefined> {
   if (!field.options || field.options.length === 0) {
-    const fieldName = field.select || field.key;
     vscode.window.showErrorMessage(
-      `Invalid block step: "${fieldName}" has no options configured. ` +
-        `Please contact the pipeline administrators to fix this block step.`,
+      `Block step "${field.select || field.key}" has no options available.`,
     );
     return undefined;
   }
