@@ -3,7 +3,7 @@ import { BuildkiteClient } from "../api/client";
 import { canUnblockJob, getJobDisplayName } from "../api/types";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
-import { buildConfirmationMessage, collectFieldValues } from "./blockStepHelpers";
+import { buildConfirmationMessage, collectFieldValues, normalizeFieldValues } from "./blockStepHelpers";
 
 export async function unblockBuild(node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
@@ -59,13 +59,7 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
       return;
     }
 
-    // Normalize field values: convert arrays to newline-delimited strings
-    const normalizedFields = fieldValues
-      ? Object.entries(fieldValues).reduce((acc, [key, value]) => {
-          acc[key] = Array.isArray(value) ? value.join("\n") : value;
-          return acc;
-        }, {} as Record<string, string>)
-      : undefined;
+    const normalizedFields = normalizeFieldValues(fieldValues);
 
     await vscode.window.withProgress(
       {

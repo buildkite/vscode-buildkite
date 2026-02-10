@@ -171,3 +171,16 @@ export async function collectFieldValues(
 
   return values;
 }
+
+export function normalizeFieldValues(
+  fieldValues?: Record<string, string | string[]>,
+): Record<string, string> | undefined {
+  if (!fieldValues) {
+    return undefined;
+  }
+
+  return Object.entries(fieldValues).reduce((acc, [key, value]) => {
+    acc[key] = Array.isArray(value) ? value.join("\n") : value;
+    return acc;
+  }, {} as Record<string, string>);
+}
