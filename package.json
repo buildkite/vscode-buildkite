@@ -118,22 +118,22 @@
       "view/item/context": [
         {
           "command": "buildkite.build.open",
-          "when": "viewItem == build || viewItem == build:blocked",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
           "group": "inline"
         },
         {
           "command": "buildkite.build.rebuild",
-          "when": "viewItem == build || viewItem == build:blocked",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
           "group": "inline@2"
         },
         {
           "command": "buildkite.build.cancel",
-          "when": "viewItem =~ /^build-(creating|scheduled|running|failing)$/ || viewItem == build:blocked",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)/ || viewItem =~ /:blocked$/",
           "group": "inline@3"
         },
         {
           "command": "buildkite.build.unblock",
-          "when": "viewItem == build:blocked",
+          "when": "viewItem =~ /:blocked$/",
           "group": "inline@4"
         },
         {
@@ -148,22 +148,22 @@
         },
         {
           "command": "buildkite.build.open",
-          "when": "viewItem == build || viewItem == build:blocked",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
           "group": "navigation@1"
         },
         {
           "command": "buildkite.build.rebuild",
-          "when": "viewItem == build || viewItem == build:blocked",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
           "group": "navigation@2"
         },
         {
           "command": "buildkite.build.cancel",
-          "when": "viewItem =~ /^build-(creating|scheduled|running|failing)$/ || viewItem == build:blocked",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)/ || viewItem =~ /:blocked$/",
           "group": "navigation@3"
         },
         {
           "command": "buildkite.build.unblock",
-          "when": "viewItem == build:blocked",
+          "when": "viewItem =~ /:blocked$/",
           "group": "navigation@4"
         },
         {

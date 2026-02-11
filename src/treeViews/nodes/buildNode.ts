@@ -17,7 +17,7 @@ export class BuildNode extends vscode.TreeItem {
     const iconName = this.build.blocked ? "stop-circle" : getIconForBuild(build.state);
     this.iconPath = new vscode.ThemeIcon(iconName);
     this.tooltip = this.getTooltip();
-    this.contextValue = this.build.blocked ? "build:blocked" : `build-${build.state}`;
+    this.contextValue = this.build.blocked ? `build-${build.state}:blocked` : `build-${build.state}`;
   }
 
   private static getLabel(build: Build): string {
