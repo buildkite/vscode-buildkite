@@ -30,7 +30,7 @@ export class JobNode extends vscode.TreeItem {
     }
 
     if (this.job.state === "blocked" && this.job.type === "manual") {
-      return "lock";
+      return "stop-circle";
     }
 
     return getIconForJob(this.job.state);
