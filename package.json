@@ -78,7 +78,7 @@
         "command": "buildkite.build.unblock",
         "title": "Unblock Next Job",
         "category": "Buildkite",
-        "icon": "$(unlock)"
+        "icon": "$(play)"
       },
       {
         "command": "buildkite.job.retry",
@@ -90,7 +90,7 @@
         "command": "buildkite.job.unblock",
         "title": "Unblock Job",
         "category": "Buildkite",
-        "icon": "$(unlock)"
+        "icon": "$(play)"
       },
       {
         "command": "buildkite.statusBar.showPipelines",
