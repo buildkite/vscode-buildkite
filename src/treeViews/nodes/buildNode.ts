@@ -13,15 +13,11 @@ export class BuildNode extends vscode.TreeItem {
       vscode.TreeItemCollapsibleState.Collapsed,
     );
 
-    this.iconPath = new vscode.ThemeIcon(getIconForBuild(build.state));
+    // Show stop-circle icon for blocked builds, regardless of state
+    const iconName = this.build.blocked ? "stop-circle" : getIconForBuild(build.state);
+    this.iconPath = new vscode.ThemeIcon(iconName);
     this.tooltip = this.getTooltip();
-    this.contextValue = `build-${build.state}`;
-
-    this.command = {
-      command: "buildkite.build.open",
-      title: "Open Build",
-      arguments: [this],
-    };
+    this.contextValue = this.build.blocked ? `build-${build.state}:blocked` : `build-${build.state}`;
   }
 
   private static getLabel(build: Build): string {
@@ -32,6 +28,7 @@ export class BuildNode extends vscode.TreeItem {
     const lines = [
       `Build #${this.build.number}`,
       `State: ${this.build.state}`,
+      `Blocked: ${this.build.blocked ? "Yes" : "No"}`,
       `Branch: ${this.build.branch}`,
     ];
 
