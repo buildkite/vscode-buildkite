@@ -8,7 +8,7 @@ import { cancelBuild } from "./commands/cancelBuild";
 import { unblockBuild } from "./commands/unblockBuild";
 import { retryJob } from "./commands/retryJob";
 import { unblockJob } from "./commands/unblockJob";
-import { viewJobLog, disposeJobLogChannel } from "./commands/viewJobLog";
+import { viewJobLog, disposeJobLogWebview } from "./commands/viewJobLog";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands"; 
 import { openJobLogUrl } from "./commands/openJobLogUrl";
@@ -64,8 +64,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register Job Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.job.viewLog", viewJobLog),
-    vscode.commands.registerCommand("buildkite.job.openLogUrl", openJobLogUrl),
+    vscode.commands.registerCommand("buildkite.job.viewJobLog", viewJobLog),
+    vscode.commands.registerCommand("buildkite.job.openJobLogUrl", openJobLogUrl),  
     vscode.commands.registerCommand("buildkite.job.retry", retryJob),
     vscode.commands.registerCommand("buildkite.job.unblock", unblockJob),
   );
@@ -75,6 +75,6 @@ export function activate(context: vscode.ExtensionContext) {
  * Deactivates the extension.
  * Called when the extension is deactivated by VS Code.
  */
-export function deactivate() { 
-  disposeJobLogChannel();
+export function deactivate() {
+  disposeJobLogWebview();
 }

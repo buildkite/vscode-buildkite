@@ -54,7 +54,7 @@ export class JobNode extends vscode.TreeItem {
     return getJobDisplayName(job);
   }
 
-  private getTooltip(): string {
+  private getTooltip(): string { 
     const lines = [
       `Job: ${getJobDisplayName(this.job)}`,
       `State: ${this.job.state}`,

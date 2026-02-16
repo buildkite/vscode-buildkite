@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { JobNode } from "../treeViews/nodes/jobNode"; 
+import { JobNode } from "../treeViews/nodes/jobNode";
+import { Logger } from "../job/jobLogOutput";
 
 export async function openJobLogUrl(node: JobNode): Promise<void> {
   if (!node || !(node instanceof JobNode)) {
@@ -7,13 +8,19 @@ export async function openJobLogUrl(node: JobNode): Promise<void> {
     return;
   }
 
-  console.log("Job raw_log_url:", node.job.raw_log_url); 
+  try {
+    const logger = Logger.getInstance();
 
-  //add check if a job log url exists am
-  if (!node.job.raw_log_url) {
-    vscode.window.showErrorMessage("No log URL available for this job");
-    return;
+    // Construct the web-friendly job log URL
+    // Format: https://buildkite.com/organizations/{org-slug}/pipelines/{pipeline-slug}/builds/{build-number}/jobs/{job-id}/log
+    const logUrl = `https://buildkite.com/organizations/${node.orgSlug}/pipelines/${node.pipelineSlug}/builds/${node.buildNumber}/jobs/${node.job.id}/log`;
+
+    logger.info(`Opening job log in external browser: ${logUrl}`);
+    const uri = vscode.Uri.parse(logUrl);
+    await vscode.env.openExternal(uri);
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(`Failed to open job log: ${errorMessage}`);
   }
-  const uri = vscode.Uri.parse(node.job.raw_log_url);
-  await vscode.env.openExternal(uri);
 }

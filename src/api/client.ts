@@ -265,22 +265,7 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/retry`,
     );
   }
-
-  async cancelBuild(
-    orgSlug: string,
-    pipelineSlug: string,
-    buildNumber: number,
-  ): Promise<Build> {
-    return this.put<Build>(
-      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/cancel`,
-    );
-  }
-
-  /**
-   * Fetches the raw log content for a specific job.
-   * @param job - The job object containing the raw_log_url
-   * @returns The raw log content as text
-   */
+  
   async getJobLog(job: Job): Promise<string> {
     if (!job.raw_log_url) {
       return "No log available for this job.";
