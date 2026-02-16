@@ -2,10 +2,12 @@ import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
 import { initTreeViews, getPipelinesTreeProvider } from "./treeViews/treeViews";
 import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
-import { openBuildUrl } from "./commands/openBuildUrl";
-import { retryJob } from "./commands/retryJob";
+import { openBuildUrl } from "./commands/openBuildUrl"; 
 import { rebuildBuild } from "./commands/rebuildBuild";
 import { cancelBuild } from "./commands/cancelBuild";
+import { unblockBuild } from "./commands/unblockBuild";
+import { retryJob } from "./commands/retryJob";
+import { unblockJob } from "./commands/unblockJob";
 import { viewJobLog, disposeJobLogChannel } from "./commands/viewJobLog";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands"; 
@@ -57,6 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
     vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
     vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
+    vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
   );
 
   // Register Job Commands
@@ -64,6 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.job.viewLog", viewJobLog),
     vscode.commands.registerCommand("buildkite.job.openLogUrl", openJobLogUrl),
     vscode.commands.registerCommand("buildkite.job.retry", retryJob),
+    vscode.commands.registerCommand("buildkite.job.unblock", unblockJob),
   );
 }
 

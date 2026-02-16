@@ -9,10 +9,9 @@ export async function cancelBuild(node: BuildNode): Promise<void> {
     return;
   }
 
-  // Only allow canceling builds in states that the API permits
-  // (creating, scheduled, running/started, failing, blocked)
+  // Allow canceling builds that are blocked or in active states
   const cancelableStates = ["creating", "scheduled", "running", "failing", "blocked"];
-  if (!cancelableStates.includes(node.build.state)) {
+  if (!node.build.blocked && !cancelableStates.includes(node.build.state)) {
     vscode.window.showErrorMessage(
       `Cannot cancel build in state: ${node.build.state}`,
     );
