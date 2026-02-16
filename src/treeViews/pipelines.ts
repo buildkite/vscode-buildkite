@@ -155,7 +155,7 @@ export class PipelinesTreeProvider
                 element.pipeline.slug,
                 element.orgSlug,
               ),
-          ); 
+          );
         } catch (error) {
           logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
           if (error instanceof Error) {
