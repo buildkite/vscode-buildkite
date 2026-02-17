@@ -1,8 +1,6 @@
 /**
  * Buildkite API type definitions
  */
-
-
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 // Pull request information attached to a build
@@ -153,11 +151,7 @@ export function canRetryJob(job: Job): boolean {
  * Jobs can be unblocked if they are manual block steps that haven't been unblocked yet.
  */
 export function canUnblockJob(job: Job): boolean {
-  return (
-    job.type === "manual" &&
-    job.unblockable === true &&
-    job.unblocked_at === null
-  );
+  return job.type === "manual" && job.unblockable === true && job.unblocked_at === null;
 }
 
 /**
@@ -225,14 +219,14 @@ export type BlockStepField = TextStepField | SelectStepField;
  * Type guard to check if a field is a text field
  */
 export function isTextStepField(field: BlockStepField): field is TextStepField {
-  return 'text' in field;
+  return "text" in field;
 }
 
 /**
  * Type guard to check if a field is a select field
  */
 export function isSelectStepField(field: BlockStepField): field is SelectStepField {
-  return 'select' in field;
+  return "select" in field;
 }
 
 // GraphQL response types for repository-based pipeline queries
