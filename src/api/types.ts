@@ -234,3 +234,42 @@ export function isTextStepField(field: BlockStepField): field is TextStepField {
 export function isSelectStepField(field: BlockStepField): field is SelectStepField {
   return 'select' in field;
 }
+
+// GraphQL response types for repository-based pipeline queries
+
+export interface GraphQLBuildNode {
+  number: number;
+  state: string;
+  branch: string;
+  message: string | null;
+  url: string;
+}
+
+export interface GraphQLPipelineNode {
+  slug: string;
+  name: string;
+  repository: {
+    url: string;
+  };
+  builds: {
+    edges: Array<{
+      node: GraphQLBuildNode;
+    }>;
+  };
+}
+
+export interface PipelinesForRepositoryResponse {
+  organization: {
+    pipelines: {
+      edges: Array<{
+        node: GraphQLPipelineNode;
+      }>;
+    };
+  };
+}
+
+/** Result from getPipelinesByRepository, combining pipeline and recent builds */
+export interface PipelineWithBuilds {
+  pipeline: Pipeline;
+  builds: Build[];
+}

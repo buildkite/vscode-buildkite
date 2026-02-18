@@ -3,11 +3,12 @@ import { GitExtension, API as GitAPI } from "../types/git";
 import { BuildkiteClient } from "../api/client";
 import { AuthManager } from "../api/auth";
 import { Pipeline, Build, BuildState } from "../api/types";
-import { gitUrlsMatch } from "../utils/gitUrl";
+import { getGitUrlVariants } from "../utils/gitUrl";
 import { getIconForBuild, getAggregateIcon } from "../treeViews/icons";
 import { showPipelineQuickPick } from "./statusBarCommands";
 
-const POLL_INTERVAL_MS = 10000; // 10 seconds
+const ACTIVE_POLL_INTERVAL_MS = 10000; // 10 seconds when builds are running
+const IDLE_POLL_INTERVAL_MS = 60000; // 60 seconds when idle (to catch new builds)
 
 const ACTIVE_BUILD_STATES: BuildState[] = [
   "running",
@@ -23,7 +24,7 @@ export class StatusBarManager {
   private client: BuildkiteClient;
   private workspaceRemoteUrls: string[] = [];
   private matchedPipelines: Pipeline[] = [];
-  private latestBuilds: Map<string, Build> = new Map();
+  private pipelineBuilds: Map<string, Build[]> = new Map();
   private orgSlug: string | undefined;
   private pollTimer: ReturnType<typeof setInterval> | undefined;
   private disposables: vscode.Disposable[] = [];
@@ -39,9 +40,6 @@ export class StatusBarManager {
   }
 
   async initialize(): Promise<void> {
-    await this.detectWorkspaceRemotes();
-    await this.refresh();
-
     // Listen for workspace folder changes
     this.disposables.push(
       vscode.workspace.onDidChangeWorkspaceFolders(async () => {
@@ -50,7 +48,16 @@ export class StatusBarManager {
       }),
     );
 
-    // Listen for git extension repository changes
+    // Listen for configuration changes
+    this.disposables.push(
+      vscode.workspace.onDidChangeConfiguration(async (e) => {
+        if (e.affectsConfiguration("buildkite.statusBar")) {
+          this.renderStatusBar();
+        }
+      }),
+    );
+
+    // Get git API and set up repository listeners
     const gitApi = await this.getGitApi();
     if (gitApi) {
       this.disposables.push(
@@ -63,16 +70,16 @@ export class StatusBarManager {
           await this.refresh();
         }),
       );
+
+      // If no repositories yet, wait for one to open
+      if (gitApi.repositories.length === 0) {
+        this.renderStatusBar(); // Show initial state
+        return; // onDidOpenRepository will trigger refresh
+      }
     }
 
-    // Listen for configuration changes
-    this.disposables.push(
-      vscode.workspace.onDidChangeConfiguration(async (e) => {
-        if (e.affectsConfiguration("buildkite.statusBar")) {
-          this.renderStatusBar();
-        }
-      }),
-    );
+    await this.detectWorkspaceRemotes();
+    await this.refresh();
   }
 
   private async getGitApi(): Promise<GitAPI | undefined> {
@@ -85,7 +92,7 @@ export class StatusBarManager {
       await gitExtension.activate();
     }
     const api = gitExtension.exports.getAPI(1);
-    
+
     // Wait for the Git API to be fully initialized (repositories discovered)
     if (api.state === "uninitialized") {
       await new Promise<void>((resolve) => {
@@ -97,7 +104,7 @@ export class StatusBarManager {
         });
       });
     }
-    
+
     return api;
   }
 
@@ -110,6 +117,11 @@ export class StatusBarManager {
 
     const remotes: string[] = [];
     for (const repo of gitApi.repositories) {
+      // Wait for repository state to be populated if remotes are empty
+      if (repo.state.remotes.length === 0) {
+        await this.waitForRepositoryState(repo);
+      }
+
       for (const remote of repo.state.remotes) {
         if (remote.fetchUrl) {
           remotes.push(remote.fetchUrl);
@@ -122,12 +134,37 @@ export class StatusBarManager {
     this.workspaceRemoteUrls = remotes;
   }
 
+  private waitForRepositoryState(repo: import("../types/git").Repository): Promise<void> {
+    return new Promise((resolve) => {
+      // If already has remotes, resolve immediately
+      if (repo.state.remotes.length > 0) {
+        resolve();
+        return;
+      }
+
+      // Otherwise wait for state change
+      const disposable = repo.state.onDidChange(() => {
+        if (repo.state.remotes.length > 0) {
+          disposable.dispose();
+          resolve();
+        }
+      });
+
+      // Timeout after 5 seconds to avoid hanging forever
+      setTimeout(() => {
+        disposable.dispose();
+        console.warn("Buildkite: timed out waiting for git repository remotes");
+        resolve();
+      }, 5000);
+    });
+  }
+
   async refresh(): Promise<void> {
     // Check if we have a token
     const token = await AuthManager.getToken();
     if (!token) {
       this.matchedPipelines = [];
-      this.latestBuilds.clear();
+      this.pipelineBuilds.clear();
       this.stopPolling();
       this.renderStatusBar();
       return;
@@ -137,57 +174,69 @@ export class StatusBarManager {
       const org = await this.client.getOrganization();
       this.orgSlug = org.slug;
 
-      await this.findMatchingPipelines();
-      await this.fetchLatestBuilds();
+      // GraphQL fetches pipelines and builds in a single query per remote URL
+      await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
       this.managePolling();
     } catch (error) {
       console.error("Buildkite status bar error:", error);
       this.matchedPipelines = [];
-      this.latestBuilds.clear();
+      this.pipelineBuilds.clear();
       this.stopPolling();
       this.renderStatusBar();
     }
   }
 
-  private async findMatchingPipelines(): Promise<void> {
+  private async findMatchingPipelinesAndBuilds(): Promise<void> {
     if (!this.orgSlug || this.workspaceRemoteUrls.length === 0) {
       this.matchedPipelines = [];
+      this.pipelineBuilds.clear();
       return;
     }
 
-    const pipelines = await this.client.getPipelines(this.orgSlug);
-    this.matchedPipelines = pipelines.filter((pipeline) =>
-      this.workspaceRemoteUrls.some((remoteUrl) =>
-        gitUrlsMatch(remoteUrl, pipeline.repository),
-      ),
-    );
-  }
+    const seenSlugs = new Set<string>();
+    const pipelines: Pipeline[] = [];
 
-  private async fetchLatestBuilds(): Promise<void> {
-    if (!this.orgSlug) {
-      return;
-    }
+    this.pipelineBuilds.clear();
 
-    this.latestBuilds.clear();
-
-    for (const pipeline of this.matchedPipelines) {
-      try {
-        const builds = await this.client.getBuilds(
-          this.orgSlug,
-          pipeline.slug,
-          1,
-        );
-        if (builds.length > 0) {
-          this.latestBuilds.set(pipeline.slug, builds[0]);
-        }
-      } catch (error) {
-        console.error(
-          `Failed to fetch builds for pipeline ${pipeline.slug}:`,
-          error,
-        );
+    // Generate URL variants (SSH, HTTPS, with/without .git) to match
+    // pipelines regardless of how they're configured in Buildkite
+    const urlVariants = new Set<string>();
+    for (const remoteUrl of this.workspaceRemoteUrls) {
+      for (const variant of getGitUrlVariants(remoteUrl)) {
+        urlVariants.add(variant);
       }
     }
+
+    const orgSlug = this.orgSlug;
+    const allResults = await Promise.all(
+      [...urlVariants].map(async (repoUrl) => {
+        try {
+          return await this.client.getPipelinesByRepository(
+            orgSlug,
+            repoUrl,
+          );
+        } catch (error) {
+          console.error(`Failed to fetch pipelines for ${repoUrl}:`, error);
+          return [];
+        }
+      }),
+    );
+
+    for (const results of allResults) {
+      for (const { pipeline, builds } of results) {
+        // Avoid duplicates if multiple URL variants match the same pipeline
+        if (!seenSlugs.has(pipeline.slug)) {
+          seenSlugs.add(pipeline.slug);
+          pipelines.push(pipeline);
+          if (builds.length > 0) {
+            this.pipelineBuilds.set(pipeline.slug, builds);
+          }
+        }
+      }
+    }
+
+    this.matchedPipelines = pipelines;
   }
 
   private renderStatusBar(): void {
@@ -218,24 +267,28 @@ export class StatusBarManager {
       return;
     }
 
-    const builds = Array.from(this.latestBuilds.values());
+    const allBuilds = Array.from(this.pipelineBuilds.values()).flat();
 
-    // Single pipeline
-    if (this.matchedPipelines.length === 1 && builds.length === 1) {
-      const build = builds[0];
-      const icon = getIconForBuild(build.state);
-      this.statusBarItem.text = `$(${icon}) #${build.number} ${build.state}`;
-      this.statusBarItem.tooltip = this.createSingleBuildTooltip(
-        this.matchedPipelines[0],
-        build,
-      );
-      this.statusBarItem.show();
-      return;
+    // Single pipeline - show latest build info
+    if (this.matchedPipelines.length === 1) {
+      const pipelineBuilds =
+        this.pipelineBuilds.get(this.matchedPipelines[0].slug) || [];
+      const latestBuild = pipelineBuilds[0];
+      if (latestBuild) {
+        const icon = getIconForBuild(latestBuild.state);
+        this.statusBarItem.text = `$(${icon}) #${latestBuild.number} ${latestBuild.state}`;
+        this.statusBarItem.tooltip = this.createSingleBuildTooltip(
+          this.matchedPipelines[0],
+          latestBuild,
+        );
+        this.statusBarItem.show();
+        return;
+      }
     }
 
     // Multiple pipelines - show aggregate status
-    const icon = getAggregateIcon(builds);
-    const { text, tooltip } = this.getAggregateDisplay(builds);
+    const icon = getAggregateIcon(allBuilds);
+    const { text, tooltip } = this.getAggregateDisplay(allBuilds);
     this.statusBarItem.text = `$(${icon}) ${text}`;
     this.statusBarItem.tooltip = tooltip;
     this.statusBarItem.show();
@@ -273,9 +326,9 @@ export class StatusBarManager {
       `**${total} Buildkite pipelines**`,
       "",
       ...this.matchedPipelines.map((p) => {
-        const build = this.latestBuilds.get(p.slug);
-        if (build) {
-          return `- ${p.name}: #${build.number} ${build.state}`;
+        const builds = this.pipelineBuilds.get(p.slug);
+        if (builds && builds.length > 0) {
+          return `- ${p.name}: #${builds[0].number} ${builds[0].state}`;
         }
         return `- ${p.name}: no builds`;
       }),
@@ -287,38 +340,49 @@ export class StatusBarManager {
   }
 
   private managePolling(): void {
-    const builds = Array.from(this.latestBuilds.values());
-    const hasActiveBuilds = builds.some((b) =>
+    // Always poll, but adjust interval based on whether builds are active
+    const allBuilds = Array.from(this.pipelineBuilds.values()).flat();
+    const hasActiveBuilds = allBuilds.some((b) =>
       ACTIVE_BUILD_STATES.includes(b.state),
     );
 
-    if (hasActiveBuilds && !this.pollTimer) {
-      this.startPolling();
-    } else if (!hasActiveBuilds && this.pollTimer) {
-      this.stopPolling();
+    const desiredInterval = hasActiveBuilds
+      ? ACTIVE_POLL_INTERVAL_MS
+      : IDLE_POLL_INTERVAL_MS;
+
+    // Only restart polling if interval needs to change or not running
+    if (this.pollTimer && this.currentPollInterval === desiredInterval) {
+      return;
     }
+
+    this.stopPolling();
+    this.startPolling(desiredInterval);
   }
 
-  private startPolling(): void {
+  private currentPollInterval: number | undefined;
+
+  private startPolling(interval: number): void {
     if (this.pollTimer) {
       return;
     }
+    this.currentPollInterval = interval;
     this.pollTimer = setInterval(async () => {
-      await this.fetchLatestBuilds();
+      // Use GraphQL to fetch latest pipelines and builds
+      await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
-      this.managePolling();
-    }, POLL_INTERVAL_MS);
+      this.managePolling(); // Adjust interval if build states changed
+    }, interval);
   }
 
   private stopPolling(): void {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = undefined;
+      this.currentPollInterval = undefined;
     }
   }
 
   async showQuickPick(): Promise<void> {
-    // Handle no token case
     const token = await AuthManager.getToken();
     if (!token) {
       const action = await vscode.window.showQuickPick(
@@ -345,7 +409,7 @@ export class StatusBarManager {
 
     await showPipelineQuickPick(
       this.matchedPipelines,
-      this.latestBuilds,
+      this.pipelineBuilds,
       this.orgSlug!,
       this.client,
     );
