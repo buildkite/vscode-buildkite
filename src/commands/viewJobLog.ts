@@ -24,7 +24,7 @@ export async function viewJobLog(jobNode: JobNode): Promise<void> {
 
   try {
     const jobName = jobNode.job.name || jobNode.job.id || jobNode.job.step_key || "Unknown Job";
-    logger.debug(`viewJobLog called for job: ${jobName} (id: ${jobNode.job.id}, state: ${jobNode.job.state}, type: ${jobNode.job.type}, hasRawLogUrl: ${!!jobNode.job.raw_log_url}, rawLogUrl: ${jobNode.job.raw_log_url})`);
+    logger.debug(`viewJobLog called for job: ${jobName} (id: ${jobNode.job.id}, state: ${jobNode.job.state}, type: ${jobNode.job.type}, hasRawLogUrl: ${!!jobNode.job.raw_log_url})`);
     logger.info(`Fetching log for job: ${jobName}`);
 
       
