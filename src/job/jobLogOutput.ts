@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
  * Provides centralized logging to the VS Code Output panel.
  */
 export class Logger {
-    private static instance: Logger;
+    private static instance: Logger | null;
     private outputChannel: vscode.OutputChannel;
 
     private constructor() {
