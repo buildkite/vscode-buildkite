@@ -267,7 +267,10 @@ export class StatusBarManager {
       return;
     }
 
-    const allBuilds = Array.from(this.pipelineBuilds.values()).flat();
+    // Use only the latest build per pipeline for aggregate status
+    const latestBuilds = Array.from(this.pipelineBuilds.values())
+      .map((builds) => builds[0])
+      .filter((b): b is Build => b !== undefined);
 
     // Single pipeline - show latest build info
     if (this.matchedPipelines.length === 1) {
@@ -287,8 +290,8 @@ export class StatusBarManager {
     }
 
     // Multiple pipelines - show aggregate status
-    const icon = getAggregateIcon(allBuilds);
-    const { text, tooltip } = this.getAggregateDisplay(allBuilds);
+    const icon = getAggregateIcon(latestBuilds);
+    const { text, tooltip } = this.getAggregateDisplay(latestBuilds);
     this.statusBarItem.text = `$(${icon}) ${text}`;
     this.statusBarItem.tooltip = tooltip;
     this.statusBarItem.show();
