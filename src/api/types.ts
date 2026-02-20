@@ -144,6 +144,20 @@ export function canRetryJob(job: Job): boolean {
   return false;
 }
 
+export interface Artifact {
+  id: string;
+  job_id: string;
+  url: string;
+  download_url: string;
+  state: string;
+  path: string;
+  dirname: string;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  sha1sum: string;
+}
+
 export type JobState =
   | "scheduled"
   | "running"

@@ -1,5 +1,5 @@
 import { AuthManager } from "./auth";
-import { Pipeline, Build, Job, JsonValue } from "./types";
+import { Pipeline, Build, Job, Artifact, JsonValue } from "./types";
 
 /**
  * Represents a Buildkite organization as returned by;
@@ -229,6 +229,32 @@ export class BuildkiteClient {
   ): Promise<Job[]> {
     const build = await this.getBuild(orgSlug, pipelineSlug, buildNumber);
     return build.jobs || [];
+  }
+
+  async getArtifacts(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Artifact[]> {
+    return this.getAllPages<Artifact>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/artifacts?per_page=100`,
+    );
+  }
+
+  async getJobArtifacts(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+    jobId: string,
+  ): Promise<Artifact[]> {
+    return this.getAllPages<Artifact>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/artifacts?per_page=100`,
+    );
+  }
+
+  async downloadArtifact(downloadUrl: string): Promise<ArrayBuffer> {
+    const response = await this.fetch(downloadUrl);
+    return response.arrayBuffer();
   }
 
   async retryJob(

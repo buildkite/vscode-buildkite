@@ -32,7 +32,6 @@
         }
       ]
     },
-
     "commands": [
       {
         "command": "buildkite.setToken",
@@ -81,6 +80,12 @@
         "icon": "$(debug-restart)"
       },
       {
+        "command": "buildkite.artifact.download",
+        "title": "Download Artifact",
+        "category": "Buildkite",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
       }
@@ -122,6 +127,11 @@
         {
           "command": "buildkite.job.retry",
           "when": "viewItem == job.retriable",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.artifact.download",
+          "when": "viewItem == artifact",
           "group": "inline"
         },
         {

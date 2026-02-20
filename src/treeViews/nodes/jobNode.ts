@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Job, JobState, canRetryJob } from "../../api/types";
+import { Job, canRetryJob } from "../../api/types";
 import { getIconForJob } from "../icons";
 
 export class JobNode extends vscode.TreeItem {
@@ -9,11 +9,10 @@ export class JobNode extends vscode.TreeItem {
     public readonly pipelineSlug: string,
     public readonly orgSlug: string,
   ) {
-    super(JobNode.getLabel(job), vscode.TreeItemCollapsibleState.None);
+    super(JobNode.getLabel(job), vscode.TreeItemCollapsibleState.Collapsed);
 
     this.iconPath = new vscode.ThemeIcon(getIconForJob(job.state));
     this.tooltip = this.getTooltip();
-    // Set context value based on whether job can be retried
     this.contextValue = canRetryJob(job) ? "job.retriable" : "job";
   }
 
