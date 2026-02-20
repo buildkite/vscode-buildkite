@@ -1,0 +1,4 @@
+steps:
+  - label: "Hi 👋"
+    command: |
+      echo "This is a placeholder so CI passes. PR incoming"

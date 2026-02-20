@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Job, canRetryJob } from "../../api/types";
+import { Job, canRetryJob, canUnblockJob, getJobDisplayName } from "../../api/types";
 import { getIconForJob } from "../icons";
 
 export class JobNode extends vscode.TreeItem {
@@ -11,18 +11,52 @@ export class JobNode extends vscode.TreeItem {
   ) {
     super(JobNode.getLabel(job), vscode.TreeItemCollapsibleState.Collapsed);
 
-    this.iconPath = new vscode.ThemeIcon(getIconForJob(job.state));
+    this.iconPath = new vscode.ThemeIcon(this.getIcon());
     this.tooltip = this.getTooltip();
-    this.contextValue = canRetryJob(job) ? "job.retriable" : "job";
+    this.contextValue = this.getContextValue();
+
+    if (canUnblockJob(job)) {
+      this.command = {
+        command: "buildkite.job.unblock",
+        title: "Unblock Job",
+        arguments: [this],
+      };
+    }
+  }
+
+  private getIcon(): string {
+    if (this.job.unblocked_at) {
+      return "pass";
+    }
+
+    if (this.job.state === "blocked" && this.job.type === "manual") {
+      return "stop-circle";
+    }
+
+    return getIconForJob(this.job.state);
+  }
+
+  private getContextValue(): string {
+    const isRetriable = canRetryJob(this.job);
+    const isUnblockable = canUnblockJob(this.job);
+
+    if (isRetriable && isUnblockable) {
+      return "job.retriable.unblockable";
+    } else if (isRetriable) {
+      return "job.retriable";
+    } else if (isUnblockable) {
+      return "job.unblockable";
+    }
+    return "job";
   }
 
   private static getLabel(job: Job): string {
-    return job.name || job.step_key || job.type || "Unknown Job";
+    return getJobDisplayName(job);
   }
 
   private getTooltip(): string {
     const lines = [
-      `Job: ${this.job.name || this.job.step_key || this.job.type || "Unknown Job"}`,
+      `Job: ${getJobDisplayName(this.job)}`,
       `State: ${this.job.state}`,
     ];
 
@@ -33,7 +67,8 @@ export class JobNode extends vscode.TreeItem {
       lines.push(`Command: ${commandPreview}`);
     }
 
-    if (this.job.exit_status !== null) {
+    // Only show exit status for non-manual jobs (block steps don't have exit status)
+    if (this.job.exit_status !== null && this.job.type !== "manual") {
       lines.push(`Exit Status: ${this.job.exit_status}`);
     }
 
@@ -44,6 +79,18 @@ export class JobNode extends vscode.TreeItem {
     if (this.job.finished_at) {
       lines.push(
         `Finished: ${new Date(this.job.finished_at).toLocaleString()}`,
+      );
+    }
+
+    if (this.job.unblocked_by) {
+      lines.push(
+        `Unblocked by: ${this.job.unblocked_by.name || "Unknown"}`,
+      );
+    }
+
+    if (this.job.unblocked_at) {
+      lines.push(
+        `Unblocked at: ${new Date(this.job.unblocked_at).toLocaleString()}`,
       );
     }
 

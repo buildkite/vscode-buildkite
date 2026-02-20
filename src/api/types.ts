@@ -1,8 +1,6 @@
 /**
  * Buildkite API type definitions
  */
-
-
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 // Pull request information attached to a build
@@ -86,6 +84,7 @@ export interface Job {
   web_url: string;
   type: string;
   name: string;
+  label?: string | null;
   step_key: string | null;
   state: JobState;
   exit_status: number | null;
@@ -116,6 +115,8 @@ export interface Job {
   scheduled_at: string;
   started_at: string | null;
   finished_at: string | null;
+  unblockable?: boolean;
+  unblock_url?: string | null;
   unblocked_at: string | null;
   unblocked_by: {
     id: string;
@@ -125,6 +126,7 @@ export interface Job {
     created_at: string;
   } | null;
   permit_on_passed?: boolean;
+  fields?: BlockStepField[];
 }
 
 /**
@@ -158,16 +160,124 @@ export interface Artifact {
   sha1sum: string;
 }
 
+/**
+ * Checks if a job can be unblocked.
+ * Jobs can be unblocked if they are manual block steps that haven't been unblocked yet.
+ */
+export function canUnblockJob(job: Job): boolean {
+  return job.type === "manual" && job.unblockable === true && job.unblocked_at === null;
+}
+
+/**
+ * Gets a human-readable display name for a job.
+ * Falls back through multiple fields to find the best available name.
+ */
+export function getJobDisplayName(job: Job): string {
+  return job.name || job.label || job.step_key || job.type || "Unnamed job";
+}
+
 export type JobState =
+  | "pending"
+  | "waiting"
+  | "assigned"
+  | "accepted"
   | "scheduled"
   | "running"
   | "passed"
   | "failed"
   | "timed_out"
-  | "blocked"
   | "canceled"
   | "canceling"
+  | "timing_out"
   | "skipped"
+  | "broken"
+  | "blocked"
+  | "unblocked"
   | "not_run"
-  | "waiting"
   | "waiting_failed";
+
+/**
+ * Base properties shared by all block step field types
+ */
+interface BaseStepField {
+  key: string;
+  hint?: string;
+  required?: boolean;
+}
+
+/**
+ * Text input field for block steps
+ */
+export interface TextStepField extends BaseStepField {
+  text: string;
+  default?: string;
+  format?: string;
+}
+
+/**
+ * Select/dropdown field for block steps
+ */
+export interface SelectStepField extends BaseStepField {
+  select: string;
+  options: Array<string | { label: string; value: string }>;
+  multiple?: boolean;
+  default?: string | string[];
+}
+
+/**
+ * Discriminated union of all block step field types
+ */
+export type BlockStepField = TextStepField | SelectStepField;
+
+/**
+ * Type guard to check if a field is a text field
+ */
+export function isTextStepField(field: BlockStepField): field is TextStepField {
+  return "text" in field;
+}
+
+/**
+ * Type guard to check if a field is a select field
+ */
+export function isSelectStepField(field: BlockStepField): field is SelectStepField {
+  return "select" in field;
+}
+
+// GraphQL response types for repository-based pipeline queries
+
+export interface GraphQLBuildNode {
+  number: number;
+  state: string;
+  branch: string;
+  message: string | null;
+  url: string;
+}
+
+export interface GraphQLPipelineNode {
+  slug: string;
+  name: string;
+  repository: {
+    url: string;
+  };
+  builds: {
+    edges: Array<{
+      node: GraphQLBuildNode;
+    }>;
+  };
+}
+
+export interface PipelinesForRepositoryResponse {
+  organization: {
+    pipelines: {
+      edges: Array<{
+        node: GraphQLPipelineNode;
+      }>;
+    };
+  };
+}
+
+/** Result from getPipelinesByRepository, combining pipeline and recent builds */
+export interface PipelineWithBuilds {
+  pipeline: Pipeline;
+  builds: Build[];
+}
