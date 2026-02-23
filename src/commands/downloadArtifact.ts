@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import { pipeline } from "stream/promises";
+import { Readable } from "stream";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
@@ -31,18 +33,20 @@ export async function downloadArtifact(node: ArtifactNode): Promise<void> {
           title: `Downloading ${artifact.filename}...`,
         },
         async () => {
-          const data = await client.downloadArtifact(artifact.download_url);
+          const response = await client.downloadArtifact(artifact.download_url);
           const tmpDir = path.join(os.tmpdir(), "buildkite-artifacts");
           fs.mkdirSync(tmpDir, { recursive: true });
-          const tmpFile = path.join(tmpDir, artifact.filename);
-          fs.writeFileSync(tmpFile, Buffer.from(data));
+          const sanitizedName = path.basename(artifact.filename);
+          const tmpFile = path.join(tmpDir, sanitizedName);
+          const nodeStream = Readable.fromWeb(response.body!);
+          await pipeline(nodeStream, fs.createWriteStream(tmpFile));
           const uri = vscode.Uri.file(tmpFile);
           await vscode.commands.executeCommand("vscode.open", uri);
         },
       );
     } else {
       const defaultUri = vscode.Uri.file(
-        path.join(os.homedir(), "Downloads", artifact.filename),
+        path.join(os.homedir(), "Downloads", path.basename(artifact.filename)),
       );
       const saveUri = await vscode.window.showSaveDialog({
         defaultUri,
@@ -59,8 +63,9 @@ export async function downloadArtifact(node: ArtifactNode): Promise<void> {
           title: `Downloading ${artifact.filename}...`,
         },
         async () => {
-          const data = await client.downloadArtifact(artifact.download_url);
-          fs.writeFileSync(saveUri.fsPath, Buffer.from(data));
+          const response = await client.downloadArtifact(artifact.download_url);
+          const nodeStream = Readable.fromWeb(response.body!);
+          await pipeline(nodeStream, fs.createWriteStream(saveUri.fsPath));
           vscode.window.showInformationMessage(
             `Artifact saved to ${saveUri.fsPath}`,
           );

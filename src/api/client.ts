@@ -286,10 +286,9 @@ export class BuildkiteClient {
     );
   }
 
-  async downloadArtifact(downloadUrl: string): Promise<ArrayBuffer> {
-    const response = await this.fetch(downloadUrl);
-    return response.arrayBuffer();
-  }
+  async downloadArtifact(downloadUrl: string): Promise<Response> {
+  return this.fetch(downloadUrl);
+}
 
   async retryJob(
     orgSlug: string,
