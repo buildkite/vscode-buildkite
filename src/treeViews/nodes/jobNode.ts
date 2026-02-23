@@ -9,7 +9,7 @@ export class JobNode extends vscode.TreeItem {
     public readonly pipelineSlug: string,
     public readonly orgSlug: string,
   ) {
-    super(JobNode.getLabel(job), vscode.TreeItemCollapsibleState.None);
+    super(JobNode.getLabel(job), vscode.TreeItemCollapsibleState.Collapsed);
 
     this.iconPath = new vscode.ThemeIcon(this.getIcon());
     this.tooltip = this.getTooltip();

@@ -35,7 +35,6 @@
         }
       ]
     },
-
     "commands": [
       {
         "command": "buildkite.setToken",
@@ -88,6 +87,12 @@
         "title": "Retry Job",
         "category": "Buildkite",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "buildkite.artifact.download",
+        "title": "Download Artifact",
+        "category": "Buildkite",
+        "icon": "$(cloud-download)"
       },
       {
         "command": "buildkite.job.unblock",
@@ -147,6 +152,11 @@
         {
           "command": "buildkite.job.unblock",
           "when": "viewItem =~ /^job\\.unblockable/",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.artifact.download",
+          "when": "viewItem == artifact",
           "group": "inline"
         },
         {

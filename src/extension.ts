@@ -7,6 +7,7 @@ import { rebuildBuild } from "./commands/rebuildBuild";
 import { cancelBuild } from "./commands/cancelBuild";
 import { unblockBuild } from "./commands/unblockBuild";
 import { retryJob } from "./commands/retryJob";
+import { downloadArtifact } from "./commands/downloadArtifact";
 import { unblockJob } from "./commands/unblockJob";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
@@ -64,6 +65,14 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.job.retry", retryJob),
     vscode.commands.registerCommand("buildkite.job.unblock", unblockJob),
+  );
+
+  // Register Artifact Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "buildkite.artifact.download",
+      downloadArtifact,
+    ),
   );
 }
 

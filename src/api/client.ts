@@ -5,6 +5,7 @@ import {
   BuildState,
   Job,
   JsonValue,
+  Artifact,
   PipelinesForRepositoryResponse,
   PipelineWithBuilds,
 } from "./types";
@@ -263,6 +264,31 @@ export class BuildkiteClient {
     const build = await this.getBuild(orgSlug, pipelineSlug, buildNumber);
     return build.jobs || [];
   }
+
+  async getArtifacts(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Artifact[]> {
+    return this.getAllPages<Artifact>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/artifacts?per_page=100`,
+    );
+  }
+
+  async getJobArtifacts(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+    jobId: string,
+  ): Promise<Artifact[]> {
+    return this.getAllPages<Artifact>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/artifacts?per_page=100`,
+    );
+  }
+
+  async downloadArtifact(downloadUrl: string): Promise<Response> {
+  return this.fetch(downloadUrl);
+}
 
   async retryJob(
     orgSlug: string,
