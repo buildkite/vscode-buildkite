@@ -265,6 +265,8 @@ export class BuildkiteClient {
     return build.jobs || [];
   }
 
+<<<<<<< lizr/sup-5716-job-log-output
+=======
   async getArtifacts(
     orgSlug: string,
     pipelineSlug: string,
@@ -289,6 +291,7 @@ export class BuildkiteClient {
   async downloadArtifact(downloadUrl: string): Promise<Response> {
   return this.fetch(downloadUrl);
 }
+>>>>>>> main
 
   async retryJob(
     orgSlug: string,
@@ -300,6 +303,16 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/retry`,
     );
   }
+<<<<<<< lizr/sup-5716-job-log-output
+  
+  async getJobLog(job: Job): Promise<string> {
+    if (!job.raw_log_url) {
+      return "No log available for this job.";
+    }
+
+    const response = await this.fetch(job.raw_log_url);
+    return response.text();
+=======
 
   /**
    * Fetches pipelines matching a repository URL using GraphQL.
@@ -404,5 +417,6 @@ export class BuildkiteClient {
 
       return { pipeline, builds };
     });
+>>>>>>> main
   }
 }

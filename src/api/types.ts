@@ -105,7 +105,7 @@ export interface Job {
   } | null;
   agent_query_rules: string[];
   log_url: string;
-  raw_log_url: string;
+  raw_log_url: string | null;
   artifacts_url: string;
   retried: boolean;
   retried_in_job_id: string | null;

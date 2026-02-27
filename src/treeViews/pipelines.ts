@@ -9,6 +9,7 @@ import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState } from "../api/types";
+import { Logger } from "../job/jobLogOutput";
 
 type PipelineTreeNode =
   | PipelineNode
@@ -125,6 +126,9 @@ export class PipelinesTreeProvider
       }
 
       if (element instanceof BuildNode) {
+        const logger = Logger.getInstance();
+        logger.debug(`Fetching jobs for build #${element.build.number}`);
+
         try {
           const jobs = await this.client.getJobs(
             element.orgSlug,
@@ -172,6 +176,7 @@ export class PipelinesTreeProvider
 
           return children;
         } catch (error) {
+          logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
           if (error instanceof Error) {
             return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
           }
