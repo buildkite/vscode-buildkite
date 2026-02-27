@@ -80,5 +80,6 @@ export class Logger {
      */
     dispose(): void {
         this.outputChannel.dispose();
+        Logger.instance = null;
     }
 }
