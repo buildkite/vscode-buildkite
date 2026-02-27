@@ -1,5 +1,15 @@
 import { AuthManager } from "./auth";
-import { Pipeline, Build, Job, JsonValue } from "./types";
+import {
+  Pipeline,
+  Build,
+  BuildState,
+  Job,
+  JsonValue,
+  Artifact,
+  PipelinesForRepositoryResponse,
+  PipelineWithBuilds,
+} from "./types";
+import { BuildkiteGraphQLClient } from "./graphqlClient";
 
 /**
  * Represents a Buildkite organization as returned by;
@@ -28,6 +38,7 @@ export interface Organization {
 export class BuildkiteClient {
   private baseUrl = "https://api.buildkite.com/v2";
   private organization: Organization | undefined;
+  private graphqlClient = new BuildkiteGraphQLClient();
 
   /**
    * Fetches the organization associated with the API token
@@ -254,6 +265,33 @@ export class BuildkiteClient {
     return build.jobs || [];
   }
 
+<<<<<<< lizr/sup-5716-job-log-output
+=======
+  async getArtifacts(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Artifact[]> {
+    return this.getAllPages<Artifact>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/artifacts?per_page=100`,
+    );
+  }
+
+  async getJobArtifacts(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+    jobId: string,
+  ): Promise<Artifact[]> {
+    return this.getAllPages<Artifact>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/artifacts?per_page=100`,
+    );
+  }
+
+  async downloadArtifact(downloadUrl: string): Promise<Response> {
+  return this.fetch(downloadUrl);
+}
+>>>>>>> main
 
   async retryJob(
     orgSlug: string,
@@ -265,6 +303,7 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/retry`,
     );
   }
+<<<<<<< lizr/sup-5716-job-log-output
   
   async getJobLog(job: Job): Promise<string> {
     if (!job.raw_log_url) {
@@ -273,5 +312,111 @@ export class BuildkiteClient {
 
     const response = await this.fetch(job.raw_log_url);
     return response.text();
+=======
+
+  /**
+   * Fetches pipelines matching a repository URL using GraphQL.
+   * Returns pipelines with their latest build in a single query.
+   * @param orgSlug - The organization slug
+   * @param repositoryUrl - The git repository URL to filter by
+   * @returns Array of pipelines with their latest builds
+   */
+  async getPipelinesByRepository(
+    orgSlug: string,
+    repositoryUrl: string,
+  ): Promise<PipelineWithBuilds[]> {
+    const query = `
+      query GetPipelinesForRepository($orgSlug: ID!, $repoUrl: String!) {
+        organization(slug: $orgSlug) {
+          pipelines(first: 100, repository: {url: $repoUrl}) {
+            edges {
+              node {
+                slug
+                name
+                repository {
+                  url
+                }
+                builds(first: 10) {
+                  edges {
+                    node {
+                      number
+                      state
+                      branch
+                      message
+                      url
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const data =
+      await this.graphqlClient.query<PipelinesForRepositoryResponse>(query, {
+        orgSlug,
+        repoUrl: repositoryUrl,
+      });
+
+    return data.organization.pipelines.edges.map(({ node }) => {
+      // Convert GraphQL response to REST-compatible types
+      const pipeline: Pipeline = {
+        id: "",
+        graphql_id: "",
+        url: "",
+        web_url: "",
+        name: node.name,
+        slug: node.slug,
+        repository: node.repository.url,
+        description: null,
+        default_branch: "",
+        created_at: "",
+        scheduled_builds_count: 0,
+        running_builds_count: 0,
+        scheduled_jobs_count: 0,
+        running_jobs_count: 0,
+        waiting_jobs_count: 0,
+      };
+
+      const builds: Build[] = node.builds.edges.map(({ node: buildNode }) => ({
+        id: "",
+        graphql_id: "",
+        url: "",
+        web_url: buildNode.url,
+        number: buildNode.number,
+        state: buildNode.state.toLowerCase() as BuildState,
+        blocked: false,
+        message: buildNode.message || "",
+        commit: "",
+        branch: buildNode.branch,
+        env: {},
+        source: "",
+        creator: {
+          id: "",
+          name: "",
+          email: "",
+          avatar_url: "",
+          created_at: "",
+        },
+        created_at: "",
+        scheduled_at: "",
+        started_at: null,
+        finished_at: null,
+        meta_data: {},
+        pull_request: null,
+        pipeline: {
+          id: "",
+          graphql_id: "",
+          url: "",
+          name: node.name,
+          slug: node.slug,
+        },
+      }));
+
+      return { pipeline, builds };
+    });
+>>>>>>> main
   }
 }

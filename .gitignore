@@ -45,3 +45,7 @@ coverage/
 # AI files
 AGENT*.md
 .claude/
+
+# Yarn files
+.yarn/
+.yarnrc.yml

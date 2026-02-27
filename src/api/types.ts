@@ -1,8 +1,6 @@
 /**
  * Buildkite API type definitions
  */
-
-
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 // Pull request information attached to a build
@@ -148,16 +146,26 @@ export function canRetryJob(job: Job): boolean {
   return false;
 }
 
+export interface Artifact {
+  id: string;
+  job_id: string;
+  url: string;
+  download_url: string;
+  state: string;
+  path: string;
+  dirname: string;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  sha1sum: string;
+}
+
 /**
  * Checks if a job can be unblocked.
  * Jobs can be unblocked if they are manual block steps that haven't been unblocked yet.
  */
 export function canUnblockJob(job: Job): boolean {
-  return (
-    job.type === "manual" &&
-    job.unblockable === true &&
-    job.unblocked_at === null
-  );
+  return job.type === "manual" && job.unblockable === true && job.unblocked_at === null;
 }
 
 /**
@@ -225,12 +233,51 @@ export type BlockStepField = TextStepField | SelectStepField;
  * Type guard to check if a field is a text field
  */
 export function isTextStepField(field: BlockStepField): field is TextStepField {
-  return 'text' in field;
+  return "text" in field;
 }
 
 /**
  * Type guard to check if a field is a select field
  */
 export function isSelectStepField(field: BlockStepField): field is SelectStepField {
-  return 'select' in field;
+  return "select" in field;
+}
+
+// GraphQL response types for repository-based pipeline queries
+
+export interface GraphQLBuildNode {
+  number: number;
+  state: string;
+  branch: string;
+  message: string | null;
+  url: string;
+}
+
+export interface GraphQLPipelineNode {
+  slug: string;
+  name: string;
+  repository: {
+    url: string;
+  };
+  builds: {
+    edges: Array<{
+      node: GraphQLBuildNode;
+    }>;
+  };
+}
+
+export interface PipelinesForRepositoryResponse {
+  organization: {
+    pipelines: {
+      edges: Array<{
+        node: GraphQLPipelineNode;
+      }>;
+    };
+  };
+}
+
+/** Result from getPipelinesByRepository, combining pipeline and recent builds */
+export interface PipelineWithBuilds {
+  pipeline: Pipeline;
+  builds: Build[];
 }

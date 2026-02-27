@@ -13,6 +13,9 @@
     "vscode.git",
     "redhat.vscode-yaml"
   ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -86,6 +89,12 @@
         "icon": "$(debug-restart)"
       },
       {
+        "command": "buildkite.artifact.download",
+        "title": "Download Artifact",
+        "category": "Buildkite",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "buildkite.job.unblock",
         "title": "Unblock Job",
         "category": "Buildkite",
@@ -140,6 +149,11 @@
         {
           "command": "buildkite.build.cancel",
           "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.artifact.download",
+          "when": "viewItem == artifact",
           "group": "inline"
         },
         {

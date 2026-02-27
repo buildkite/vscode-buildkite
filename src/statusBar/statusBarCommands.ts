@@ -14,21 +14,23 @@ interface ActionQuickPickItem extends vscode.QuickPickItem {
 
 export async function showPipelineQuickPick(
   matchedPipelines: Pipeline[],
-  latestBuilds: Map<string, Build>,
+  pipelineBuilds: Map<string, Build[]>,
   orgSlug: string,
   client: BuildkiteClient,
 ): Promise<void> {
   // Single pipeline - go directly to actions
   if (matchedPipelines.length === 1) {
     const pipeline = matchedPipelines[0];
-    const build = latestBuilds.get(pipeline.slug);
+    const builds = pipelineBuilds.get(pipeline.slug);
+    const build = builds?.[0];
     await showActionsQuickPick(pipeline, build, orgSlug, client);
     return;
   }
 
   // Multiple pipelines - show pipeline picker first
   const items: PipelineQuickPickItem[] = matchedPipelines.map((pipeline) => {
-    const build = latestBuilds.get(pipeline.slug);
+    const builds = pipelineBuilds.get(pipeline.slug);
+    const build = builds?.[0];
     const icon = build ? getIconForBuild(build.state) : "circle-outline";
     const description = build
       ? `#${build.number} ${build.state}`
