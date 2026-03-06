@@ -83,6 +83,12 @@
         "icon": "$(play)"
       },
       {
+        "command": "buildkite.build.viewAnnotations",
+        "title": "View Annotations",
+        "category": "Buildkite",
+        "icon": "$(note)"
+      },
+      {
         "command": "buildkite.job.retry",
         "title": "Retry Job",
         "category": "Buildkite",
@@ -182,6 +188,16 @@
           "group": "navigation@4"
         },
         {
+          "command": "buildkite.build.viewAnnotations",
+          "when": "viewItem =~ /^build/",
+          "group": "inline@3"
+        },
+        {
+          "command": "buildkite.build.viewAnnotations",
+          "when": "viewItem =~ /^build/",
+          "group": "navigation@5"
+        },
+        {
           "command": "buildkite.job.unblock",
           "when": "viewItem =~ /^job\\.unblockable/",
           "group": "inline@2"
@@ -223,16 +239,18 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/marked": "^6.0.0",
     "@types/node": "^24.10.0",
     "@types/vscode": "^1.106.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
-    "typescript": "^5.9.0",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.0"
   },
   "dependencies": {
-    "ansi-to-html": "^0.7.2"
+    "ansi-to-html": "^0.7.2",
+    "marked": "^17.0.4"
   }
 }

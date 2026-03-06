@@ -6,6 +6,7 @@ import {
   Job,
   JsonValue,
   Artifact,
+  Annotation,
   PipelinesForRepositoryResponse,
   PipelineWithBuilds,
 } from "./types";
@@ -274,6 +275,16 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/artifacts?per_page=100`,
     );
   }
+
+  async getAnnotations(
+  orgSlug: string,
+  pipelineSlug: string,
+  buildNumber: number,
+): Promise<Annotation[]> {
+  return this.getAllPages<Annotation>(
+    `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/annotations?per_page=100`,
+  );
+}
 
   async getJobArtifacts(
     orgSlug: string,
