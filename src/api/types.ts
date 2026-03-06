@@ -63,6 +63,7 @@ export interface Build {
     name: string;
     slug: string;
   };
+  jobs?: Job[]; // Jobs are included in the build response
 }
 
 export type BuildState =
@@ -76,3 +77,139 @@ export type BuildState =
   | "not_run"
   | "blocked"
   | "creating";
+
+export interface Job {
+  id: string;
+  graphql_id: string;
+  url: string;
+  web_url: string;
+  type: string;
+  name: string;
+  step_key: string | null;
+  state: JobState;
+  exit_status: number | null;
+  command: string;
+  soft_failed: boolean;
+  agent: {
+    id: string;
+    graphql_id: string;
+    url: string;
+    web_url: string;
+    name: string;
+    connection_state: string;
+    hostname: string;
+    ip_address: string;
+    user_agent: string;
+    version: string;
+    created_at: string;
+  } | null;
+  agent_query_rules: string[];
+  log_url: string;
+  raw_log_url: string;
+  artifacts_url: string;
+  retried: boolean;
+  retried_in_job_id: string | null;
+  retries_count: number;
+  retry_of_job_id: string | null;
+  created_at: string;
+  scheduled_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  unblocked_at: string | null;
+  unblocked_by: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url: string;
+    created_at: string;
+  } | null;
+  permit_on_passed?: boolean;
+}
+
+/**
+ * Checks if a job can be retried.
+ * Jobs can be retried if they are:
+ * - failed
+ * - timed_out
+ * - passed (only if permit_on_passed is true)
+ */
+export function canRetryJob(job: Job): boolean {
+  if (job.state === "failed" || job.state === "timed_out") {
+    return true;
+  }
+  if (job.state === "passed" && job.permit_on_passed === true) {
+    return true;
+  }
+  return false;
+}
+
+export type JobState =
+  | "scheduled"
+  | "running"
+  | "passed"
+  | "failed"
+  | "timed_out"
+  | "blocked"
+  | "canceled"
+  | "canceling"
+  | "skipped"
+  | "not_run"
+  | "waiting"
+  | "waiting_failed";
+
+export type AgentConnectionState =
+  | "connected"
+  | "disconnected"
+  | "stopping"
+  | "stopped";
+
+/** Minimal job info shown on an agent (current job) */
+export interface AgentJobInfo {
+  id: string;
+  name: string;
+  state: string;
+  type: string;
+  web_url?: string;
+}
+
+/** User who paused the agent (when agent is paused). */
+export interface AgentPausedBy {
+  id: string;
+  graphql_id: string;
+  name: string;
+  email: string;
+  avatar_url: string;
+  created_at: string;
+}
+
+export interface Agent {
+  id: string;
+  graphql_id?: string;
+  url: string;
+  web_url: string;
+  name: string;
+  connection_state: AgentConnectionState;
+  hostname: string;
+  ip_address: string;
+  user_agent: string;
+  version: string;
+  creator: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url: string;
+    created_at: string;
+  } | null;
+  created_at: string;
+  job: AgentJobInfo | null;
+  last_job_finished_at: string | null;
+  priority: number | null;
+  meta_data: string[];
+  paused?: boolean;
+  paused_at?: string | null;
+  paused_by?: AgentPausedBy | null;
+  paused_note?: string | null;
+  paused_timeout_in_minutes?: number;
+  cluster_url?: string;
+  cluster_queue_url?: string;
+}

@@ -1,5 +1,5 @@
 import { AuthManager } from "./auth";
-import { Pipeline, Build, JsonValue } from "./types";
+import { Pipeline, Build, Job, Agent, JsonValue } from "./types";
 
 /**
  * Represents a Buildkite organization as returned by;
@@ -176,6 +176,41 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
+  /**
+   * Makes a PUT request that returns 204 No Content (no response body).
+   */
+  async putNoContent(endpoint: string, body?: JsonValue): Promise<void> {
+    const token = await AuthManager.requireToken();
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: body !== undefined ? JSON.stringify(body) : "{}",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error(
+          "Invalid API token. Please update your Buildkite API token.",
+        );
+      }
+      if (response.status === 429) {
+        throw new Error(
+          "Buildkite API rate limit reached. Please wait before retrying.",
+        );
+      }
+      throw new Error(
+        `Buildkite API error: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
   async getPipelines(orgSlug: string): Promise<Pipeline[]> {
     return this.getAllPages<Pipeline>(
       `/organizations/${orgSlug}/pipelines?per_page=100`,
@@ -209,6 +244,58 @@ export class BuildkiteClient {
   ): Promise<Build> {
     return this.put<Build>(
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/rebuild`,
+    );
+  }
+
+  async getJobs(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Job[]> {
+    const build = await this.getBuild(orgSlug, pipelineSlug, buildNumber);
+    return build.jobs || [];
+  }
+
+
+  async retryJob(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+    jobId: string,
+  ): Promise<Job> {
+    return this.put<Job>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/retry`,
+    );
+  }
+
+  async getAgents(orgSlug: string): Promise<Agent[]> {
+    return this.getAllPages<Agent>(
+      `/organizations/${orgSlug}/agents?per_page=100`,
+    );
+  }
+
+  async stopAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/stop`,
+    );
+  }
+
+  async forceStopAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/stop`,
+      { force: true },
+    );
+  }
+
+  async pauseAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/pause`,
+    );
+  }
+
+  async resumeAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/resume`,
     );
   }
 }
