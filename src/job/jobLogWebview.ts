@@ -122,7 +122,7 @@ export class JobLogWebview {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Job Log: ${this.escapeHtml(jobName)} (${jobId})</title>
+    <title>Job Log: ${this.escapeHtml(jobName)} (${this.escapeHtml(jobId)})</title>
     <style>
         body {
             font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
