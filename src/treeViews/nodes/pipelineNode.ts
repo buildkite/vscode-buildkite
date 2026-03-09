@@ -10,11 +10,18 @@ export class PipelineNode extends vscode.TreeItem {
 
     this.tooltip = this.getTooltip();
     this.description = this.getDescription();
-    this.contextValue = "pipeline";
+    // contextValue used for menu visibility:
+    //   "pipeline"          - active pipeline
+    //   "pipeline.archived" - archived pipeline
+    this.contextValue = pipeline.archived_at ? "pipeline.archived" : "pipeline";
   }
 
   private getDescription(): string {
     const parts: string[] = [];
+
+    if (this.pipeline.archived_at) {
+      parts.push("archived");
+    }
 
     if (this.pipeline.running_builds_count > 0) {
       parts.push(`${this.pipeline.running_builds_count} running`);
@@ -29,6 +36,10 @@ export class PipelineNode extends vscode.TreeItem {
 
   private getTooltip(): string {
     let tooltip = `Pipeline: ${this.pipeline.name}`;
+
+    if (this.pipeline.archived_at) {
+      tooltip += `\nArchived`;
+    }
 
     if (this.pipeline.description) {
       tooltip += `\n${this.pipeline.description}`;

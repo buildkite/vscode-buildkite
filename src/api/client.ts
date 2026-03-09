@@ -8,6 +8,8 @@ import {
   Artifact,
   PipelinesForRepositoryResponse,
   PipelineWithBuilds,
+  CreatePipelineInput,
+  UpdatePipelineInput,
 } from "./types";
 import { BuildkiteGraphQLClient } from "./graphqlClient";
 
@@ -72,7 +74,7 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
-  private async fetch(endpoint: string): Promise<Response> {
+  private async fetch(endpoint: string, options?: RequestInit): Promise<Response> {
     const token = await AuthManager.requireToken();
     if (!token) {
       throw new Error("Authentication required");
@@ -83,8 +85,10 @@ export class BuildkiteClient {
       : `${this.baseUrl}${endpoint}`;
 
     const response = await fetch(url, {
+      ...options,
       headers: {
         Authorization: `Bearer ${token}`,
+        ...options?.headers,
       },
     });
 
@@ -99,9 +103,18 @@ export class BuildkiteClient {
           "Buildkite API rate limit reached. Please wait before refreshing.",
         );
       }
-      throw new Error(
-        `Buildkite API error: ${response.status} ${response.statusText}`,
-      );
+
+      let errorMessage = `Buildkite API error: ${response.status} ${response.statusText}`;
+      try {
+        const errorBody = await response.text();
+        if (errorBody) {
+          errorMessage += `\n${errorBody}`;
+        }
+      } catch {
+        // Ignore if we can't read the body
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response;
@@ -147,53 +160,45 @@ export class BuildkiteClient {
 
   /**
    * Makes a PUT request to the Buildkite API.
-   * @template T - The expected response type
-   * @param endpoint - The API endpoint to request
-   * @param body - Optional request body
-   * @returns The parsed JSON response
-   * @throws {Error} If authentication fails or the API returns an error
    */
   async put<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
-    const token = await AuthManager.requireToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await this.fetch(endpoint, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error(
-          "Invalid API token. Please update your Buildkite API token.",
-        );
-      }
-      if (response.status === 429) {
-        throw new Error(
-          "Buildkite API rate limit reached. Please wait before retrying.",
-        );
-      }
-
-      let errorMessage = `Buildkite API error: ${response.status} ${response.statusText}`;
-      try {
-        const errorBody = await response.text();
-        if (errorBody) {
-          errorMessage += `\n${errorBody}`;
-        }
-      } catch {
-        // Ignore if we can't read the body
-      }
-
-      throw new Error(errorMessage);
-    }
-
     return response.json() as Promise<T>;
+  }
+
+  /**
+   * Makes a POST request to the Buildkite API.
+   */
+  async post<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
+    const response = await this.fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return response.json() as Promise<T>;
+  }
+
+  /**
+   * Makes a PATCH request to the Buildkite API.
+   */
+  async patch<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
+    const response = await this.fetch(endpoint, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return response.json() as Promise<T>;
+  }
+
+  /**
+   * Makes a DELETE request to the Buildkite API.
+   */
+  async delete(endpoint: string): Promise<void> {
+    await this.fetch(endpoint, { method: "DELETE" });
   }
 
   async getPipelines(orgSlug: string): Promise<Pipeline[]> {
@@ -265,8 +270,6 @@ export class BuildkiteClient {
     return build.jobs || [];
   }
 
-<<<<<<< lizr/sup-5716-job-log-output
-=======
   async getArtifacts(
     orgSlug: string,
     pipelineSlug: string,
@@ -289,9 +292,8 @@ export class BuildkiteClient {
   }
 
   async downloadArtifact(downloadUrl: string): Promise<Response> {
-  return this.fetch(downloadUrl);
-}
->>>>>>> main
+    return this.fetch(downloadUrl);
+  }
 
   async retryJob(
     orgSlug: string,
@@ -303,8 +305,7 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/retry`,
     );
   }
-<<<<<<< lizr/sup-5716-job-log-output
-  
+
   async getJobLog(job: Job): Promise<string> {
     if (!job.raw_log_url) {
       return "No log available for this job.";
@@ -312,14 +313,11 @@ export class BuildkiteClient {
 
     const response = await this.fetch(job.raw_log_url);
     return response.text();
-=======
+  }
 
   /**
    * Fetches pipelines matching a repository URL using GraphQL.
    * Returns pipelines with their latest build in a single query.
-   * @param orgSlug - The organization slug
-   * @param repositoryUrl - The git repository URL to filter by
-   * @returns Array of pipelines with their latest builds
    */
   async getPipelinesByRepository(
     orgSlug: string,
@@ -361,7 +359,6 @@ export class BuildkiteClient {
       });
 
     return data.organization.pipelines.edges.map(({ node }) => {
-      // Convert GraphQL response to REST-compatible types
       const pipeline: Pipeline = {
         id: "",
         graphql_id: "",
@@ -373,6 +370,7 @@ export class BuildkiteClient {
         description: null,
         default_branch: "",
         created_at: "",
+        archived_at: null,
         scheduled_builds_count: 0,
         running_builds_count: 0,
         scheduled_jobs_count: 0,
@@ -417,6 +415,27 @@ export class BuildkiteClient {
 
       return { pipeline, builds };
     });
->>>>>>> main
+  }
+
+  // Pipeline management
+
+  async createPipeline(orgSlug: string, input: CreatePipelineInput): Promise<Pipeline> {
+    return this.post<Pipeline>(`/organizations/${orgSlug}/pipelines`, input as unknown as JsonValue);
+  }
+
+  async updatePipeline(orgSlug: string, pipelineSlug: string, input: UpdatePipelineInput): Promise<Pipeline> {
+    return this.patch<Pipeline>(`/organizations/${orgSlug}/pipelines/${pipelineSlug}`, input as unknown as JsonValue);
+  }
+
+  async archivePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
+    await this.fetch(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/archive`, { method: "POST" });
+  }
+
+  async unarchivePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
+    await this.fetch(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/unarchive`, { method: "POST" });
+  }
+
+  async deletePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
+    return this.delete(`/organizations/${orgSlug}/pipelines/${pipelineSlug}`);
   }
 }
