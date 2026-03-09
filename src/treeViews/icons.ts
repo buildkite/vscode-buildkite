@@ -15,6 +15,8 @@ export function getIconForBuild(state: BuildState): string {
       return "pass";
     case "failed":
       return "error";
+    case "failing":
+      return "warning";
     case "running":
       return "sync~spin";
     case "scheduled":
@@ -42,6 +44,7 @@ export function getIconForBuild(state: BuildState): string {
  */
 const STATE_PRIORITY: Record<BuildState, number> = {
   failed: 100,
+  failing: 95,
   canceling: 90,
   canceled: 80,
   running: 70,

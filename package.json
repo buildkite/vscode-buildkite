@@ -10,7 +10,11 @@
     "Other"
   ],
   "extensionDependencies": [
-    "vscode.git"
+    "vscode.git",
+    "redhat.vscode-yaml"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -35,7 +39,6 @@
         }
       ]
     },
-
     "commands": [
       {
         "command": "buildkite.setToken",
@@ -66,10 +69,22 @@
         "icon": "$(globe)"
       },
       {
-        "command": "buildkite.build.retry",
-        "title": "Retry Build",
+        "command": "buildkite.build.rebuild",
+        "title": "Rebuild",
         "category": "Buildkite",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "buildkite.build.cancel",
+        "title": "Cancel Build",
+        "category": "Buildkite",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "buildkite.build.unblock",
+        "title": "Unblock Next Job",
+        "category": "Buildkite",
+        "icon": "$(play)"
       },
       {
         "command": "buildkite.job.retry",
@@ -120,6 +135,30 @@
         "icon": "$(play)"
       },
       {
+        "command": "buildkite.artifact.download",
+        "title": "Download Artifact",
+        "category": "Buildkite",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "buildkite.job.unblock",
+        "title": "Unblock Job",
+        "category": "Buildkite",
+        "icon": "$(play)"
+      },
+      {
+        "command": "buildkite.job.viewJobLog",
+        "title": "View Job Log in Output",
+        "category": "Buildkite",
+        "icon": "$(output)"
+      },
+      {
+        "command": "buildkite.job.openJobLogUrl",
+        "title": "Open Job Log in Browser",
+        "category": "Buildkite",
+        "icon": "$(browser)"
+      },
+      {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
       }
@@ -160,13 +199,43 @@
       "view/item/context": [
         {
           "command": "buildkite.build.open",
-          "when": "viewItem == build",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
           "group": "inline"
         },
         {
-          "command": "buildkite.build.retry",
-          "when": "viewItem == build",
+          "command": "buildkite.build.rebuild",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
+          "group": "inline@2"
+        },
+        {
+          "command": "buildkite.build.cancel",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
           "group": "inline"
+        },
+        {
+          "command": "buildkite.artifact.download",
+          "when": "viewItem == artifact",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.build.open",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
+          "group": "navigation@1"
+        },
+        {
+          "command": "buildkite.build.rebuild",
+          "when": "viewItem =~ /^build/ || viewItem == build:blocked",
+          "group": "navigation@2"
+        },
+        {
+          "command": "buildkite.build.cancel",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)/ || viewItem =~ /:blocked$/",
+          "group": "navigation@3"
+        },
+        {
+          "command": "buildkite.build.unblock",
+          "when": "viewItem =~ /:blocked$/",
+          "group": "navigation@4"
         },
         {
           "command": "buildkite.job.retry",
@@ -192,6 +261,36 @@
           "command": "buildkite.agent.forceStop",
           "when": "viewItem == agent.connected.running || viewItem == agent.connected.paused.running",
           "group": "inline"
+        },
+        {
+          "command": "buildkite.job.unblock",
+          "when": "viewItem =~ /^job\\.unblockable/",
+          "group": "inline@2"
+        },
+        {
+          "command": "buildkite.job.viewJobLog",
+          "when": "viewItem =~ /^job/",
+          "group": "inline@3"
+        },
+        {
+          "command": "buildkite.job.viewJobLog",
+          "when": "viewItem =~ /^job/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "buildkite.job.openJobLogUrl",
+          "when": "viewItem =~ /^job/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "buildkite.job.retry",
+          "when": "viewItem == job.retriable",
+          "group": "actions@1"
+        },
+        {
+          "command": "buildkite.job.unblock",
+          "when": "viewItem =~ /^job\\.unblockable/",
+          "group": "actions@2"
         }
       ]
     }
@@ -213,5 +312,8 @@
     "globals": "^16.5.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.48.0"
+  },
+  "dependencies": {
+    "ansi-to-html": "^0.7.2"
   }
 }

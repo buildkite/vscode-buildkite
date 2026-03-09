@@ -4,14 +4,19 @@ import { AuthManager } from "../api/auth";
 import { PipelineNode } from "./nodes/pipelineNode";
 import { BuildNode } from "./nodes/buildNode";
 import { JobNode } from "./nodes/jobNode";
+import { ArtifactsFolderNode } from "./nodes/artifactsFolderNode";
+import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState } from "../api/types";
+import { Logger } from "../job/jobLogOutput";
 
 type PipelineTreeNode =
   | PipelineNode
   | BuildNode
   | JobNode
+  | ArtifactsFolderNode
+  | ArtifactNode
   | ErrorNode
   | NoTokenNode;
 
@@ -121,6 +126,9 @@ export class PipelinesTreeProvider
       }
 
       if (element instanceof BuildNode) {
+        const logger = Logger.getInstance();
+        logger.debug(`Fetching jobs for build #${element.build.number}`);
+
         try {
           const jobs = await this.client.getJobs(
             element.orgSlug,
@@ -128,35 +136,94 @@ export class PipelinesTreeProvider
             element.build.number,
           );
 
+          const children: PipelineTreeNode[] = [];
+
           if (jobs.length === 0) {
             if (
               element.build.state === "scheduled" ||
               element.build.state === "creating" ||
               element.build.state === "not_run"
             ) {
-              return [
+              children.push(
                 new ErrorNode(
                   "No jobs available yet. Jobs will appear when the build starts.",
                 ),
-              ];
+              );
+            } else {
+              children.push(new ErrorNode("No jobs found"));
             }
-            return [new ErrorNode("No jobs found")];
+          } else {
+            children.push(
+              ...jobs.map(
+                (job) =>
+                  new JobNode(
+                    job,
+                    element.build.number,
+                    element.pipeline.slug,
+                    element.orgSlug,
+                  ),
+              ),
+            );
           }
 
-          return jobs.map(
-            (job) =>
-              new JobNode(
-                job,
-                element.build.number,
-                element.pipeline.slug,
-                element.orgSlug,
-              ),
+          children.push(
+            new ArtifactsFolderNode(
+              element.build.number,
+              element.pipeline,
+              element.orgSlug,
+            ),
           );
+
+          return children;
         } catch (error) {
+          logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
           if (error instanceof Error) {
             return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
           }
           return [new ErrorNode("Failed to load jobs")];
+        }
+      }
+
+      if (element instanceof JobNode) {
+        try {
+          const artifacts = await this.client.getJobArtifacts(
+            element.orgSlug,
+            element.pipelineSlug,
+            element.buildNumber,
+            element.job.id,
+          );
+
+          if (artifacts.length === 0) {
+            return [new ErrorNode("No artifacts for this job")];
+          }
+
+          return artifacts.map((artifact) => new ArtifactNode(artifact));
+        } catch (error) {
+          if (error instanceof Error) {
+            return [new ErrorNode(`Failed to load artifacts: ${error.message}`)];
+          }
+          return [new ErrorNode("Failed to load artifacts")];
+        }
+      }
+
+      if (element instanceof ArtifactsFolderNode) {
+        try {
+          const artifacts = await this.client.getArtifacts(
+            element.orgSlug,
+            element.pipeline.slug,
+            element.buildNumber,
+          );
+
+          if (artifacts.length === 0) {
+            return [new ErrorNode("No artifacts found")];
+          }
+
+          return artifacts.map((artifact) => new ArtifactNode(artifact));
+        } catch (error) {
+          if (error instanceof Error) {
+            return [new ErrorNode(`Failed to load artifacts: ${error.message}`)];
+          }
+          return [new ErrorNode("Failed to load artifacts")];
         }
       }
 

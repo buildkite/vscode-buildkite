@@ -7,14 +7,20 @@ import {
 } from "./treeViews/treeViews";
 import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
 import { openBuildUrl } from "./commands/openBuildUrl";
-import { retryBuild } from "./commands/retryBuild";
+import { rebuildBuild } from "./commands/rebuildBuild";
+import { cancelBuild } from "./commands/cancelBuild";
+import { unblockBuild } from "./commands/unblockBuild";
 import { retryJob } from "./commands/retryJob";
+import { downloadArtifact } from "./commands/downloadArtifact";
+import { unblockJob } from "./commands/unblockJob";
+import { viewJobLog, disposeJobLogWebview } from "./commands/viewJobLog";
 import { stopAgent } from "./commands/stopAgent";
 import { forceStopAgent } from "./commands/forceStopAgent";
 import { pauseAgent } from "./commands/pauseAgent";
 import { resumeAgent } from "./commands/resumeAgent";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
+import { openJobLogUrl } from "./commands/openJobLogUrl";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -22,11 +28,11 @@ import { listJobs } from "./job/jobCommands";
  * Buildkite API tokens, pipelines, and jobs.
  * @param context - The extension context provided by VS Code
  */
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext) { 
+
   AuthManager.initialize(context);
   initTreeViews(context);
   initStatusBar(context);
-
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.setToken", async () => {
       const token = await vscode.window.showInputBox({
@@ -62,12 +68,25 @@ export function activate(context: vscode.ExtensionContext) {
   // Register Build Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
-    vscode.commands.registerCommand("buildkite.build.retry", retryBuild),
+    vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
+    vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
+    vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
   );
 
   // Register Job Commands
   context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.job.viewJobLog", viewJobLog),
+    vscode.commands.registerCommand("buildkite.job.openJobLogUrl", openJobLogUrl),
     vscode.commands.registerCommand("buildkite.job.retry", retryJob),
+    vscode.commands.registerCommand("buildkite.job.unblock", unblockJob),
+  );
+
+  // Register Artifact Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "buildkite.artifact.download",
+      downloadArtifact,
+    ),
   );
 
   // Register Agent Commands
@@ -119,4 +138,6 @@ export function activate(context: vscode.ExtensionContext) {
  * Deactivates the extension.
  * Called when the extension is deactivated by VS Code.
  */
-export function deactivate() {}
+export function deactivate() {
+  disposeJobLogWebview();
+}
