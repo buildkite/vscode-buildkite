@@ -419,23 +419,47 @@ export class BuildkiteClient {
 
   // Pipeline management
 
-  async createPipeline(orgSlug: string, input: CreatePipelineInput): Promise<Pipeline> {
-    return this.post<Pipeline>(`/organizations/${orgSlug}/pipelines`, input as unknown as JsonValue);
+  async createPipeline(
+    orgSlug: string,
+    input: CreatePipelineInput,
+  ): Promise<Pipeline> {
+    return this.post<Pipeline>(
+      `/organizations/${orgSlug}/pipelines`,
+      input as unknown as JsonValue,
+    );
   }
 
-  async updatePipeline(orgSlug: string, pipelineSlug: string, input: UpdatePipelineInput): Promise<Pipeline> {
-    return this.patch<Pipeline>(`/organizations/${orgSlug}/pipelines/${pipelineSlug}`, input as unknown as JsonValue);
+  async updatePipeline(
+    orgSlug: string,
+    pipelineSlug: string,
+    input: UpdatePipelineInput,
+  ): Promise<Pipeline> {
+    return this.patch<Pipeline>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}`,
+      input as unknown as JsonValue,
+    );
   }
 
   async archivePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
-    await this.fetch(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/archive`, { method: "POST" });
+    await this.fetch(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/archive`,
+      { method: "POST" },
+    );
   }
 
-  async unarchivePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
-    await this.fetch(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/unarchive`, { method: "POST" });
+  async unarchivePipeline(
+    orgSlug: string,
+    pipelineSlug: string,
+  ): Promise<void> {
+    await this.fetch(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/unarchive`,
+      { method: "POST" },
+    );
   }
 
   async deletePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
-    return this.delete(`/organizations/${orgSlug}/pipelines/${pipelineSlug}`);
+    return this.delete(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}`,
+    );
   }
 }

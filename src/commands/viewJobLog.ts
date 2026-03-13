@@ -24,10 +24,11 @@ export async function viewJobLog(jobNode: JobNode): Promise<void> {
 
   try {
     const jobName = jobNode.job.name || jobNode.job.id || jobNode.job.step_key || "Unknown Job";
-    logger.debug(`viewJobLog called for job: ${jobName} (id: ${jobNode.job.id}, state: ${jobNode.job.state}, type: ${jobNode.job.type}, hasRawLogUrl: ${!!jobNode.job.raw_log_url})`);
+    const jobId = jobNode.job.id || "Unknown Job ID";
+    logger.debug(`viewJobLog called for job: ${jobName} (id: ${jobId}, state: ${jobNode.job.state}, type: ${jobNode.job.type}, hasRawLogUrl: ${!!jobNode.job.raw_log_url})`);
     logger.info(`Fetching log for job: ${jobName}`);
 
-      
+
     // Show a progress notification while fetching
     await vscode.window.withProgress(
       {
@@ -43,7 +44,7 @@ export async function viewJobLog(jobNode: JobNode): Promise<void> {
         if (logContent && logContent.trim().length > 0) {
           const webview = getJobLogWebview();
           const jobDetails = `${jobNode.pipelineSlug} > ${jobNode.buildNumber} > Log for ${jobName}`;
-          webview.show(jobName, jobDetails, logContent);
+          webview.show(jobId, jobName, jobDetails, logContent);
           logger.debug(`Successfully displayed log for job: ${jobName}`);
         } else {
           vscode.window.showWarningMessage("No log content available for this job.");

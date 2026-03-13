@@ -24,20 +24,21 @@ export class JobLogWebview {
 
   /**
    * Shows the job log in a webview panel with ANSI color support.
-   * Creates a new panel for each unique job name.
+   * Creates a new panel for each unique job ID.
+   * @param jobId - ID of the job
    * @param jobName - Name of the job for the panel title
    * @param jobDetails - Pipeline, build details of the job
    * @param logContent - Raw log content (may include ANSI escape codes)
    */
-  public show(jobName: string, jobDetails: string, logContent: string): void {
+  public show(jobId: string, jobName: string, jobDetails: string, logContent: string): void {
     // Convert ANSI to HTML first
     const htmlContent = this.converter.toHtml(logContent);
 
     // Then process Buildkite timestamps (after ANSI conversion to avoid bracket conflicts)
     const processedHtml = this.processTimestamps(htmlContent);
 
-    // Use job name as the key for this panel
-    const panelKey = jobName;
+    // Use job ID as the key for this panel
+    const panelKey = jobId;
 
     // Check if panel already exists for this job
     let panel = this.panels.get(panelKey);
@@ -45,13 +46,13 @@ export class JobLogWebview {
     if (panel) {
       // Reuse existing panel for this job
       panel.reveal();
-      panel.title = `Job Log: ${jobName}`;
-      panel.webview.html = this.getWebviewContent(jobName, jobDetails, processedHtml);
+      panel.title = `Job Log: ${jobName} (${jobId})`;
+      panel.webview.html = this.getWebviewContent(jobId, jobName, jobDetails, processedHtml);
     } else {
       // Create new panel for this job
       panel = vscode.window.createWebviewPanel(
         "buildkiteJobLog",
-        `Job Log: ${jobName}`,
+        `Job Log: ${jobName} (${jobId})`,
         vscode.ViewColumn.One,
         {
           enableScripts: false,
@@ -67,6 +68,7 @@ export class JobLogWebview {
         const storedContent = this.panelContents.get(panelKey);
         if (e.webviewPanel.visible && storedContent) {
           e.webviewPanel.webview.html = this.getWebviewContent(
+            panelKey,
             storedContent.jobName,
             storedContent.jobDetails,
             storedContent.htmlContent
@@ -80,7 +82,7 @@ export class JobLogWebview {
         this.panelContents.delete(panelKey);
       });
 
-      panel.webview.html = this.getWebviewContent(jobName, jobDetails, processedHtml);
+      panel.webview.html = this.getWebviewContent(jobId, jobName, jobDetails, processedHtml);
     }
 
     // Store content for this panel for memory-efficient restoration
@@ -114,13 +116,13 @@ export class JobLogWebview {
   /**
    * Generates the HTML content for the webview.
    */
-  private getWebviewContent(jobName: string, jobDetails: string, htmlContent: string): string {
+  private getWebviewContent(jobId: string, jobName: string, jobDetails: string, htmlContent: string): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Job Log: ${this.escapeHtml(jobName)}</title>
+    <title>Job Log: ${this.escapeHtml(jobName)} (${this.escapeHtml(jobId)})</title>
     <style>
         body {
             font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
