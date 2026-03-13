@@ -3,6 +3,7 @@ import { AuthManager } from "./api/auth";
 import { initTreeViews, getPipelinesTreeProvider } from "./treeViews/treeViews";
 import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
 import { openBuildUrl } from "./commands/openBuildUrl";
+import { createBuild } from "./commands/createBuild";
 import { rebuildBuild } from "./commands/rebuildBuild";
 import { cancelBuild } from "./commands/cancelBuild";
 import { unblockBuild } from "./commands/unblockBuild";
@@ -58,6 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Register Build Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
+    vscode.commands.registerCommand("buildkite.build.create", createBuild),
     vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
     vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
     vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
