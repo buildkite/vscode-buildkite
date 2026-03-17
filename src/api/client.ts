@@ -196,6 +196,57 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
+  /**
+   * Makes a POST request to the Buildkite API.
+   * @template T - The expected response type
+   * @param endpoint - The API endpoint to request
+   * @param body - Optional request body
+   * @returns The parsed JSON response
+   * @throws {Error} If authentication fails or the API returns an error
+   */
+  async post<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
+    const token = await AuthManager.requireToken();
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error(
+          "Invalid API token. Please update your Buildkite API token.",
+        );
+      }
+      if (response.status === 429) {
+        throw new Error(
+          "Buildkite API rate limit reached. Please wait before retrying.",
+        );
+      }
+
+      let errorMessage = `Buildkite API error: ${response.status} ${response.statusText}`;
+      try {
+        const errorBody = await response.text();
+        if (errorBody) {
+          errorMessage += `\n${errorBody}`;
+        }
+      } catch {
+        // Ignore if we can't read the body
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    return response.json() as Promise<T>;
+  }
+
   async getPipelines(orgSlug: string): Promise<Pipeline[]> {
     return this.getAllPages<Pipeline>(
       `/organizations/${orgSlug}/pipelines?per_page=100`,
@@ -253,6 +304,17 @@ export class BuildkiteClient {
   ): Promise<Build> {
     return this.put<Build>(
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/cancel`,
+    );
+  }
+
+  async createBuild(
+    orgSlug: string,
+    pipelineSlug: string,
+    body: { commit: string; branch: string }
+  ): Promise<Build> {
+    return this.post<Build>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds`,
+      body
     );
   }
 
