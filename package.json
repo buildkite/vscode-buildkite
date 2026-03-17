@@ -179,7 +179,7 @@
         },
         {
           "command": "buildkite.build.create",
-          "when": "viewItem == buildkite.pipelines", 
+          "when": "view == buildkite.pipelines", 
           "group": "inline"
         },
         {
