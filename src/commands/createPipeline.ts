@@ -67,8 +67,7 @@ export async function createPipeline(): Promise<void> {
     vscode.window.showInformationMessage(`Pipeline "${name}" created successfully.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to create pipeline: ${error.message}`);
-    }
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(`Failed to create pipeline: ${errorMessage}`);
   }
 }

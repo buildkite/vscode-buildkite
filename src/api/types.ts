@@ -271,6 +271,7 @@ export interface GraphQLBuildNode {
 export interface GraphQLPipelineNode {
   slug: string;
   name: string;
+  archivedAt: string | null;
   repository: {
     url: string;
   };

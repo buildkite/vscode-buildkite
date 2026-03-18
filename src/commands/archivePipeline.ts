@@ -36,9 +36,8 @@ export async function archivePipeline(node: PipelineNode): Promise<void> {
     vscode.window.showInformationMessage(`Pipeline "${pipeline.name}" archived.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to archive pipeline: ${error.message}`);
-    }
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(`Failed to archive pipeline: ${errorMessage}`);
   }
 }
 
@@ -66,9 +65,8 @@ export async function unarchivePipeline(node: PipelineNode): Promise<void> {
     vscode.window.showInformationMessage(`Pipeline "${pipeline.name}" unarchived.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to unarchive pipeline: ${error.message}`);
-    }
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(`Failed to unarchive pipeline: ${errorMessage}`);
   }
 }
 
@@ -105,8 +103,7 @@ export async function deletePipeline(node: PipelineNode): Promise<void> {
     vscode.window.showInformationMessage(`Pipeline "${pipeline.name}" deleted.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to delete pipeline: ${error.message}`);
-    }
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(`Failed to delete pipeline: ${errorMessage}`);
   }
 }

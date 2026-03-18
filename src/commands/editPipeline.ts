@@ -73,8 +73,7 @@ export async function editPipeline(node: PipelineNode): Promise<void> {
     vscode.window.showInformationMessage(`Pipeline "${name}" updated successfully.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to update pipeline: ${error.message}`);
-    }
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(`Failed to update pipeline: ${errorMessage}`);
   }
 }

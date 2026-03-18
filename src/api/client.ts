@@ -331,6 +331,7 @@ export class BuildkiteClient {
               node {
                 slug
                 name
+                archivedAt
                 repository {
                   url
                 }
@@ -370,7 +371,7 @@ export class BuildkiteClient {
         description: null,
         default_branch: "",
         created_at: "",
-        archived_at: null,
+        archived_at: node.archivedAt ?? null,
         scheduled_builds_count: 0,
         running_builds_count: 0,
         scheduled_jobs_count: 0,
