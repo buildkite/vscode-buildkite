@@ -442,10 +442,7 @@ export class BuildkiteClient {
   }
 
   async archivePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
-    await this.fetch(
-      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/archive`,
-      { method: "POST" },
-    );
+    await this.post(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/archive`);
   }
 
   async unarchivePipeline(
