@@ -7,11 +7,17 @@ export async function createPipeline(): Promise<void> {
 
   let org;
   try {
-    org = await client.getOrganization();
+    org = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Fetching organization...",
+        cancellable: false,
+      },
+      () => client.getOrganization(),
+    );
   } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Failed to get organization: ${error.message}`);
-    }
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(`Failed to get organization: ${errorMessage}`);
     return;
   }
 

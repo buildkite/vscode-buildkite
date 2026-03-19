@@ -173,7 +173,7 @@ export class BuildkiteClient {
   /**
    * Makes a POST request to the Buildkite API.
    */
-  async post<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
+  async post<T = JsonValue>(endpoint: string, body?: object): Promise<T> {
     const response = await this.fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -185,7 +185,7 @@ export class BuildkiteClient {
   /**
    * Makes a PATCH request to the Buildkite API.
    */
-  async patch<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
+  async patch<T = JsonValue>(endpoint: string, body?: object): Promise<T> {
     const response = await this.fetch(endpoint, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -426,7 +426,7 @@ export class BuildkiteClient {
   ): Promise<Pipeline> {
     return this.post<Pipeline>(
       `/organizations/${orgSlug}/pipelines`,
-      input as unknown as JsonValue,
+      input,
     );
   }
 
@@ -437,7 +437,7 @@ export class BuildkiteClient {
   ): Promise<Pipeline> {
     return this.patch<Pipeline>(
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}`,
-      input as unknown as JsonValue,
+      input,
     );
   }
 
