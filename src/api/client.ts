@@ -449,10 +449,7 @@ export class BuildkiteClient {
     orgSlug: string,
     pipelineSlug: string,
   ): Promise<void> {
-    await this.fetch(
-      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/unarchive`,
-      { method: "POST" },
-    );
+    await this.post(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/unarchive`);
   }
 
   async deletePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
