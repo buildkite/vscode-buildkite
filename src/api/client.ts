@@ -459,7 +459,7 @@ export class BuildkiteClient {
   }
 
   async deletePipeline(orgSlug: string, pipelineSlug: string): Promise<void> {
-    return this.delete(
+    await this.delete(
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}`,
     );
   }
