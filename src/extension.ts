@@ -12,8 +12,11 @@ import { downloadArtifact } from "./commands/downloadArtifact";
 import { unblockJob } from "./commands/unblockJob";
 import { viewJobLog, disposeJobLogWebview } from "./commands/viewJobLog";
 import { listPipelines } from "./pipeline/pipelineCommands";
-import { listJobs } from "./job/jobCommands"; 
+import { listJobs } from "./job/jobCommands";
 import { openJobLogUrl } from "./commands/openJobLogUrl";
+import { createPipeline } from "./commands/createPipeline";
+import { editPipeline } from "./commands/editPipeline";
+import { archivePipeline, unarchivePipeline, deletePipeline } from "./commands/archivePipeline";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -54,6 +57,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.listPipelines", listPipelines),
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
+    vscode.commands.registerCommand("buildkite.pipeline.create", createPipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.edit", editPipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.archive", archivePipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.unarchive", unarchivePipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.delete", deletePipeline),
   );
 
   // Register Build Commands
