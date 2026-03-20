@@ -261,6 +261,17 @@ export class BuildkiteClient {
     );
   }
 
+  async createBuild(
+    orgSlug: string,
+    pipelineSlug: string,
+    body: { commit: string; branch: string }
+  ): Promise<Build> {
+    return this.post<Build>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds`,
+      body
+    );
+  }
+
   async getJobs(
     orgSlug: string,
     pipelineSlug: string,

@@ -65,6 +65,12 @@
         "icon": "$(globe)"
       },
       {
+        "command": "buildkite.build.create",
+        "title": "Create a build",
+        "category": "Buildkite",
+        "icon": "$(rocket)"
+      },
+      {
         "command": "buildkite.build.rebuild",
         "title": "Rebuild",
         "category": "Buildkite",
@@ -205,6 +211,11 @@
           "command": "buildkite.build.cancel",
           "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)/ || viewItem =~ /:blocked$/",
           "group": "navigation@3"
+        },
+        {
+          "command": "buildkite.build.create",
+          "when": "viewItem == pipeline", 
+          "group": "inline"
         },
         {
           "command": "buildkite.job.retry",
