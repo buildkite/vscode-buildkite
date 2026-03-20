@@ -115,6 +115,36 @@
       {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
+      },
+      {
+        "command": "buildkite.pipeline.create",
+        "title": "Create Pipeline",
+        "category": "Buildkite",
+        "icon": "$(add)"
+      },
+      {
+        "command": "buildkite.pipeline.edit",
+        "title": "Edit Pipeline Settings",
+        "category": "Buildkite",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "buildkite.pipeline.archive",
+        "title": "Archive Pipeline",
+        "category": "Buildkite",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "buildkite.pipeline.unarchive",
+        "title": "Unarchive Pipeline",
+        "category": "Buildkite",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "buildkite.pipeline.delete",
+        "title": "Delete Pipeline",
+        "category": "Buildkite",
+        "icon": "$(trash)"
       }
     ],
     "configuration": {
@@ -131,6 +161,11 @@
       "view/title": [
         {
           "command": "buildkite.pipelines.refresh",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines"
+        },
+        {
+          "command": "buildkite.pipeline.create",
           "group": "navigation",
           "when": "view == buildkite.pipelines"
         }
@@ -210,6 +245,44 @@
           "command": "buildkite.job.unblock",
           "when": "viewItem =~ /^job\\.unblockable/",
           "group": "actions@2"
+        },
+        {
+          "command": "buildkite.pipeline.edit",
+          "when": "viewItem =~ /^pipeline/",
+          "group": "pipeline@1"
+        },
+        {
+          "command": "buildkite.pipeline.archive",
+          "when": "viewItem == pipeline",
+          "group": "pipeline@2"
+        },
+        {
+          "command": "buildkite.pipeline.unarchive",
+          "when": "viewItem == pipeline.archived",
+          "group": "pipeline@2"
+        },
+        {
+          "command": "buildkite.pipeline.delete",
+          "when": "viewItem =~ /^pipeline/",
+          "group": "pipeline@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "buildkite.pipeline.edit",
+          "when": "false"
+        },
+        {
+          "command": "buildkite.pipeline.archive",
+          "when": "false"
+        },
+        {
+          "command": "buildkite.pipeline.unarchive",
+          "when": "false"
+        },
+        {
+          "command": "buildkite.pipeline.delete",
+          "when": "false"
         }
       ]
     }
