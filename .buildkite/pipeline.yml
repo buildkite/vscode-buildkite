@@ -1,4 +1,28 @@
+cache:
+  paths:
+    - node_modules
+
 steps:
-  - label: "Hi 👋"
-    command: |
-      echo "This is a placeholder so CI passes. PR incoming"
+  - label: ":npm: Install"
+    key: install
+    plugins:
+      - mise-buildkite-plugin#v1.1.0: ~
+    command: npm ci
+
+  - label: ":eslint: Lint"
+    depends_on: install
+    plugins:
+      - mise-buildkite-plugin#v1.1.0: ~
+    command: npm run lint
+
+  - label: ":typescript: Compile"
+    depends_on: install
+    plugins:
+      - mise-buildkite-plugin#v1.1.0: ~
+    command: npm run compile
+
+  - label: ":vscode: Test"
+    depends_on: install
+    plugins:
+      - mise-buildkite-plugin#v1.1.0: ~
+    command: npm test
