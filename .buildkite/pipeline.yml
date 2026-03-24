@@ -1,4 +1,12 @@
 steps:
-  - label: "Hi 👋"
-    command: |
-      echo "This is a placeholder so CI passes. PR incoming"
+  - label: ":eslint: Lint"
+    key: lint
+    plugins:
+      - mise#v1.1.0: ~
+    command: npm ci && npm run lint
+
+  - label: ":typescript: Compile"
+    key: compile
+    plugins:
+      - mise#v1.1.0: ~
+    command: npm ci && npm run compile

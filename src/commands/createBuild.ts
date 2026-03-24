@@ -62,8 +62,9 @@ export async function createBuild(node: PipelineNode): Promise<void> {
       vscode.env.openExternal(vscode.Uri.parse(build.web_url));
     }
   }
-  catch (err: any) {
-    vscode.window.showErrorMessage(`Failed to create build: ${err.message}`);
+  catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(`Failed to create build: ${message}`);
     console.error(err);
   }
 }
