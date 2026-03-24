@@ -1,28 +1,20 @@
-cache:
-  paths:
-    - node_modules
-
 steps:
-  - label: ":npm: Install"
-    key: install
-    plugins:
-      - mise#v1.1.0: ~
-    command: npm install
-
   - label: ":eslint: Lint"
-    depends_on: install
+    key: lint
     plugins:
       - mise#v1.1.0: ~
-    command: npm run lint
+    command: npm ci && npm run lint
 
   - label: ":typescript: Compile"
-    depends_on: install
+    key: compile
     plugins:
       - mise#v1.1.0: ~
-    command: npm run compile
+    command: npm ci && npm run compile
 
   - label: ":vscode: Test"
-    depends_on: install
+    depends_on:
+      - lint
+      - compile
     plugins:
       - mise#v1.1.0: ~
-    command: npm test
+    command: npm ci && npm test
