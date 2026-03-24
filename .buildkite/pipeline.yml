@@ -7,7 +7,7 @@ steps:
     key: install
     plugins:
       - mise#v1.1.0: ~
-    command: npm ci
+    command: npm install
 
   - label: ":eslint: Lint"
     depends_on: install
