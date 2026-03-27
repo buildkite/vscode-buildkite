@@ -4,6 +4,7 @@ import {
   Build,
   BuildState,
   Job,
+  Agent,
   JsonValue,
   Artifact,
   PipelinesForRepositoryResponse,
@@ -195,8 +196,42 @@ export class BuildkiteClient {
   }
 
   /**
-   * Makes a DELETE request to the Buildkite API.
+   * Makes a PUT request that returns 204 No Content (no response body).
    */
+  async putNoContent(endpoint: string, body?: JsonValue): Promise<void> {
+    const token = await AuthManager.requireToken();
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: body !== undefined ? JSON.stringify(body) : "{}",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error(
+          "Invalid API token. Please update your Buildkite API token.",
+        );
+      }
+      if (response.status === 429) {
+        throw new Error(
+          "Buildkite API rate limit reached. Please wait before retrying.",
+        );
+      }
+      throw new Error(
+        `Buildkite API error: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+  /**
+   * Makes a DELETE request to the Buildkite API.
+  **/
   async delete(endpoint: string): Promise<void> {
     await this.fetch(endpoint, { method: "DELETE" });
   }
@@ -429,8 +464,38 @@ export class BuildkiteClient {
     });
   }
 
-  // Pipeline management
+  async getAgents(orgSlug: string): Promise<Agent[]> {
+    return this.getAllPages<Agent>(
+      `/organizations/${orgSlug}/agents?per_page=100`,
+    );
+  }
 
+  async stopAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/stop`,
+    );
+  }
+
+  async forceStopAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/stop`,
+      { force: true },
+    );
+  }
+
+  async pauseAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/pause`,
+    );
+  }
+
+  async resumeAgent(orgSlug: string, agentId: string): Promise<void> {
+    return this.putNoContent(
+      `/organizations/${orgSlug}/agents/${agentId}/resume`,
+    );
+  }
+
+  // Pipeline management
   async createPipeline(
     orgSlug: string,
     input: CreatePipelineInput,
