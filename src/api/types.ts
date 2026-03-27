@@ -21,11 +21,26 @@ export interface Pipeline {
   description: string | null;
   default_branch: string;
   created_at: string;
+  archived_at: string | null;
   scheduled_builds_count: number;
   running_builds_count: number;
   scheduled_jobs_count: number;
   running_jobs_count: number;
   waiting_jobs_count: number;
+}
+
+export interface CreatePipelineInput {
+  name: string;
+  repository: string;
+  description?: string;
+  default_branch?: string;
+}
+
+export interface UpdatePipelineInput {
+  name?: string;
+  description?: string;
+  default_branch?: string;
+  repository?: string;
 }
 
 export interface Build {
@@ -313,6 +328,7 @@ export interface GraphQLBuildNode {
 export interface GraphQLPipelineNode {
   slug: string;
   name: string;
+  archivedAt: string | null;
   repository: {
     url: string;
   };
