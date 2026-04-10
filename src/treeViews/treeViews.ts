@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { PipelinesTreeProvider } from "./pipelines";
 import { AgentsTreeProvider } from "./agents";
+import { SupportViewProvider } from "./support";
 
 let pipelinesTreeProvider: PipelinesTreeProvider;
 let agentsTreeProvider: AgentsTreeProvider;
@@ -35,6 +36,21 @@ export function initTreeViews(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.agents.refresh", async () => {
       await agentsTreeProvider.refresh();
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SupportViewProvider.viewId,
+      new SupportViewProvider(),
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.openSupportEmail", () => {
+      vscode.env.openExternal(
+        vscode.Uri.parse("mailto:support@buildkite.com"),
+      );
     }),
   );
 
