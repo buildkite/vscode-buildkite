@@ -229,7 +229,7 @@
         {
           "command": "buildkite.agents.clearFilter",
           "group": "navigation",
-          "when": "view == buildkite.agents && buildkite.agents.filterActive",
+          "when": "view == buildkite.agents && buildkite.agents.filterActive"
         },
         {
           "command": "buildkite.pipeline.create",
@@ -276,7 +276,7 @@
         {
           "command": "buildkite.build.unblock",
           "when": "viewItem =~ /:blocked$/",
-          "group": "navigation@4",
+          "group": "navigation@4"
         },
         {
           "command": "buildkite.build.create",
