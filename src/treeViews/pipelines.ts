@@ -11,7 +11,7 @@ import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState } from "../api/types";
 import { Logger } from "../job/jobLogOutput";
 
-type PipelineTreeNode =
+export type PipelineTreeNode =
   | PipelineNode
   | BuildNode
   | JobNode
@@ -53,12 +53,26 @@ export class PipelinesTreeProvider
   private client: BuildkiteClient;
   private activePollers = new Map<string, PollingContext>();
   private buildCache = new Map<string, Build>();
+  private pipelineNodes: PipelineNode[] = [];
 
   constructor() {
     this.client = new BuildkiteClient();
   }
 
+  getPipelineNodes(): PipelineNode[] {
+    return this.pipelineNodes;
+  }
+
+  getParent(element: PipelineTreeNode): vscode.ProviderResult<PipelineTreeNode> {
+    // Pipeline nodes are root-level; all others are children
+    if (element instanceof PipelineNode) {
+      return undefined;
+    }
+    return undefined;
+  }
+
   async refresh(): Promise<void> {
+    this.pipelineNodes = [];
     this.stopAllPolling();
     this._onDidChangeTreeData.fire(null);
   }
@@ -91,7 +105,8 @@ export class PipelinesTreeProvider
           return [new ErrorNode("No pipelines found")];
         }
 
-        return pipelines.map((p) => new PipelineNode(p, org.slug));
+        this.pipelineNodes = pipelines.map((p) => new PipelineNode(p, org.slug));
+        return this.pipelineNodes;
       }
 
       if (element instanceof PipelineNode) {

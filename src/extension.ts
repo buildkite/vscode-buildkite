@@ -25,6 +25,7 @@ import { openJobLogUrl } from "./commands/openJobLogUrl";
 import { createPipeline } from "./commands/createPipeline";
 import { editPipeline } from "./commands/editPipeline";
 import { archivePipeline, unarchivePipeline, deletePipeline } from "./commands/archivePipeline";
+import { pickPipeline } from "./commands/pickPipeline";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -69,6 +70,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
     vscode.commands.registerCommand("buildkite.pipeline.create", createPipeline),
     vscode.commands.registerCommand("buildkite.pipeline.edit", editPipeline),
+    vscode.commands.registerCommand("buildkite.pipelines.pick", pickPipeline),
     vscode.commands.registerCommand("buildkite.pipeline.archive", archivePipeline),
     vscode.commands.registerCommand("buildkite.pipeline.unarchive", unarchivePipeline),
     vscode.commands.registerCommand("buildkite.pipeline.delete", deletePipeline),
