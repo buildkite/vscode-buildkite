@@ -36,6 +36,11 @@
         {
           "id": "buildkite.agents",
           "name": "Agents"
+        },
+        {
+          "id": "buildkite.support",
+          "name": "Support",
+          "type": "webview"
         }
       ]
     },
@@ -247,7 +252,9 @@
         {
           "command": "buildkite.agents.clearFilter",
           "group": "navigation",
-          "when": "view == buildkite.agents && buildkite.agents.filterActive",
+          "when": "view == buildkite.agents && buildkite.agents.filterActive"
+        },
+        {
           "command": "buildkite.pipeline.create",
           "group": "navigation",
           "when": "view == buildkite.pipelines"
@@ -292,9 +299,11 @@
         {
           "command": "buildkite.build.unblock",
           "when": "viewItem =~ /:blocked$/",
-          "group": "navigation@4",
+          "group": "navigation@4"
+        },
+        {
           "command": "buildkite.build.create",
-          "when": "viewItem == pipeline", 
+          "when": "viewItem == pipeline",
           "group": "inline"
         },
         {
@@ -410,6 +419,11 @@
     "globals": "^16.5.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.48.0"
+  },
+  "overrides":{
+    "@vscode/test-cli": {
+      "serialize-javascript": "^7.0.5"
+    }
   },
   "dependencies": {
     "ansi-to-html": "^0.7.2"
