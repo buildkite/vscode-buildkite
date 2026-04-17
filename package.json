@@ -208,8 +208,8 @@
     "keybindings": [
       {
         "command": "buildkite.pipelines.pick",
-        "key": "ctrl+alt+b",
-        "mac": "cmd+alt+b"
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b"
       }
     ],
     "configuration": {
@@ -224,6 +224,11 @@
     },
     "menus": {
       "view/title": [
+        {
+          "command": "buildkite.pipelines.pick",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines"
+        },
         {
           "command": "buildkite.pipelines.refresh",
           "group": "navigation",
