@@ -36,6 +36,11 @@
         {
           "id": "buildkite.agents",
           "name": "Agents"
+        },
+        {
+          "id": "buildkite.support",
+          "name": "Support",
+          "type": "webview"
         }
       ]
     },
