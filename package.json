@@ -46,6 +46,11 @@
     },
     "commands": [
       {
+        "command": "buildkite.searchDocs",
+        "title": "Search Docs",
+        "category": "Buildkite"
+      },
+      {
         "command": "buildkite.setToken",
         "title": "Buildkite: Set API Token"
       },
