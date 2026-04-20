@@ -23,7 +23,7 @@ export class SupportViewProvider implements vscode.WebviewViewProvider {
       }
     });
   }
-  
+
   private getHtml(): string {
     return `<!DOCTYPE html>
 <html lang="en">

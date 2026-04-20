@@ -27,6 +27,9 @@ export async function searchDocs(): Promise<void> {
   );
 
   if (picked) {
-    vscode.env.openExternal(vscode.Uri.parse(picked.url));
+    const uri = vscode.Uri.parse(picked.url);
+    if (uri.scheme === "https") {
+      vscode.env.openExternal(uri);
+    }    
   }
 }
