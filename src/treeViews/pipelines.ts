@@ -10,6 +10,8 @@ import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState } from "../api/types";
 import { Logger } from "../job/jobLogOutput";
+import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
+import { SummaryNode } from "./nodes/summaryNode";
 
 type PipelineTreeNode =
   | PipelineNode
@@ -18,7 +20,9 @@ type PipelineTreeNode =
   | ArtifactsFolderNode
   | ArtifactNode
   | ErrorNode
-  | NoTokenNode;
+  | NoTokenNode
+  | ViewAllStepsNode
+  | SummaryNode;
 
 // Polling interval for running builds (in milliseconds)
 const RUNNING_BUILD_POLL_INTERVAL = 10000; // 10 seconds
@@ -42,6 +46,9 @@ interface PollingContext {
 }
 
 const MAX_RETRY_ATTEMPTS = 3;
+
+// Maximum number of jobs we will display
+const JOB_DISPLAY_LIMIT = 40;
 
 export class PipelinesTreeProvider
   implements vscode.TreeDataProvider<PipelineTreeNode> {
@@ -125,47 +132,87 @@ export class PipelinesTreeProvider
         });
       }
 
+      // if the element of the tree is a buildnode
       if (element instanceof BuildNode) {
+        // get a logger object
         const logger = Logger.getInstance();
+        // write a log line at debug level
         logger.debug(`Fetching jobs for build #${element.build.number}`);
 
         try {
+          // create a jobs constant as the result of a getJobs call with the following arguments
           const jobs = await this.client.getJobs(
             element.orgSlug,
             element.pipeline.slug,
             element.build.number,
           );
 
+          // create children as an array of PipelineTreeNode
           const children: PipelineTreeNode[] = [];
 
+          // if there are 0 jobs
           if (jobs.length === 0) {
+            // if build state is any of scheduled, creating, or not_run
             if (
               element.build.state === "scheduled" ||
               element.build.state === "creating" ||
               element.build.state === "not_run"
             ) {
+              // Add an errornode saying we are waiting for jobs
               children.push(
                 new ErrorNode(
                   "No jobs available yet. Jobs will appear when the build starts.",
                 ),
               );
             } else {
+              // Add an errornode showing no jobs
               children.push(new ErrorNode("No jobs found"));
             }
           } else {
-            children.push(
-              ...jobs.map(
-                (job) =>
-                  new JobNode(
-                    job,
-                    element.build.number,
-                    element.pipeline.slug,
-                    element.orgSlug,
-                  ),
-              ),
-            );
+            if (jobs.length > JOB_DISPLAY_LIMIT) {
+              if (element.build.state === "failed" || element.build.state === "failing") {
+                children.push(
+                  ...jobs
+                    .filter((job) => job.state === "failed")
+                    .map((job) => new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                  ))
+                )
+              } else if (element.build.state === "blocked") {
+                children.push(
+                  ...jobs
+                    .filter((job) => job.state === "blocked")
+                    .map((job) => new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                    ))
+                )
+              } else {
+                children.push(new SummaryNode(`Build has ${jobs.length} steps.`))
+              }
+              children.push(new ViewAllStepsNode(element.build.web_url, jobs.length))
+            } else {
+              children.push(
+                // Unpack the array to add elements
+                ...jobs.map(
+                  (job) =>
+                    new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                    ),
+                ),
+              );
+            }
           }
 
+          // Add a link to the artifacts
           children.push(
             new ArtifactsFolderNode(
               element.build.number,
@@ -174,8 +221,10 @@ export class PipelinesTreeProvider
             ),
           );
 
+          // Return the final collection
           return children;
         } catch (error) {
+          // Error handling
           logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
           if (error instanceof Error) {
             return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
