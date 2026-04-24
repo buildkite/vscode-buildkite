@@ -20,7 +20,7 @@ function getJobLogWebview(): JobLogWebview {
  */
 export async function viewJobLog(jobNode: JobNode): Promise<void> {
   const logger = Logger.getInstance();
-  const client = new CachedApiClient();
+  const client = CachedApiClient.getInstance();
 
   try {
     const jobName = jobNode.job.name || jobNode.job.id || jobNode.job.step_key || "Unknown Job";

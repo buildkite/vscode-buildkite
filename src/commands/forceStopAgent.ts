@@ -24,7 +24,7 @@ export async function forceStopAgent(node: AgentNode): Promise<void> {
   }
 
   try {
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
     await client.forceStopAgent(node.orgSlug, node.agent.id);
 
     vscode.window.showInformationMessage(

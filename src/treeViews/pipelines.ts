@@ -55,7 +55,7 @@ export class PipelinesTreeProvider
   private buildCache = new Map<string, Build>();
 
   constructor() {
-    this.client = new CachedApiClient();
+    this.client = CachedApiClient.getInstance();
   }
 
   async refresh(): Promise<void> {
@@ -277,6 +277,8 @@ export class PipelinesTreeProvider
     }
 
     try {
+      // Clear cached build data so polling fetches fresh state from the API
+      this.client.clearPipelineCache(orgSlug, pipelineSlug);
       const updatedBuild = await this.client.getBuild(
         orgSlug,
         pipelineSlug,

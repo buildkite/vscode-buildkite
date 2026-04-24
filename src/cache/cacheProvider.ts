@@ -145,4 +145,19 @@ export class CacheProvider {
   dispose(): void {
     this.cache.clear();
   }
+
+  // Shared singleton instance
+  private static instance: CacheProvider | undefined;
+
+  static getInstance(): CacheProvider {
+    if (!CacheProvider.instance) {
+      CacheProvider.instance = new CacheProvider();
+    }
+    return CacheProvider.instance;
+  }
+
+  static disposeInstance(): void {
+    CacheProvider.instance?.dispose();
+    CacheProvider.instance = undefined;
+  }
 }

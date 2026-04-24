@@ -20,7 +20,7 @@ export async function resumeAgent(node: AgentNode): Promise<void> {
   }
 
   try {
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
     await client.resumeAgent(node.orgSlug, node.agent.id);
 
     vscode.window.showInformationMessage(

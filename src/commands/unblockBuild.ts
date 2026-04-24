@@ -19,7 +19,7 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
   }
 
   try {
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
 
     const jobs = await client.getJobs(
       node.orgSlug,

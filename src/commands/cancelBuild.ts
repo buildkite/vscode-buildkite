@@ -36,7 +36,7 @@ export async function cancelBuild(node: BuildNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new CachedApiClient();
+        const client = CachedApiClient.getInstance();
         await client.cancelBuild(node.orgSlug, node.pipeline.slug, node.build.number);
       },
     );

@@ -20,7 +20,7 @@ export async function rebuildBuild(node: BuildNode): Promise<void> {
   }
 
   try {
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
     await client.rebuildBuild(node.orgSlug, node.pipeline.slug, node.build.number);
 
     vscode.window.showInformationMessage(

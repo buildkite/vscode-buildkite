@@ -30,7 +30,7 @@ export class StatusBarManager {
   private disposables: vscode.Disposable[] = [];
 
   constructor() {
-    this.client = new CachedApiClient();
+    this.client = CachedApiClient.getInstance();
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
       100,

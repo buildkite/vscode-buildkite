@@ -42,7 +42,7 @@ export async function unblockJob(node: JobNode): Promise<void> {
       return;
     }
 
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
 
     const normalizedFields = normalizeFieldValues(fieldValues);
 

@@ -13,7 +13,7 @@ export async function pollUntilAgentGone(
   agentId: string,
   treeProvider: AgentsTreeProvider,
 ): Promise<void> {
-  const client = new CachedApiClient();
+  const client = CachedApiClient.getInstance();
 
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));

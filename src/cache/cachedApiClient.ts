@@ -11,9 +11,18 @@ export class CachedApiClient {
   private cache: CacheProvider;
   private readonly CACHE_TTL = 60000; // 60 seconds
 
+  private static instance: CachedApiClient | undefined;
+
+  static getInstance(): CachedApiClient {
+    if (!CachedApiClient.instance) {
+      CachedApiClient.instance = new CachedApiClient();
+    }
+    return CachedApiClient.instance;
+  }
+
   constructor() {
     this.client = new BuildkiteClient();
-    this.cache = new CacheProvider(this.CACHE_TTL);
+    this.cache = CacheProvider.getInstance();
   }
 
   /**
@@ -71,9 +80,10 @@ export class CachedApiClient {
     
     let result = this.cache.get<Pipeline[]>(cacheKey);
     if (result !== null) {
+      console.log(`[Cache HIT] ${cacheKey}`);
       return result;
     }
-
+    console.log(`[Cache MISS] ${cacheKey}`);
     result = await this.client.getPipelines(orgSlug);
     this.cache.set(cacheKey, result);
     return result;
@@ -314,6 +324,7 @@ export class CachedApiClient {
    * Dispose the cached API client
    */
   dispose(): void {
-    this.cache.dispose();
+    CacheProvider.disposeInstance();
+    CachedApiClient.instance = undefined;
   }
 }

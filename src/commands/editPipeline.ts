@@ -57,7 +57,7 @@ export async function editPipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new CachedApiClient();
+        const client = CachedApiClient.getInstance();
         const trimmedDescription = description.trim();
         await client.updatePipeline(orgSlug, pipeline.slug, {
           name: name.trim(),

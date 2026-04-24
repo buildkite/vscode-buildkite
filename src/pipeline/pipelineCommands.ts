@@ -9,7 +9,7 @@ import { CachedApiClient } from "../cache/cachedApiClient";
  */
 export async function listPipelines() {
   try {
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
     const org = await client.getOrganization();
     // This is a basic call and doesn't factor in pagination, it's just to demonstrate making an API call to an endpoint
     const pipelines = await client.getPipelines(org.slug);

@@ -28,7 +28,7 @@ export async function archivePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new CachedApiClient();
+        const client = CachedApiClient.getInstance();
         await client.archivePipeline(orgSlug, pipeline.slug);
       },
     );
@@ -57,7 +57,7 @@ export async function unarchivePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new CachedApiClient();
+        const client = CachedApiClient.getInstance();
         await client.unarchivePipeline(orgSlug, pipeline.slug);
       },
     );
@@ -95,7 +95,7 @@ export async function deletePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new CachedApiClient();
+        const client = CachedApiClient.getInstance();
         await client.deletePipeline(orgSlug, pipeline.slug);
       },
     );

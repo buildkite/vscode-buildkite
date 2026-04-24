@@ -38,10 +38,11 @@ export function initTreeViews(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Register dispose to clean up polling timers
+  // Register dispose to clean up polling timers and caches
   context.subscriptions.push({
     dispose: () => {
       pipelinesTreeProvider.dispose();
+      agentsTreeProvider.dispose();
     },
   });
 }

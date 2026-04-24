@@ -3,7 +3,7 @@ import { CachedApiClient } from "../cache/cachedApiClient";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
 export async function createPipeline(): Promise<void> {
-  const client = new CachedApiClient();
+  const client = CachedApiClient.getInstance();
 
   let org;
   try {

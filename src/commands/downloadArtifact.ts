@@ -24,7 +24,7 @@ export async function downloadArtifact(node: ArtifactNode): Promise<void> {
   const artifact = node.artifact;
 
   try {
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
 
     if (isPreviewable(artifact.mime_type)) {
       await vscode.window.withProgress(

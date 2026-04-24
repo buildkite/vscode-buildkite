@@ -29,7 +29,7 @@ export async function retryJob(node: JobNode): Promise<void> {
   }
 
   try {
-    const client = new CachedApiClient();
+    const client = CachedApiClient.getInstance();
     await client.retryJob(
       node.orgSlug,
       node.pipelineSlug,

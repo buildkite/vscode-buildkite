@@ -19,10 +19,11 @@ export class AgentsTreeProvider
   private filterQuery = "";
 
   constructor() {
-    this.client = new CachedApiClient();
+    this.client = CachedApiClient.getInstance();
   }
 
   async refresh(): Promise<void> {
+    this.client.clearCache();
     this._onDidChangeTreeData.fire(null);
   }
 
@@ -37,6 +38,7 @@ export class AgentsTreeProvider
 
   dispose(): void {
     this._onDidChangeTreeData.dispose();
+    this.client.dispose();
   }
 
   getTreeItem(element: AgentsTreeNode): vscode.TreeItem {
