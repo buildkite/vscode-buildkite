@@ -10,7 +10,7 @@ export interface CacheEntry<T> {
 }
 
 export class CacheProvider {
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
   private defaultTTL: number;
 
   constructor(defaultTTL: number = 60000) {

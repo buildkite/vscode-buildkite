@@ -1,6 +1,6 @@
 import { BuildkiteClient, Organization } from "../api/client";
 import { CacheProvider } from "./cacheProvider";
-import { JsonValue, Pipeline, Build, Job, Agent, Artifact, PipelineWithBuilds } from "../api/types";
+import { JsonValue, Pipeline, Build, Job, Agent, Artifact, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
 
 /**
  * Cached API client wrapper that adds caching layer to BuildkiteClient
@@ -273,13 +273,13 @@ export class CachedApiClient {
   }
 
   // Pipeline management operations
-  async createPipeline(orgSlug: string, input: any): Promise<Pipeline> {
+  async createPipeline(orgSlug: string, input: CreatePipelineInput): Promise<Pipeline> {
     const result = await this.client.createPipeline(orgSlug, input);
     this.clearOrganizationCache(orgSlug);
     return result;
   }
 
-  async updatePipeline(orgSlug: string, pipelineSlug: string, input: any): Promise<Pipeline> {
+  async updatePipeline(orgSlug: string, pipelineSlug: string, input: UpdatePipelineInput): Promise<Pipeline> {
     const result = await this.client.updatePipeline(orgSlug, pipelineSlug, input);
     this.clearOrganizationCache(orgSlug);
     return result;
