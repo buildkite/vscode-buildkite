@@ -39,9 +39,6 @@ export function initTreeViews(context: vscode.ExtensionContext): void {
     }),
   );
 
-<<<<<<< dahtey/SUP-6505
-  // Register dispose to clean up polling timers and caches
-=======
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       SupportViewProvider.viewId,
@@ -57,8 +54,6 @@ export function initTreeViews(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Register dispose to clean up polling timers
->>>>>>> main
   context.subscriptions.push({
     dispose: () => {
       pipelinesTreeProvider.dispose();
