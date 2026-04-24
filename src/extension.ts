@@ -25,6 +25,7 @@ import { openJobLogUrl } from "./commands/openJobLogUrl";
 import { createPipeline } from "./commands/createPipeline";
 import { editPipeline } from "./commands/editPipeline";
 import { archivePipeline, unarchivePipeline, deletePipeline } from "./commands/archivePipeline";
+import { searchDocs } from "./commands/searchDocs";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -109,6 +110,11 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.agent.forceStop", forceStopAgent),
     vscode.commands.registerCommand("buildkite.agent.pause", pauseAgent),
     vscode.commands.registerCommand("buildkite.agent.resume", resumeAgent),
+  );
+
+  // Register Support Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.searchDocs", searchDocs),
   );
 
   // Register Agent Filter Commands

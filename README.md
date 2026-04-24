@@ -27,7 +27,7 @@ These features work automatically for Buildkite pipeline files through the [YAML
 ### 1. Install Dependencies
 
 ```bash
-yarn
+npm install
 ```
 
 ### 2. Running the Extension in Debug Mode
@@ -45,7 +45,7 @@ The extension can be run in VS Code's Extension Development Host:
 Alternatively, you can use the watch mode to automatically recompile on changes:
 
 ```bash
-yarn watch
+npm run watch
 ```
 
 Then press `F5` to launch the Extension Development Host.

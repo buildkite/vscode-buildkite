@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { PipelinesTreeProvider } from "./pipelines";
 import { AgentsTreeProvider } from "./agents";
+import { SupportViewProvider } from "./support";
 
 let pipelinesTreeProvider: PipelinesTreeProvider;
 let agentsTreeProvider: AgentsTreeProvider;
@@ -38,7 +39,26 @@ export function initTreeViews(context: vscode.ExtensionContext): void {
     }),
   );
 
+<<<<<<< dahtey/SUP-6505
   // Register dispose to clean up polling timers and caches
+=======
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SupportViewProvider.viewId,
+      new SupportViewProvider(),
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.openSupportEmail", () => {
+      vscode.env.openExternal(
+        vscode.Uri.parse("mailto:support@buildkite.com"),
+      );
+    }),
+  );
+
+  // Register dispose to clean up polling timers
+>>>>>>> main
   context.subscriptions.push({
     dispose: () => {
       pipelinesTreeProvider.dispose();
