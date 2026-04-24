@@ -46,7 +46,9 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (token) {
         await AuthManager.setToken(token);
-        await getPipelinesTreeProvider().refresh();
+        // Clear cache when token changes to ensure fresh data
+        const pipelinesProvider = getPipelinesTreeProvider();
+        await pipelinesProvider.refresh();
         await getAgentsTreeProvider().refresh();
         await getStatusBarManager()?.refresh();
         vscode.window.showInformationMessage(
@@ -56,7 +58,9 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
       await AuthManager.clearToken();
-      await getPipelinesTreeProvider().refresh();
+      // Clear cache when token is cleared to ensure fresh data
+      const pipelinesProvider = getPipelinesTreeProvider();
+      await pipelinesProvider.refresh();
       await getAgentsTreeProvider().refresh();
       await getStatusBarManager()?.refresh();
       vscode.window.showInformationMessage("Buildkite API Token cleared.");

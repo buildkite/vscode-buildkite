@@ -4,7 +4,7 @@ import { Readable } from "stream";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { ArtifactNode } from "../treeViews/nodes/artifactNode";
 
 const PREVIEWABLE_MIME_PREFIXES = ["text/", "image/", "application/json"];
@@ -24,7 +24,7 @@ export async function downloadArtifact(node: ArtifactNode): Promise<void> {
   const artifact = node.artifact;
 
   try {
-    const client = new BuildkiteClient();
+    const client = new CachedApiClient();
 
     if (isPreviewable(artifact.mime_type)) {
       await vscode.window.withProgress(

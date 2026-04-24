@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 
 /**
  * Command handler that fetches and displays the number of pipelines
@@ -9,10 +9,10 @@ import { BuildkiteClient } from "../api/client";
  */
 export async function listPipelines() {
   try {
-    const client = new BuildkiteClient();
+    const client = new CachedApiClient();
     const org = await client.getOrganization();
     // This is a basic call and doesn't factor in pagination, it's just to demonstrate making an API call to an endpoint
-    const pipelines = await client.get(`/organizations/${org.slug}/pipelines`);
+    const pipelines = await client.getPipelines(org.slug);
     vscode.window.showInformationMessage(
       `Found ${Array.isArray(pipelines) ? pipelines.length : 0} pipelines`,
     );

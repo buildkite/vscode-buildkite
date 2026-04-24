@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AuthManager } from "../api/auth";
 import { PipelineNode } from "./nodes/pipelineNode";
 import { BuildNode } from "./nodes/buildNode";
@@ -21,7 +21,7 @@ type PipelineTreeNode =
   | NoTokenNode;
 
 // Polling interval for running builds (in milliseconds)
-const RUNNING_BUILD_POLL_INTERVAL = 10000; // 10 seconds
+const RUNNING_BUILD_POLL_INTERVAL = 60000; // 60 seconds
 
 // Build states that should be polled for updates
 // https://buildkite.com/docs/pipelines/configure/notifications#build-states
@@ -50,16 +50,17 @@ export class PipelinesTreeProvider
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private client: BuildkiteClient;
+  private client: CachedApiClient;
   private activePollers = new Map<string, PollingContext>();
   private buildCache = new Map<string, Build>();
 
   constructor() {
-    this.client = new BuildkiteClient();
+    this.client = new CachedApiClient();
   }
 
   async refresh(): Promise<void> {
     this.stopAllPolling();
+    this.client.clearCache(); // Clear cache on manual refresh
     this._onDidChangeTreeData.fire(null);
   }
   
@@ -312,5 +313,6 @@ export class PipelinesTreeProvider
 
   dispose(): void {
     this.stopAllPolling();
+    this.client.dispose(); // Dispose cache on extension deactivation
   }
 }

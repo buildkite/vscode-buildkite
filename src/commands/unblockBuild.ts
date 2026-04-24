@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { canUnblockJob, getJobDisplayName } from "../api/types";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
@@ -19,7 +19,7 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
+    const client = new CachedApiClient();
 
     const jobs = await client.getJobs(
       node.orgSlug,

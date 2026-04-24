@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { canUnblockJob, getJobDisplayName } from "../api/types";
 import { JobNode } from "../treeViews/nodes/jobNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
@@ -42,7 +42,7 @@ export async function unblockJob(node: JobNode): Promise<void> {
       return;
     }
 
-    const client = new BuildkiteClient();
+    const client = new CachedApiClient();
 
     const normalizedFields = normalizeFieldValues(fieldValues);
 

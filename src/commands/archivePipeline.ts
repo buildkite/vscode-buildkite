@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
@@ -28,7 +28,7 @@ export async function archivePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new BuildkiteClient();
+        const client = new CachedApiClient();
         await client.archivePipeline(orgSlug, pipeline.slug);
       },
     );
@@ -57,7 +57,7 @@ export async function unarchivePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new BuildkiteClient();
+        const client = new CachedApiClient();
         await client.unarchivePipeline(orgSlug, pipeline.slug);
       },
     );
@@ -95,7 +95,7 @@ export async function deletePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new BuildkiteClient();
+        const client = new CachedApiClient();
         await client.deletePipeline(orgSlug, pipeline.slug);
       },
     );

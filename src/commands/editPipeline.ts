@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
@@ -57,7 +57,7 @@ export async function editPipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new BuildkiteClient();
+        const client = new CachedApiClient();
         const trimmedDescription = description.trim();
         await client.updatePipeline(orgSlug, pipeline.slug, {
           name: name.trim(),

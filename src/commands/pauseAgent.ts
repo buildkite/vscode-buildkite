@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
 
@@ -20,7 +20,7 @@ export async function pauseAgent(node: AgentNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
+    const client = new CachedApiClient();
     await client.pauseAgent(node.orgSlug, node.agent.id);
 
     vscode.window.showInformationMessage(

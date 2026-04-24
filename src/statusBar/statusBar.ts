@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import { GitExtension, API as GitAPI } from "../types/git";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AuthManager } from "../api/auth";
 import { Pipeline, Build, BuildState } from "../api/types";
 import { getGitUrlVariants } from "../utils/gitUrl";
 import { getIconForBuild, getAggregateIcon } from "../treeViews/icons";
 import { showPipelineQuickPick } from "./statusBarCommands";
 
-const ACTIVE_POLL_INTERVAL_MS = 10000; // 10 seconds when builds are running
+const ACTIVE_POLL_INTERVAL_MS = 60000; // 60 seconds when builds are running
 const IDLE_POLL_INTERVAL_MS = 60000; // 60 seconds when idle (to catch new builds)
 
 const ACTIVE_BUILD_STATES: BuildState[] = [
@@ -21,7 +21,7 @@ let statusBarManagerInstance: StatusBarManager | undefined;
 
 export class StatusBarManager {
   private statusBarItem: vscode.StatusBarItem;
-  private client: BuildkiteClient;
+  private client: CachedApiClient;
   private workspaceRemoteUrls: string[] = [];
   private matchedPipelines: Pipeline[] = [];
   private pipelineBuilds: Map<string, Build[]> = new Map();
@@ -30,7 +30,7 @@ export class StatusBarManager {
   private disposables: vscode.Disposable[] = [];
 
   constructor() {
-    this.client = new BuildkiteClient();
+    this.client = new CachedApiClient();
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
       100,

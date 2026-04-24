@@ -1,4 +1,4 @@
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AgentsTreeProvider } from "../treeViews/agents";
 
 const POLL_INTERVAL_MS = 2000;
@@ -13,7 +13,7 @@ export async function pollUntilAgentGone(
   agentId: string,
   treeProvider: AgentsTreeProvider,
 ): Promise<void> {
-  const client = new BuildkiteClient();
+  const client = new CachedApiClient();
 
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
