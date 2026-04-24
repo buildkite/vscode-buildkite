@@ -10,6 +10,7 @@ import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
 import { Logger } from "../job/jobLogOutput";
+import { getBuildNotificationService } from "../notifications/buildNotifications";
 import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
 import { SummaryNode } from "./nodes/summaryNode";
 
@@ -137,6 +138,7 @@ export class PipelinesTreeProvider
         }
 
         // Cache builds and start polling for active ones
+        const notificationService = getBuildNotificationService();
         builds.forEach((build) => {
           this.buildCache.set(build.id, build);
           if (ACTIVE_BUILD_STATES.includes(build.state)) {
@@ -146,6 +148,8 @@ export class PipelinesTreeProvider
               element.orgSlug,
               element.pipeline.slug,
             );
+            // Track build for completion notifications
+            notificationService?.trackBuild(build, element.pipeline, element.orgSlug);
           }
         });
 
@@ -349,8 +353,18 @@ export class PipelinesTreeProvider
       const cachedBuild = this.buildCache.get(buildId);
       this.buildCache.set(buildId, updatedBuild);
 
-      if (!cachedBuild || cachedBuild.state !== updatedBuild.state) {
+      const stateChanged = !cachedBuild || cachedBuild.state !== updatedBuild.state;
+
+      if (stateChanged) {
         this._onDidChangeTreeData.fire(null);
+
+        // Notify about build state changes
+        const notificationService = getBuildNotificationService();
+        notificationService?.updateBuildState(
+          updatedBuild,
+          updatedBuild.pipeline,
+          orgSlug,
+        );
       }
 
       if (!ACTIVE_BUILD_STATES.includes(updatedBuild.state)) {
@@ -367,7 +381,16 @@ export class PipelinesTreeProvider
 
   private stopPolling(buildId: string): void {
     const poller = this.activePollers.get(buildId);
-    if (poller) clearTimeout(poller.timer);
+    if (poller) {
+      clearTimeout(poller.timer);
+      // Stop tracking this build for notifications
+      const notificationService = getBuildNotificationService();
+      notificationService?.stopTrackingBuild(
+        poller.buildNumber,
+        poller.pipelineSlug,
+        poller.orgSlug,
+      );
+    }
     this.activePollers.delete(buildId);
     this.buildCache.delete(buildId);
   }
