@@ -8,7 +8,7 @@ import { ArtifactsFolderNode } from "./nodes/artifactsFolderNode";
 import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
-import { Build, BuildState } from "../api/types";
+import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
 import { Logger } from "../job/jobLogOutput";
 import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
 import { SummaryNode } from "./nodes/summaryNode";
@@ -34,6 +34,13 @@ const ACTIVE_BUILD_STATES: BuildState[] = [
   "scheduled",
   "creating",
   "canceling",
+];
+
+const FAILED_JOB_STATES: JobState[] = [
+  "failed",
+  "timed_out",
+  "broken",
+  "waiting_failed",
 ];
 
 interface PollingContext {
@@ -173,7 +180,7 @@ export class PipelinesTreeProvider
               if (element.build.state === "failed" || element.build.state === "failing") {
                 children.push(
                   ...jobs
-                    .filter((job) => job.state === "failed")
+                    .filter((job) => FAILED_JOB_STATES.includes(job.state))
                     .map((job) => new JobNode(
                       job,
                       element.build.number,
@@ -181,10 +188,10 @@ export class PipelinesTreeProvider
                       element.orgSlug,
                   ))
                 )
-              } else if (element.build.state === "blocked") {
+              } else if (element.build.blocked) {
                 children.push(
                   ...jobs
-                    .filter((job) => job.state === "blocked")
+                    .filter((job) => canUnblockJob(job))
                     .map((job) => new JobNode(
                       job,
                       element.build.number,
