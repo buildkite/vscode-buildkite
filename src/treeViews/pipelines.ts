@@ -36,6 +36,7 @@ const ACTIVE_BUILD_STATES: BuildState[] = [
   "canceling",
 ];
 
+// Build states that are considered failed for filtering purposes
 const FAILED_JOB_STATES: JobState[] = [
   "failed",
   "timed_out",
@@ -139,40 +140,31 @@ export class PipelinesTreeProvider
         });
       }
 
-      // if the element of the tree is a buildnode
       if (element instanceof BuildNode) {
-        // get a logger object
         const logger = Logger.getInstance();
-        // write a log line at debug level
         logger.debug(`Fetching jobs for build #${element.build.number}`);
 
         try {
-          // create a jobs constant as the result of a getJobs call with the following arguments
           const jobs = await this.client.getJobs(
             element.orgSlug,
             element.pipeline.slug,
             element.build.number,
           );
 
-          // create children as an array of PipelineTreeNode
           const children: PipelineTreeNode[] = [];
 
-          // if there are 0 jobs
           if (jobs.length === 0) {
-            // if build state is any of scheduled, creating, or not_run
             if (
               element.build.state === "scheduled" ||
               element.build.state === "creating" ||
               element.build.state === "not_run"
             ) {
-              // Add an errornode saying we are waiting for jobs
               children.push(
                 new ErrorNode(
                   "No jobs available yet. Jobs will appear when the build starts.",
                 ),
               );
             } else {
-              // Add an errornode showing no jobs
               children.push(new ErrorNode("No jobs found"));
             }
           } else {
@@ -205,7 +197,6 @@ export class PipelinesTreeProvider
               children.push(new ViewAllStepsNode(element.build.web_url, jobs.length))
             } else {
               children.push(
-                // Unpack the array to add elements
                 ...jobs.map(
                   (job) =>
                     new JobNode(
@@ -219,7 +210,6 @@ export class PipelinesTreeProvider
             }
           }
 
-          // Add a link to the artifacts
           children.push(
             new ArtifactsFolderNode(
               element.build.number,
@@ -228,10 +218,8 @@ export class PipelinesTreeProvider
             ),
           );
 
-          // Return the final collection
           return children;
         } catch (error) {
-          // Error handling
           logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
           if (error instanceof Error) {
             return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
