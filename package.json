@@ -51,20 +51,34 @@
         "category": "Buildkite"
       },
       {
+        "command": "buildkite.signIn.OAuth",
+        "title": "Sign In with OAuth",
+        "category": "Buildkite"
+      },
+      {
+        "command": "buildkite.signOut.OAuth",
+        "title": "Sign Out of OAuth Session",
+        "category": "Buildkite"
+      },
+      {
         "command": "buildkite.setToken",
-        "title": "Buildkite: Set API Token"
+        "title": "Set API Token",
+        "category": "Buildkite"
       },
       {
         "command": "buildkite.clearToken",
-        "title": "Buildkite: Clear API Token"
+        "title": "Clear API Token",
+        "category": "Buildkite"
       },
       {
         "command": "buildkite.listPipelines",
-        "title": "Buildkite: List Pipelines"
+        "title": "List Pipelines",
+        "category": "Buildkite"
       },
       {
         "command": "buildkite.listJobs",
-        "title": "Buildkite: List Jobs"
+        "title": "List Jobs",
+        "category": "Buildkite"
       },
       {
         "command": "buildkite.pipelines.refresh",
@@ -176,7 +190,8 @@
       },
       {
         "command": "buildkite.statusBar.showPipelines",
-        "title": "Buildkite: Show Workspace Pipelines"
+        "title": "Show Workspace Pipelines",
+        "category": "Buildkite"
       },
       {
         "command": "buildkite.pipeline.create",
@@ -216,6 +231,88 @@
           "type": "boolean",
           "default": false,
           "description": "Show status bar even when no matching pipeline is found for the current workspace"
+        },
+        "buildkite.webBaseUrl": {
+          "type": "string",
+          "default": "https://buildkite.com",
+          "description": "Base URL for the Buildkite web UI."
+        },
+        "buildkite.apiBaseUrl": {
+          "type": "string",
+          "default": "https://api.buildkite.com/v2",
+          "description": "Base URL for the Buildkite REST API."
+        },
+        "buildkite.graphqlUrl": {
+          "type": "string",
+          "default": "https://graphql.buildkite.com/v1",
+          "description": "Endpoint for the Buildkite GraphQL API."
+        },
+        "buildkite.oauth.clientId": {
+          "type": "string",
+          "default": "buildkite-vscode",
+          "description": "OAuth client ID to use when signing in with the browser."
+        },
+        "buildkite.oauth.scopePreset": {
+          "type": "string",
+          "enum": [
+            "all",
+            "read-only",
+            "custom"
+          ],
+          "enumDescriptions": [
+            "Request all supported Buildkite scopes (the server only grants scopes the user actually has permission for).",
+            "Request read-only access to every Buildkite resource.",
+            "Use the exact list of scopes configured in Buildkite > Oauth > Scopes."
+          ],
+          "default": "all",
+          "description": "Which OAuth scopes to request at sign-in. Changes to this will take effect after signing out and back in."
+        },
+        "buildkite.oauth.scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "read_agents",
+              "write_agents",
+              "read_artifacts",
+              "write_artifacts",
+              "read_build_logs",
+              "write_build_logs",
+              "read_builds",
+              "write_builds",
+              "read_clusters",
+              "write_clusters",
+              "read_events",
+              "read_job_env",
+              "read_pipeline_templates",
+              "write_pipeline_templates",
+              "read_pipelines",
+              "write_pipelines",
+              "read_rules",
+              "write_rules",
+              "read_organizations",
+              "read_teams",
+              "write_teams",
+              "read_user",
+              "read_secrets_details",
+              "write_secrets",
+              "read_suites",
+              "write_suites",
+              "read_test_plan",
+              "write_test_plan",
+              "read_packages",
+              "write_packages",
+              "delete_packages",
+              "read_registries",
+              "write_registries",
+              "delete_registries",
+              "read_portals",
+              "write_portals"
+            ]
+          },
+          "default": [],
+          "description": "Custom list of Buildkite OAuth scopes to request. Only used when Buildkite > Oauth > Scope Preset is set to \"custom\". Changes to this will take effect after signing out and back in."
         }
       }
     },
@@ -407,7 +504,7 @@
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.48.0"
   },
-  "overrides":{
+  "overrides": {
     "@vscode/test-cli": {
       "serialize-javascript": "^7.0.5"
     }
