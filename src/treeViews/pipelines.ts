@@ -8,8 +8,10 @@ import { ArtifactsFolderNode } from "./nodes/artifactsFolderNode";
 import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
-import { Build, BuildState } from "../api/types";
+import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
 import { Logger } from "../job/jobLogOutput";
+import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
+import { SummaryNode } from "./nodes/summaryNode";
 
 type PipelineTreeNode =
   | PipelineNode
@@ -18,7 +20,9 @@ type PipelineTreeNode =
   | ArtifactsFolderNode
   | ArtifactNode
   | ErrorNode
-  | NoTokenNode;
+  | NoTokenNode
+  | ViewAllStepsNode
+  | SummaryNode;
 
 // Polling interval for running builds (in milliseconds)
 const RUNNING_BUILD_POLL_INTERVAL = 10000; // 10 seconds
@@ -32,6 +36,14 @@ const ACTIVE_BUILD_STATES: BuildState[] = [
   "canceling",
 ];
 
+// Build states that are considered failed for filtering purposes
+const FAILED_JOB_STATES: JobState[] = [
+  "failed",
+  "timed_out",
+  "broken",
+  "waiting_failed",
+];
+
 interface PollingContext {
   buildId: string;
   buildNumber: number;
@@ -42,6 +54,9 @@ interface PollingContext {
 }
 
 const MAX_RETRY_ATTEMPTS = 3;
+
+// Maximum number of jobs we will display
+const JOB_DISPLAY_LIMIT = 40;
 
 export class PipelinesTreeProvider
   implements vscode.TreeDataProvider<PipelineTreeNode> {
@@ -153,17 +168,46 @@ export class PipelinesTreeProvider
               children.push(new ErrorNode("No jobs found"));
             }
           } else {
-            children.push(
-              ...jobs.map(
-                (job) =>
-                  new JobNode(
-                    job,
-                    element.build.number,
-                    element.pipeline.slug,
-                    element.orgSlug,
-                  ),
-              ),
-            );
+            if (jobs.length > JOB_DISPLAY_LIMIT) {
+              if (element.build.state === "failed" || element.build.state === "failing") {
+                children.push(
+                  ...jobs
+                    .filter((job) => FAILED_JOB_STATES.includes(job.state))
+                    .map((job) => new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                  ))
+                );
+              } else if (element.build.blocked) {
+                children.push(
+                  ...jobs
+                    .filter((job) => canUnblockJob(job))
+                    .map((job) => new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                    ))
+                );
+              } else {
+                children.push(new SummaryNode(`Build has ${jobs.length} steps.`));
+              }
+              children.push(new ViewAllStepsNode(element.build.web_url, jobs.length));
+            } else {
+              children.push(
+                ...jobs.map(
+                  (job) =>
+                    new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                    ),
+                ),
+              );
+            }
           }
 
           children.push(
