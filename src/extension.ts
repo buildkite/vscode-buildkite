@@ -1,5 +1,9 @@
 import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
+import { AUTH_PROVIDER_ID, AUTH_PROVIDER_LABEL} from "./api/oauth/constants";
+import { resolveScopesFromConfig } from "./api/oauth/scopes";
+import { BuildkiteAuthProvider } from "./api/oauth/buildkiteAuthProvider";
+import { SessionStore } from "./api/oauth/sessionStore";
 import {
   initTreeViews,
   getPipelinesTreeProvider,
@@ -33,12 +37,75 @@ import { searchDocs } from "./commands/searchDocs";
  * Buildkite API tokens, pipelines, and jobs.
  * @param context - The extension context provided by VS Code
  */
-export function activate(context: vscode.ExtensionContext) { 
+export function activate(context: vscode.ExtensionContext) {
 
   AuthManager.initialize(context);
+
+  // Register the Buildkite OAuth authentication provider.
+  const authProvider = new BuildkiteAuthProvider(new SessionStore(context.secrets));
+  AuthManager.registerOAuthProvider(authProvider);
+  context.subscriptions.push(
+    vscode.authentication.registerAuthenticationProvider(
+      AUTH_PROVIDER_ID,
+      AUTH_PROVIDER_LABEL,
+      authProvider,
+      { supportsMultipleAccounts: false },
+    ),
+    authProvider,
+  );
+
   initTreeViews(context);
   initStatusBar(context);
   context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.signIn.OAuth", async () => {
+      try {
+        const config = vscode.workspace.getConfiguration("buildkite");
+        const scopes = resolveScopesFromConfig({
+          preset: config.get<string>("oauth.scopePreset"),
+          customScopes: config.get<string[]>("oauth.scopes"),
+        });
+        const session = await vscode.authentication.getSession(
+          AUTH_PROVIDER_ID,
+          scopes,
+          { createIfNone: true },
+        );
+        if (session) {
+          await getPipelinesTreeProvider().refresh();
+          await getAgentsTreeProvider().refresh();
+          await getStatusBarManager()?.refresh();
+          vscode.window.showInformationMessage(
+            `Signed in to Buildkite as ${session.account.label}.`,
+          );
+        }
+      } catch (err) {
+        if (err instanceof vscode.CancellationError) {
+          return;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Buildkite sign-in failed: ${message}`);
+      }
+    }),
+    vscode.commands.registerCommand("buildkite.signOut.OAuth", async () => {
+      const sessions = await authProvider.getSessions();
+      if (sessions.length === 0) {
+        vscode.window.showInformationMessage("No Buildkite session to sign out.");
+        return;
+      }
+      for (const session of sessions) {
+        await authProvider.removeSession(session.id);
+      }
+      await getPipelinesTreeProvider().refresh();
+      await getAgentsTreeProvider().refresh();
+      await getStatusBarManager()?.refresh();
+      vscode.window.showInformationMessage("Signed out of Buildkite.");
+    }),
+    vscode.authentication.onDidChangeSessions(async (e) => {
+      if (e.provider.id === AUTH_PROVIDER_ID) {
+        await getPipelinesTreeProvider().refresh();
+        await getAgentsTreeProvider().refresh();
+        await getStatusBarManager()?.refresh();
+      }
+    }),
     vscode.commands.registerCommand("buildkite.setToken", async () => {
       const token = await vscode.window.showInputBox({
         prompt: "Enter your Buildkite API Token",
