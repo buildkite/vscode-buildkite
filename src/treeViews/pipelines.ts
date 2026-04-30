@@ -179,7 +179,7 @@ export class PipelinesTreeProvider
                       element.pipeline.slug,
                       element.orgSlug,
                   ))
-                )
+                );
               } else if (element.build.blocked) {
                 children.push(
                   ...jobs
@@ -190,11 +190,11 @@ export class PipelinesTreeProvider
                       element.pipeline.slug,
                       element.orgSlug,
                     ))
-                )
+                );
               } else {
-                children.push(new SummaryNode(`Build has ${jobs.length} steps.`))
+                children.push(new SummaryNode(`Build has ${jobs.length} steps.`));
               }
-              children.push(new ViewAllStepsNode(element.build.web_url, jobs.length))
+              children.push(new ViewAllStepsNode(element.build.web_url, jobs.length));
             } else {
               children.push(
                 ...jobs.map(

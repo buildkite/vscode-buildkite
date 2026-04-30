@@ -12,6 +12,11 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    rules: {
+      semi: ["error", "always"],
+    },
+  },
+  {
     languageOptions: {
       globals: {
         ...globals.node,
