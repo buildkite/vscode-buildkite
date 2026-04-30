@@ -1,4 +1,5 @@
 import { AuthManager } from "./auth";
+import * as vscode from "vscode";
 
 interface GraphQLResponse<T> {
   data?: T;
@@ -14,7 +15,14 @@ interface GraphQLResponse<T> {
  * Handles authentication and GraphQL requests.
  */
 export class BuildkiteGraphQLClient {
-  private endpoint = "https://graphql.buildkite.com/v1";
+  private get endpoint(): string {
+    const configured = vscode.workspace
+      .getConfiguration("buildkite")
+      .get<string>("graphqlUrl");
+    return configured && configured.trim()
+      ? configured.trim()
+      : "https://graphql.buildkite.com/v1";
+  }
 
   /**
    * Executes a GraphQL query.
@@ -28,10 +36,11 @@ export class BuildkiteGraphQLClient {
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<T> {
-    const token = await AuthManager.requireToken();
-    if (!token) {
+    const resolved = await AuthManager.requireToken({ resolved: true });
+    if (!resolved) {
       throw new Error("Authentication required");
     }
+    const { token, source, sessionId } = resolved;
 
     const response = await fetch(this.endpoint, {
       method: "POST",
@@ -44,9 +53,7 @@ export class BuildkiteGraphQLClient {
 
     if (!response.ok) {
       if (response.status === 401) {
-        throw new Error(
-          "Invalid API token. Please update your Buildkite API token.",
-        );
+        throw new Error(await AuthManager.handleUnauthorized(source, sessionId));
       }
       if (response.status === 429) {
         throw new Error(

@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import { AuthManager } from "./auth";
 import {
   Pipeline,
@@ -39,7 +40,13 @@ export interface Organization {
  * Handles authentication and API requests.
  */
 export class BuildkiteClient {
-  private baseUrl = "https://api.buildkite.com/v2";
+  private get baseUrl(): string {
+    const configured = vscode.workspace
+      .getConfiguration("buildkite")
+      .get<string>("apiBaseUrl");
+    const raw = configured && configured.trim() ? configured.trim() : "https://api.buildkite.com/v2";
+    return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+  }
   private organization: Organization | undefined;
   private graphqlClient = new BuildkiteGraphQLClient();
 
@@ -76,10 +83,11 @@ export class BuildkiteClient {
   }
 
   private async fetch(endpoint: string, options?: RequestInit): Promise<Response> {
-    const token = await AuthManager.requireToken();
-    if (!token) {
+    const resolved = await AuthManager.requireToken({ resolved: true });
+    if (!resolved) {
       throw new Error("Authentication required");
     }
+    const { token, source, sessionId } = resolved;
 
     const url = endpoint.startsWith("http")
       ? endpoint
@@ -95,9 +103,7 @@ export class BuildkiteClient {
 
     if (!response.ok) {
       if (response.status === 401) {
-        throw new Error(
-          "Invalid API token. Please update your Buildkite API token.",
-        );
+        throw new Error(await AuthManager.handleUnauthorized(source, sessionId));
       }
       if (response.status === 429) {
         throw new Error(
