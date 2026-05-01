@@ -13,7 +13,7 @@ export class CacheProvider {
   private cache = new Map<string, CacheEntry<unknown>>();
   private defaultTTL: number;
 
-  constructor(defaultTTL: number = 60000) {
+  private constructor(defaultTTL: number = 60000) {
     this.defaultTTL = defaultTTL; // 60 seconds default
   }
 

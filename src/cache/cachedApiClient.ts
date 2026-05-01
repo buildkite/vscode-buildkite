@@ -20,7 +20,7 @@ export class CachedApiClient {
     return CachedApiClient.instance;
   }
 
-  constructor() {
+  private constructor() {
     this.client = new BuildkiteClient();
     this.cache = CacheProvider.getInstance();
   }
