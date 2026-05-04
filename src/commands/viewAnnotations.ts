@@ -3,8 +3,14 @@ import { BuildkiteClient } from "../api/client";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { AnnotationsWebview } from "../build/annotationsWebview";
 
-// One shared instance, like JobLogWebview
-const annotationsWebview = new AnnotationsWebview();
+let annotationsWebview: AnnotationsWebview | undefined;
+
+function getAnnotationsWebview(): AnnotationsWebview {
+  if (!annotationsWebview) {
+    annotationsWebview = new AnnotationsWebview();
+  }
+  return annotationsWebview;
+}
 
 /**
  * Command handler to view annotations for a build.
@@ -33,7 +39,7 @@ export async function viewAnnotations(node: BuildNode): Promise<void> {
           pipeline.slug,
           build.number,
         );
-        annotationsWebview.show(buildKey, buildLabel, annotations);
+        getAnnotationsWebview().show(buildKey, buildLabel, annotations);
       },
     );
   } catch (error) {
@@ -53,5 +59,5 @@ export async function viewAnnotations(node: BuildNode): Promise<void> {
  * Disposes the annotations webview. Call from extension deactivate().
  */
 export function disposeAnnotationsWebview(): void {
-  annotationsWebview.dispose();
+  annotationsWebview?.dispose();
 }

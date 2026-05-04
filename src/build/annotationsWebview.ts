@@ -63,11 +63,10 @@ export class AnnotationsWebview {
     return map[style] ?? "annotation-info";
   }
 
-  
-/**
- * Generates the HTML content for the webview.
- * Renders pre-converted HTML from the Buildkite API directly.
- */
+  /**
+   * Generates the HTML content for the webview.
+   * Renders pre-converted HTML from the Buildkite API directly.
+   */
   private getWebviewContent(
     buildLabel: string,
     annotations: Annotation[],
@@ -119,7 +118,7 @@ export class AnnotationsWebview {
     .annotation-warning { border-color: #ff9800; }
     .annotation-error   { border-color: #f44336; }
     .annotation-default { border-color: #858585; }
-   
+
     .annotation-body p:first-child { margin-top: 0; }
     .annotation-body p:last-child  { margin-bottom: 0; }
     .annotation-body code {
@@ -163,8 +162,6 @@ export class AnnotationsWebview {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
   }
-
-
 
   /**
    * Disposes all webview panels.

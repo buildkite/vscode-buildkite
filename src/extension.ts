@@ -10,9 +10,9 @@ import { retryJob } from "./commands/retryJob";
 import { downloadArtifact } from "./commands/downloadArtifact";
 import { unblockJob } from "./commands/unblockJob";
 import { viewJobLog, disposeJobLogWebview } from "./commands/viewJobLog";
-import { viewAnnotations, disposeAnnotationsWebview } from "./commands/viewAnnotations"; 
+import { viewAnnotations, disposeAnnotationsWebview } from "./commands/viewAnnotations";
 import { listPipelines } from "./pipeline/pipelineCommands";
-import { listJobs } from "./job/jobCommands"; 
+import { listJobs } from "./job/jobCommands";
 import { openJobLogUrl } from "./commands/openJobLogUrl";
 
 /**
@@ -21,11 +21,11 @@ import { openJobLogUrl } from "./commands/openJobLogUrl";
  * Buildkite API tokens, pipelines, and jobs.
  * @param context - The extension context provided by VS Code
  */
-export function activate(context: vscode.ExtensionContext) { 
-
+export function activate(context: vscode.ExtensionContext) {
   AuthManager.initialize(context);
   initTreeViews(context);
   initStatusBar(context);
+
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.setToken", async () => {
       const token = await vscode.window.showInputBox({
@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Register Job Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.job.viewJobLog", viewJobLog),
-    vscode.commands.registerCommand("buildkite.job.openJobLogUrl", openJobLogUrl),  
+    vscode.commands.registerCommand("buildkite.job.openJobLogUrl", openJobLogUrl),
     vscode.commands.registerCommand("buildkite.job.retry", retryJob),
     vscode.commands.registerCommand("buildkite.job.unblock", unblockJob),
   );
