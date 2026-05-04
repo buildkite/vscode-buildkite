@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { JobNode } from "../treeViews/nodes/jobNode";
 import { canRetryJob, getJobDisplayName } from "../api/types";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
@@ -29,7 +29,7 @@ export async function retryJob(node: JobNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
+    const client = CachedApiClient.getInstance();
     await client.retryJob(
       node.orgSlug,
       node.pipelineSlug,

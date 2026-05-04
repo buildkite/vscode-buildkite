@@ -32,10 +32,24 @@
         {
           "id": "buildkite.pipelines",
           "name": "Pipelines"
+        },
+        {
+          "id": "buildkite.agents",
+          "name": "Agents"
+        },
+        {
+          "id": "buildkite.support",
+          "name": "Support",
+          "type": "webview"
         }
       ]
     },
     "commands": [
+      {
+        "command": "buildkite.searchDocs",
+        "title": "Search Docs",
+        "category": "Buildkite"
+      },
       {
         "command": "buildkite.setToken",
         "title": "Buildkite: Set API Token"
@@ -63,6 +77,12 @@
         "title": "View on Buildkite",
         "category": "Buildkite",
         "icon": "$(globe)"
+      },
+      {
+        "command": "buildkite.build.create",
+        "title": "Create a build",
+        "category": "Buildkite",
+        "icon": "$(rocket)"
       },
       {
         "command": "buildkite.build.rebuild",
@@ -95,6 +115,48 @@
         "icon": "$(debug-restart)"
       },
       {
+        "command": "buildkite.agents.refresh",
+        "title": "Refresh Agents",
+        "category": "Buildkite",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "buildkite.agents.filter",
+        "title": "Filter Agents",
+        "category": "Buildkite",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "buildkite.agents.clearFilter",
+        "title": "Clear Agent Filter",
+        "category": "Buildkite",
+        "icon": "$(close)"
+      },
+      {
+        "command": "buildkite.agent.stop",
+        "title": "Stop Agent",
+        "category": "Buildkite",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "buildkite.agent.forceStop",
+        "title": "Force Stop Agent",
+        "category": "Buildkite",
+        "icon": "$(error)"
+      },
+      {
+        "command": "buildkite.agent.pause",
+        "title": "Pause Agent",
+        "category": "Buildkite",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "buildkite.agent.resume",
+        "title": "Resume Agent",
+        "category": "Buildkite",
+        "icon": "$(play)"
+      },
+      {
         "command": "buildkite.artifact.download",
         "title": "Download Artifact",
         "category": "Buildkite",
@@ -121,6 +183,36 @@
       {
         "command": "buildkite.statusBar.showPipelines",
         "title": "Buildkite: Show Workspace Pipelines"
+      },
+      {
+        "command": "buildkite.pipeline.create",
+        "title": "Create Pipeline",
+        "category": "Buildkite",
+        "icon": "$(add)"
+      },
+      {
+        "command": "buildkite.pipeline.edit",
+        "title": "Edit Pipeline Settings",
+        "category": "Buildkite",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "buildkite.pipeline.archive",
+        "title": "Archive Pipeline",
+        "category": "Buildkite",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "buildkite.pipeline.unarchive",
+        "title": "Unarchive Pipeline",
+        "category": "Buildkite",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "buildkite.pipeline.delete",
+        "title": "Delete Pipeline",
+        "category": "Buildkite",
+        "icon": "$(trash)"
       }
     ],
     "configuration": {
@@ -137,6 +229,26 @@
       "view/title": [
         {
           "command": "buildkite.pipelines.refresh",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines"
+        },
+        {
+          "command": "buildkite.agents.refresh",
+          "group": "navigation",
+          "when": "view == buildkite.agents"
+        },
+        {
+          "command": "buildkite.agents.filter",
+          "group": "navigation",
+          "when": "view == buildkite.agents"
+        },
+        {
+          "command": "buildkite.agents.clearFilter",
+          "group": "navigation",
+          "when": "view == buildkite.agents && buildkite.agents.filterActive"
+        },
+        {
+          "command": "buildkite.pipeline.create",
           "group": "navigation",
           "when": "view == buildkite.pipelines"
         }
@@ -178,14 +290,39 @@
           "group": "navigation@3"
         },
         {
+          "command": "buildkite.build.unblock",
+          "when": "viewItem =~ /:blocked$/",
+          "group": "navigation@4"
+        },
+        {
+          "command": "buildkite.build.create",
+          "when": "viewItem == pipeline",
+          "group": "inline"
+        },
+        {
           "command": "buildkite.job.retry",
           "when": "viewItem == job.retriable",
           "group": "inline"
         },
         {
-          "command": "buildkite.build.unblock",
-          "when": "viewItem =~ /:blocked$/",
-          "group": "navigation@4"
+          "command": "buildkite.agent.stop",
+          "when": "viewItem == agent.connected || viewItem == agent.connected.paused || viewItem == agent.connected.running || viewItem == agent.connected.paused.running",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.agent.pause",
+          "when": "viewItem == agent.connected || viewItem == agent.connected.running",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.agent.resume",
+          "when": "viewItem == agent.connected.paused || viewItem == agent.connected.paused.running",
+          "group": "inline"
+        },
+        {
+          "command": "buildkite.agent.forceStop",
+          "when": "viewItem == agent.connected.running || viewItem == agent.connected.paused.running",
+          "group": "inline"
         },
         {
           "command": "buildkite.build.viewAnnotations",
@@ -226,6 +363,44 @@
           "command": "buildkite.job.unblock",
           "when": "viewItem =~ /^job\\.unblockable/",
           "group": "actions@2"
+        },
+        {
+          "command": "buildkite.pipeline.edit",
+          "when": "viewItem =~ /^pipeline/",
+          "group": "pipeline@1"
+        },
+        {
+          "command": "buildkite.pipeline.archive",
+          "when": "viewItem == pipeline",
+          "group": "pipeline@2"
+        },
+        {
+          "command": "buildkite.pipeline.unarchive",
+          "when": "viewItem == pipeline.archived",
+          "group": "pipeline@2"
+        },
+        {
+          "command": "buildkite.pipeline.delete",
+          "when": "viewItem =~ /^pipeline/",
+          "group": "pipeline@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "buildkite.pipeline.edit",
+          "when": "false"
+        },
+        {
+          "command": "buildkite.pipeline.archive",
+          "when": "false"
+        },
+        {
+          "command": "buildkite.pipeline.unarchive",
+          "when": "false"
+        },
+        {
+          "command": "buildkite.pipeline.delete",
+          "when": "false"
         }
       ]
     }
@@ -247,6 +422,11 @@
     "globals": "^16.5.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.0"
+  },
+  "overrides": {
+    "@vscode/test-cli": {
+      "serialize-javascript": "^7.0.5"
+    }
   },
   "dependencies": {
     "ansi-to-html": "^0.7.2"

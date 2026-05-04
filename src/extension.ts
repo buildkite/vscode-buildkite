@@ -1,8 +1,13 @@
 import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
-import { initTreeViews, getPipelinesTreeProvider } from "./treeViews/treeViews";
+import {
+  initTreeViews,
+  getPipelinesTreeProvider,
+  getAgentsTreeProvider,
+} from "./treeViews/treeViews";
 import { initStatusBar, getStatusBarManager } from "./statusBar/statusBar";
 import { openBuildUrl } from "./commands/openBuildUrl";
+import { createBuild } from "./commands/createBuild";
 import { rebuildBuild } from "./commands/rebuildBuild";
 import { cancelBuild } from "./commands/cancelBuild";
 import { unblockBuild } from "./commands/unblockBuild";
@@ -11,9 +16,17 @@ import { downloadArtifact } from "./commands/downloadArtifact";
 import { unblockJob } from "./commands/unblockJob";
 import { viewJobLog, disposeJobLogWebview } from "./commands/viewJobLog";
 import { viewAnnotations, disposeAnnotationsWebview } from "./commands/viewAnnotations";
+import { stopAgent } from "./commands/stopAgent";
+import { forceStopAgent } from "./commands/forceStopAgent";
+import { pauseAgent } from "./commands/pauseAgent";
+import { resumeAgent } from "./commands/resumeAgent";
 import { listPipelines } from "./pipeline/pipelineCommands";
 import { listJobs } from "./job/jobCommands";
 import { openJobLogUrl } from "./commands/openJobLogUrl";
+import { createPipeline } from "./commands/createPipeline";
+import { editPipeline } from "./commands/editPipeline";
+import { archivePipeline, unarchivePipeline, deletePipeline } from "./commands/archivePipeline";
+import { searchDocs } from "./commands/searchDocs";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -35,7 +48,10 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (token) {
         await AuthManager.setToken(token);
-        await getPipelinesTreeProvider().refresh();
+        // Clear cache when token changes to ensure fresh data
+        const pipelinesProvider = getPipelinesTreeProvider();
+        await pipelinesProvider.refresh();
+        await getAgentsTreeProvider().refresh();
         await getStatusBarManager()?.refresh();
         vscode.window.showInformationMessage(
           "Buildkite API Token saved securely.",
@@ -44,7 +60,10 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
       await AuthManager.clearToken();
-      await getPipelinesTreeProvider().refresh();
+      // Clear cache when token is cleared to ensure fresh data
+      const pipelinesProvider = getPipelinesTreeProvider();
+      await pipelinesProvider.refresh();
+      await getAgentsTreeProvider().refresh();
       await getStatusBarManager()?.refresh();
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
     }),
@@ -54,11 +73,17 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.listPipelines", listPipelines),
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
+    vscode.commands.registerCommand("buildkite.pipeline.create", createPipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.edit", editPipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.archive", archivePipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.unarchive", unarchivePipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.delete", deletePipeline),
   );
 
   // Register Build Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
+    vscode.commands.registerCommand("buildkite.build.create", createBuild),
     vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
     vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
     vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
@@ -78,6 +103,55 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(
       "buildkite.artifact.download",
       downloadArtifact,
+    ),
+  );
+
+  // Register Agent Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.agent.stop", stopAgent),
+    vscode.commands.registerCommand("buildkite.agent.forceStop", forceStopAgent),
+    vscode.commands.registerCommand("buildkite.agent.pause", pauseAgent),
+    vscode.commands.registerCommand("buildkite.agent.resume", resumeAgent),
+  );
+
+  // Register Support Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.searchDocs", searchDocs),
+  );
+
+  // Register Agent Filter Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "buildkite.agents.filter",
+      async () => {
+        const provider = getAgentsTreeProvider();
+        const query = await vscode.window.showInputBox({
+          prompt: "Filter agents by name, hostname, or queue tag",
+          value: provider.getFilter(),
+          placeHolder: "e.g. my-agent, web-01, queue=deploy",
+        });
+        if (query === undefined) {
+          return;
+        }
+        provider.setFilter(query);
+        await vscode.commands.executeCommand(
+          "setContext",
+          "buildkite.agents.filterActive",
+          query.trim().length > 0,
+        );
+      },
+    ),
+    vscode.commands.registerCommand(
+      "buildkite.agents.clearFilter",
+      async () => {
+        const provider = getAgentsTreeProvider();
+        provider.setFilter("");
+        await vscode.commands.executeCommand(
+          "setContext",
+          "buildkite.agents.filterActive",
+          false,
+        );
+      },
     ),
   );
 }

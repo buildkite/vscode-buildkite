@@ -1,4 +1,9 @@
-import { Build, BuildState, JobState } from "../api/types";
+import {
+  Build,
+  BuildState,
+  JobState,
+  AgentConnectionState,
+} from "../api/types";
 
 /**
  * Maps Buildkite build states to VS Code codicon names.
@@ -104,5 +109,35 @@ export function getIconForJob(state: JobState): string {
       return "error";
     default:
       return "circle-outline";
+  }
+}
+
+/**
+ * Maps Buildkite agent connection states to VS Code codicon names.
+ * When connected but paused: pause icon. When running a job: spinner.
+ * Otherwise: vm-active (idle) or vm-outline / circle-slash for other states.
+ */
+export function getIconForAgent(
+  state: AgentConnectionState,
+  paused?: boolean,
+  runningJob?: boolean,
+): string {
+  if (state === "connected" && paused) {
+    return "debug-pause";
+  }
+  if (state === "connected" && runningJob) {
+    return "sync~spin";
+  }
+  switch (state) {
+    case "connected":
+      return "vm-active";
+    case "disconnected":
+      return "vm-outline";
+    case "stopping":
+      return "loading~spin";
+    case "stopped":
+      return "circle-slash";
+    default:
+      return "vm-outline";
   }
 }

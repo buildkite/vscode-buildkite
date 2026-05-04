@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AuthManager } from "../api/auth";
 import { PipelineNode } from "./nodes/pipelineNode";
 import { BuildNode } from "./nodes/buildNode";
@@ -8,8 +8,10 @@ import { ArtifactsFolderNode } from "./nodes/artifactsFolderNode";
 import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
-import { Build, BuildState } from "../api/types";
+import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
 import { Logger } from "../job/jobLogOutput";
+import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
+import { SummaryNode } from "./nodes/summaryNode";
 
 type PipelineTreeNode =
   | PipelineNode
@@ -18,10 +20,12 @@ type PipelineTreeNode =
   | ArtifactsFolderNode
   | ArtifactNode
   | ErrorNode
-  | NoTokenNode;
+  | NoTokenNode
+  | ViewAllStepsNode
+  | SummaryNode;
 
 // Polling interval for running builds (in milliseconds)
-const RUNNING_BUILD_POLL_INTERVAL = 10000; // 10 seconds
+const RUNNING_BUILD_POLL_INTERVAL = 60000; // 60 seconds
 
 // Build states that should be polled for updates
 // https://buildkite.com/docs/pipelines/configure/notifications#build-states
@@ -30,6 +34,14 @@ const ACTIVE_BUILD_STATES: BuildState[] = [
   "scheduled",
   "creating",
   "canceling",
+];
+
+// Build states that are considered failed for filtering purposes
+const FAILED_JOB_STATES: JobState[] = [
+  "failed",
+  "timed_out",
+  "broken",
+  "waiting_failed",
 ];
 
 interface PollingContext {
@@ -43,6 +55,9 @@ interface PollingContext {
 
 const MAX_RETRY_ATTEMPTS = 3;
 
+// Maximum number of jobs we will display
+const JOB_DISPLAY_LIMIT = 40;
+
 export class PipelinesTreeProvider
   implements vscode.TreeDataProvider<PipelineTreeNode> {
   private _onDidChangeTreeData = new vscode.EventEmitter<
@@ -50,16 +65,17 @@ export class PipelinesTreeProvider
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private client: BuildkiteClient;
+  private client: CachedApiClient;
   private activePollers = new Map<string, PollingContext>();
   private buildCache = new Map<string, Build>();
 
   constructor() {
-    this.client = new BuildkiteClient();
+    this.client = CachedApiClient.getInstance();
   }
 
   async refresh(): Promise<void> {
     this.stopAllPolling();
+    this.client.clearCache(); // Clear cache on manual refresh
     this._onDidChangeTreeData.fire(null);
   }
   
@@ -153,17 +169,46 @@ export class PipelinesTreeProvider
               children.push(new ErrorNode("No jobs found"));
             }
           } else {
-            children.push(
-              ...jobs.map(
-                (job) =>
-                  new JobNode(
-                    job,
-                    element.build.number,
-                    element.pipeline.slug,
-                    element.orgSlug,
-                  ),
-              ),
-            );
+            if (jobs.length > JOB_DISPLAY_LIMIT) {
+              if (element.build.state === "failed" || element.build.state === "failing") {
+                children.push(
+                  ...jobs
+                    .filter((job) => FAILED_JOB_STATES.includes(job.state))
+                    .map((job) => new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                  ))
+                );
+              } else if (element.build.blocked) {
+                children.push(
+                  ...jobs
+                    .filter((job) => canUnblockJob(job))
+                    .map((job) => new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                    ))
+                );
+              } else {
+                children.push(new SummaryNode(`Build has ${jobs.length} steps.`));
+              }
+              children.push(new ViewAllStepsNode(element.build.web_url, jobs.length));
+            } else {
+              children.push(
+                ...jobs.map(
+                  (job) =>
+                    new JobNode(
+                      job,
+                      element.build.number,
+                      element.pipeline.slug,
+                      element.orgSlug,
+                    ),
+                ),
+              );
+            }
           }
 
           children.push(
@@ -276,6 +321,8 @@ export class PipelinesTreeProvider
     }
 
     try {
+      // Clear cached build data so polling fetches fresh state from the API
+      this.client.clearPipelineCache(orgSlug, pipelineSlug);
       const updatedBuild = await this.client.getBuild(
         orgSlug,
         pipelineSlug,
@@ -312,5 +359,6 @@ export class PipelinesTreeProvider
 
   dispose(): void {
     this.stopAllPolling();
+    this.client.dispose(); // Dispose cache on extension deactivation
   }
 }
