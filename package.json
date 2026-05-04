@@ -46,6 +46,11 @@
     },
     "commands": [
       {
+        "command": "buildkite.searchDocs",
+        "title": "Search Docs",
+        "category": "Buildkite"
+      },
+      {
         "command": "buildkite.setToken",
         "title": "Buildkite: Set API Token"
       },
@@ -420,7 +425,7 @@
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.48.0"
   },
-  "overrides":{
+  "overrides": {
     "@vscode/test-cli": {
       "serialize-javascript": "^7.0.5"
     }
