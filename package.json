@@ -213,8 +213,8 @@
     "keybindings": [
       {
         "command": "buildkite.pipelines.pick",
-        "key": "ctrl+shift+b",
-        "mac": "cmd+shift+b"
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
       }
     ],
     "configuration": {
