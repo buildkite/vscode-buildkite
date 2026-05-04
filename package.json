@@ -407,7 +407,7 @@
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.48.0"
   },
-  "overrides":{
+  "overrides": {
     "@vscode/test-cli": {
       "serialize-javascript": "^7.0.5"
     }

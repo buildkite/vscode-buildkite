@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { JobNode } from "../treeViews/nodes/jobNode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { Logger } from "../job/jobLogOutput";
 import { JobLogWebview } from "../job/jobLogWebview";
 
@@ -20,7 +20,7 @@ function getJobLogWebview(): JobLogWebview {
  */
 export async function viewJobLog(jobNode: JobNode): Promise<void> {
   const logger = Logger.getInstance();
-  const client = new BuildkiteClient();
+  const client = CachedApiClient.getInstance();
 
   try {
     const jobName = jobNode.job.name || jobNode.job.id || jobNode.job.step_key || "Unknown Job";

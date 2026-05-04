@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Pipeline, Build } from "../api/types";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { getIconForBuild } from "../treeViews/icons";
 
 interface PipelineQuickPickItem extends vscode.QuickPickItem {
@@ -16,7 +16,7 @@ export async function showPipelineQuickPick(
   matchedPipelines: Pipeline[],
   pipelineBuilds: Map<string, Build[]>,
   orgSlug: string,
-  client: BuildkiteClient,
+  client: CachedApiClient,
 ): Promise<void> {
   // Single pipeline - go directly to actions
   if (matchedPipelines.length === 1) {
@@ -64,7 +64,7 @@ async function showActionsQuickPick(
   pipeline: Pipeline,
   build: Build | undefined,
   orgSlug: string,
-  client: BuildkiteClient,
+  client: CachedApiClient,
 ): Promise<void> {
   const actions: ActionQuickPickItem[] = [];
 
@@ -110,17 +110,17 @@ async function showActionsQuickPick(
 
     case "rebuild":
       if (build) {
-        await rebuildBuildFromStatusBar(pipeline, build, orgSlug, client);
+        await rebuildBuildAction(pipeline, build, orgSlug, client);
       }
       break;
   }
 }
 
-async function rebuildBuildFromStatusBar(
+async function rebuildBuildAction(
   pipeline: Pipeline,
   build: Build,
   orgSlug: string,
-  client: BuildkiteClient,
+  client: CachedApiClient,
 ): Promise<void> {
   const confirm = await vscode.window.showQuickPick(
     [
