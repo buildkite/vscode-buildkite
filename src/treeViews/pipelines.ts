@@ -13,7 +13,7 @@ import { Logger } from "../job/jobLogOutput";
 import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
 import { SummaryNode } from "./nodes/summaryNode";
 
-type PipelineTreeNode =
+export type PipelineTreeNode =
   | PipelineNode
   | BuildNode
   | JobNode
@@ -68,12 +68,26 @@ export class PipelinesTreeProvider
   private client: CachedApiClient;
   private activePollers = new Map<string, PollingContext>();
   private buildCache = new Map<string, Build>();
+  private pipelineNodes: PipelineNode[] = [];
 
   constructor() {
     this.client = CachedApiClient.getInstance();
   }
 
+  getPipelineNodes(): PipelineNode[] {
+    return this.pipelineNodes;
+  }
+
+  getParent(element: PipelineTreeNode): vscode.ProviderResult<PipelineTreeNode> {
+    // Pipeline nodes are root-level; all others are children
+    if (element instanceof PipelineNode) {
+      return undefined;
+    }
+    return undefined;
+  }
+
   async refresh(): Promise<void> {
+    this.pipelineNodes = [];
     this.stopAllPolling();
     this.client.clearCache(); // Clear cache on manual refresh
     this._onDidChangeTreeData.fire(null);
@@ -107,7 +121,8 @@ export class PipelinesTreeProvider
           return [new ErrorNode("No pipelines found")];
         }
 
-        return pipelines.map((p) => new PipelineNode(p, org.slug));
+        this.pipelineNodes = pipelines.map((p) => new PipelineNode(p, org.slug));
+        return this.pipelineNodes;
       }
 
       if (element instanceof PipelineNode) {

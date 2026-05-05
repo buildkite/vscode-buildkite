@@ -207,6 +207,19 @@
         "title": "Delete Pipeline",
         "category": "Buildkite",
         "icon": "$(trash)"
+      },
+      {
+        "command": "buildkite.pipelines.pick",
+        "title": "Switch Pipeline",
+        "category": "Buildkite",
+        "icon": "$(list-flat)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "buildkite.pipelines.pick",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
       }
     ],
     "configuration": {
@@ -221,6 +234,11 @@
     },
     "menus": {
       "view/title": [
+        {
+          "command": "buildkite.pipelines.pick",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines"
+        },
         {
           "command": "buildkite.pipelines.refresh",
           "group": "navigation",
