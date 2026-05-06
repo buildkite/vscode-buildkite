@@ -46,6 +46,11 @@
     },
     "commands": [
       {
+        "command": "buildkite.searchDocs",
+        "title": "Search Docs",
+        "category": "Buildkite"
+      },
+      {
         "command": "buildkite.setToken",
         "title": "Buildkite: Set API Token"
       },
@@ -202,6 +207,19 @@
         "title": "Delete Pipeline",
         "category": "Buildkite",
         "icon": "$(trash)"
+      },
+      {
+        "command": "buildkite.pipelines.pick",
+        "title": "Switch Pipeline",
+        "category": "Buildkite",
+        "icon": "$(list-flat)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "buildkite.pipelines.pick",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
       }
     ],
     "configuration": {
@@ -216,6 +234,11 @@
     },
     "menus": {
       "view/title": [
+        {
+          "command": "buildkite.pipelines.pick",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines"
+        },
         {
           "command": "buildkite.pipelines.refresh",
           "group": "navigation",
@@ -234,7 +257,9 @@
         {
           "command": "buildkite.agents.clearFilter",
           "group": "navigation",
-          "when": "view == buildkite.agents && buildkite.agents.filterActive",
+          "when": "view == buildkite.agents && buildkite.agents.filterActive"
+        },
+        {
           "command": "buildkite.pipeline.create",
           "group": "navigation",
           "when": "view == buildkite.pipelines"
@@ -279,9 +304,11 @@
         {
           "command": "buildkite.build.unblock",
           "when": "viewItem =~ /:blocked$/",
-          "group": "navigation@4",
+          "group": "navigation@4"
+        },
+        {
           "command": "buildkite.build.create",
-          "when": "viewItem == pipeline", 
+          "when": "viewItem == pipeline",
           "group": "inline"
         },
         {
@@ -397,6 +424,11 @@
     "globals": "^16.5.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.48.0"
+  },
+  "overrides": {
+    "@vscode/test-cli": {
+      "serialize-javascript": "^7.0.5"
+    }
   },
   "dependencies": {
     "ansi-to-html": "^0.7.2"

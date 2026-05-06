@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
@@ -36,7 +36,7 @@ export async function cancelBuild(node: BuildNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = new BuildkiteClient();
+        const client = CachedApiClient.getInstance();
         await client.cancelBuild(node.orgSlug, node.pipeline.slug, node.build.number);
       },
     );

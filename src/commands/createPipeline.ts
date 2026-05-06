@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
 export async function createPipeline(): Promise<void> {
-  const client = new BuildkiteClient();
+  const client = CachedApiClient.getInstance();
 
   let org;
   try {

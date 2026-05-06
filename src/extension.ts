@@ -25,6 +25,8 @@ import { openJobLogUrl } from "./commands/openJobLogUrl";
 import { createPipeline } from "./commands/createPipeline";
 import { editPipeline } from "./commands/editPipeline";
 import { archivePipeline, unarchivePipeline, deletePipeline } from "./commands/archivePipeline";
+import { pickPipeline } from "./commands/pickPipeline";
+import { searchDocs } from "./commands/searchDocs";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -46,7 +48,9 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (token) {
         await AuthManager.setToken(token);
-        await getPipelinesTreeProvider().refresh();
+        // Clear cache when token changes to ensure fresh data
+        const pipelinesProvider = getPipelinesTreeProvider();
+        await pipelinesProvider.refresh();
         await getAgentsTreeProvider().refresh();
         await getStatusBarManager()?.refresh();
         vscode.window.showInformationMessage(
@@ -56,7 +60,9 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
       await AuthManager.clearToken();
-      await getPipelinesTreeProvider().refresh();
+      // Clear cache when token is cleared to ensure fresh data
+      const pipelinesProvider = getPipelinesTreeProvider();
+      await pipelinesProvider.refresh();
       await getAgentsTreeProvider().refresh();
       await getStatusBarManager()?.refresh();
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
@@ -69,6 +75,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
     vscode.commands.registerCommand("buildkite.pipeline.create", createPipeline),
     vscode.commands.registerCommand("buildkite.pipeline.edit", editPipeline),
+    vscode.commands.registerCommand("buildkite.pipelines.pick", pickPipeline),
     vscode.commands.registerCommand("buildkite.pipeline.archive", archivePipeline),
     vscode.commands.registerCommand("buildkite.pipeline.unarchive", unarchivePipeline),
     vscode.commands.registerCommand("buildkite.pipeline.delete", deletePipeline),
@@ -105,6 +112,11 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.agent.forceStop", forceStopAgent),
     vscode.commands.registerCommand("buildkite.agent.pause", pauseAgent),
     vscode.commands.registerCommand("buildkite.agent.resume", resumeAgent),
+  );
+
+  // Register Support Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.searchDocs", searchDocs),
   );
 
   // Register Agent Filter Commands
