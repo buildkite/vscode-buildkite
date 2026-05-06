@@ -2,13 +2,14 @@ import * as vscode from "vscode";
 import { PipelinesTreeProvider } from "./pipelines";
 import { AgentsTreeProvider } from "./agents";
 import { SupportViewProvider } from "./support";
+import { AuthManager } from "../api/auth";
 
 let pipelinesTreeProvider: PipelinesTreeProvider;
 let agentsTreeProvider: AgentsTreeProvider;
 
-export function initTreeViews(context: vscode.ExtensionContext): void {
-  pipelinesTreeProvider = new PipelinesTreeProvider();
-  agentsTreeProvider = new AgentsTreeProvider();
+export function initTreeViews(context: vscode.ExtensionContext, authManager: AuthManager): void {
+  pipelinesTreeProvider = new PipelinesTreeProvider(authManager);
+  agentsTreeProvider = new AgentsTreeProvider(authManager);
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(
@@ -58,6 +59,7 @@ export function initTreeViews(context: vscode.ExtensionContext): void {
   context.subscriptions.push({
     dispose: () => {
       pipelinesTreeProvider.dispose();
+      agentsTreeProvider.dispose();
     },
   });
 }

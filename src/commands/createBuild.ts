@@ -3,8 +3,7 @@ import { BuildkiteClient } from "../api/client";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function createBuild(node: PipelineNode): Promise<void> {
-  const client = new BuildkiteClient(); 
+export async function createBuild(client: BuildkiteClient, node: PipelineNode): Promise<void> {
   try {
     // If node is missing or invalid, handle Command Palette flow
     if (!node || !node.orgSlug || !node.pipeline?.slug) {

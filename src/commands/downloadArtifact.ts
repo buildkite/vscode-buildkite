@@ -15,7 +15,7 @@ function isPreviewable(mimeType: string): boolean {
   );
 }
 
-export async function downloadArtifact(node: ArtifactNode): Promise<void> {
+export async function downloadArtifact(client: BuildkiteClient, node: ArtifactNode): Promise<void> {
   if (!node || !(node instanceof ArtifactNode)) {
     vscode.window.showErrorMessage("Invalid artifact node");
     return;
@@ -24,7 +24,6 @@ export async function downloadArtifact(node: ArtifactNode): Promise<void> {
   const artifact = node.artifact;
 
   try {
-    const client = new BuildkiteClient();
 
     if (isPreviewable(artifact.mime_type)) {
       await vscode.window.withProgress(

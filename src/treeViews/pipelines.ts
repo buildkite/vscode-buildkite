@@ -69,8 +69,8 @@ export class PipelinesTreeProvider
   private activePollers = new Map<string, PollingContext>();
   private buildCache = new Map<string, Build>();
 
-  constructor() {
-    this.client = new BuildkiteClient();
+  constructor(private readonly authManager: AuthManager) {
+    this.client = new BuildkiteClient(authManager);
   }
 
   async refresh(): Promise<void> {
@@ -91,7 +91,8 @@ export class PipelinesTreeProvider
   async getChildren(
     element?: PipelineTreeNode,
   ): Promise<PipelineTreeNode[]> {
-    const token = await AuthManager.getToken();
+    const session = await this.authManager.resolveSession();
+    const token = session?.token;
     
     try {
       if (!element) {

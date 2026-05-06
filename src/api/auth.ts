@@ -1,73 +1,169 @@
 import * as vscode from "vscode";
 import { AUTH_PROVIDER_ID } from "./oauth/constants";
 import { resolveScopesFromConfig } from "./oauth/scopes";
+import { oauthLog, redactIfCredentialShaped } from "./oauth/log";
+import type { OAuthProvider } from "./oauth/types";
+
+export type { OAuthProvider };
 
 const SECRET_KEY = "buildkite.apiToken";
 
-let secretStorage: vscode.SecretStorage | undefined;
+type TokenSource = "oauth" | "pat";
 
 /**
- * Manages secure storage and retrieval of Buildkite API tokens.
- * Uses VS Code's SecretStorage API to store tokens securely.
+ * One handle for either an OAuth session or a PAT, callers get a `token`
+ * and `invalidate()` for 401 recovery, the OAuth/PAT split stays inside
+ * AuthManager
  */
-
-export interface OAuthSessionRemover {
-  removeSession(sessionId: string): Promise<void>;
+export interface AuthSession {
+  readonly token: string;
+  /**
+   * Tell AuthManager that this token got rejected
+   * Concurrent calls will surface a single prompt to prevent spam
+   * The returned promise resolves once the recovery flow finishes,
+   * mostly so tests can wait on it
+   */
+  invalidate(): Promise<void>;
 }
 
-let oauthProvider: OAuthSessionRemover | undefined;
-
-export type TokenSource = "oauth" | "pat";
-
-export interface ResolvedToken {
+interface ResolvedToken {
   token: string;
   source: TokenSource;
   sessionId?: string;
 }
 
-export class AuthManager {
+export class AuthManager implements vscode.Disposable {
+  private unauthorizedPromptInFlight: Promise<void> | undefined;
+  // Keyed by scope set, two callers asking for different scopes shouldn't
+  // share a prompt because the result might satisfy one and not the other,
+  // callers asking for the same scopes still share a prompt
+  private readonly requireSessionInFlight = new Map<
+    string,
+    Promise<ResolvedToken | undefined>
+  >();
+  private readonly credentialChangedEmitter = new vscode.EventEmitter<void>();
+
   /**
-   * Initializes the AuthManager with the extension context.
-   * Must be called before any other AuthManager methods.
-   * @param context - The extension context containing secret storage
+   * Fires whenever the active credential changes (PAT set, PAT cleared,
+   * or an OAuth swap), subscribers should refresh anything that reads
+   * tokens
    */
-  private static reauthPromptInFlight = false;
+  readonly onDidChangeCredential = this.credentialChangedEmitter.event;
 
-  static initialize(context: vscode.ExtensionContext) {
-    secretStorage = context.secrets;
+  constructor(
+    private readonly secrets: vscode.SecretStorage,
+    private readonly oauthProvider: OAuthProvider,
+  ) {}
+
+  dispose(): void {
+    this.credentialChangedEmitter.dispose();
+  }
+
+  async setToken(token: string): Promise<void> {
+    await this.secrets.store(SECRET_KEY, token);
+    this.credentialChangedEmitter.fire();
+  }
+
+  async clearToken(): Promise<void> {
+    await this.secrets.delete(SECRET_KEY);
+    this.credentialChangedEmitter.fire();
+  }
+
+  async hasStoredPat(): Promise<boolean> {
+    return (await this.secrets.get(SECRET_KEY)) !== undefined;
   }
 
   /**
-   * Retrieves the stored Buildkite API token.
-   * @returns The API token if stored, undefined otherwise
-   * @throws {Error} If AuthManager has not been initialized
+   * Refires `onDidChangeCredential`, used by the OAuth session listener
+   * so subscribers to a single AuthManager event see every credential
+   * change regardless of source
    */
-
-  static registerOAuthProvider(provider: OAuthSessionRemover): void {
-    oauthProvider = provider;
+  notifyCredentialChanged(): void {
+    this.credentialChangedEmitter.fire();
   }
 
-
-  static async getToken(): Promise<string | undefined> {
-    const resolved = await this.resolveToken();
-    return resolved?.token;
-  }
-
-  static async resolveToken(): Promise<ResolvedToken | undefined> {
-    if (!secretStorage) {
-      throw new Error("AuthManager not initialized");
+  /**
+   * Prompts the user for a PAT and stores it, returning the token or
+   * undefined if the user dismissed the input
+   *
+   * Used by both the "Set Token" command and the "Use API Token" recovery
+   * path so the prompt copy and the storage call live in one place
+   */
+  async promptForApiToken(): Promise<string | undefined> {
+    const token = await vscode.window.showInputBox({
+      prompt: "Enter your Buildkite API Token",
+      password: true,
+      ignoreFocusOut: true,
+    });
+    if (!token) {
+      return undefined;
     }
+    await this.setToken(token);
+    return token;
+  }
 
+  /** Returns the active session if one exists, without prompting */
+  async resolveSession(): Promise<AuthSession | undefined> {
+    const resolved = await this.resolveToken(snapshotScopes());
+    return resolved ? this.toSession(resolved) : undefined;
+  }
+
+  /** Returns the active session, prompting the user to sign in if needed, concurrent callers share one prompt */
+  async requireSession(): Promise<AuthSession | undefined> {
+    const scopes = snapshotScopes();
+    const key = scopeKey(scopes);
+    let inFlight = this.requireSessionInFlight.get(key);
+    if (!inFlight) {
+      inFlight = this.doRequireToken(scopes).finally(() => {
+        this.requireSessionInFlight.delete(key);
+      });
+      this.requireSessionInFlight.set(key, inFlight);
+    }
+    const resolved = await inFlight;
+    return resolved ? this.toSession(resolved) : undefined;
+  }
+
+  /**
+   * Ensures the user is signed in via OAuth, opening the browser flow
+   * only if no session exists, used by the "Sign in" command
+   *
+   * Shows a confirming toast naming the account either way
+   */
+  async signIn(): Promise<void> {
+    try {
+      const session = await this.createOAuthSession(snapshotScopes());
+      if (session) {
+        vscode.window.showInformationMessage(
+          `Signed in to Buildkite as ${session.account.label}.`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof vscode.CancellationError) {
+        oauthLog("Sign-in cancelled by user");
+        return;
+      }
+      reportSignInFailure(err);
+    }
+  }
+
+  private toSession(resolved: ResolvedToken): AuthSession {
+    return {
+      token: resolved.token,
+      invalidate: () => this.handleUnauthorized(resolved.source, resolved.sessionId),
+    };
+  }
+
+  private async resolveToken(scopes: string[]): Promise<ResolvedToken | undefined> {
     const session = await vscode.authentication.getSession(
       AUTH_PROVIDER_ID,
-      defaultOAuthScopes(),
+      scopes,
       { silent: true },
     );
     if (session) {
       return { token: session.accessToken, source: "oauth", sessionId: session.id };
     }
 
-    const pat = await secretStorage.get(SECRET_KEY);
+    const pat = await this.secrets.get(SECRET_KEY);
     if (pat) {
       return { token: pat, source: "pat" };
     }
@@ -75,44 +171,19 @@ export class AuthManager {
     return undefined;
   }
 
-  /**
-   * Stores a Buildkite API token securely.
-   * @param token - The API token to store
-   * @throws {Error} If AuthManager has not been initialized
-   */
-  static async setToken(token: string): Promise<void> {
-    if (!secretStorage) {
-      throw new Error("AuthManager not initialized");
-    }
-    await secretStorage.store(SECRET_KEY, token);
-  }
-
-  /**
-   * Removes the stored Buildkite API token.
-   * @throws {Error} If AuthManager has not been initialized
-   */
-  static async clearToken(): Promise<void> {
-    if (!secretStorage) {
-      throw new Error("AuthManager not initialized");
-    }
-    await secretStorage.delete(SECRET_KEY);
-  }
-
-  /**
-   * Retrieves the API token, prompting the user to set it if not found.
-   * If no token is stored, shows an error message with a button to set the token.
-   * @returns The API token if available, undefined if the user declines to set it
-   */
-  static async requireToken(): Promise<string | undefined>;
-  static async requireToken(opts: { resolved: true }): Promise<ResolvedToken | undefined>;
-  static async requireToken(
-    opts?: { resolved?: boolean },
-  ): Promise<string | ResolvedToken | undefined> {
-    const existing = await this.resolveToken();
+  private async doRequireToken(scopes: string[]): Promise<ResolvedToken | undefined> {
+    const existing = await this.resolveToken(scopes);
     if (existing) {
-      return opts?.resolved ? existing : existing.token;
+      return existing;
     }
 
+    // No scope widening detection here, the server trims grants to what
+    // the user's role allows, so a stored session whose scopes don't
+    // match the configured set might be a server trim rather than a
+    // stale config
+    //
+    // Conflating the two would reprompt sign in on every command, users
+    // who want to apply a widened scopePreset must sign out and back in
     const choice = await vscode.window.showInformationMessage(
       "You need to sign in to Buildkite to continue.",
       "Sign In with Browser",
@@ -121,97 +192,124 @@ export class AuthManager {
 
     if (choice === "Sign In with Browser") {
       try {
-        const session = await vscode.authentication.getSession(
-          AUTH_PROVIDER_ID,
-          defaultOAuthScopes(),
-          { createIfNone: true },
-        );
+        const session = await this.createOAuthSession(scopes);
         if (!session) {
           return undefined;
         }
-        const resolved: ResolvedToken = {
-          token: session.accessToken,
-          source: "oauth",
-          sessionId: session.id,
-        };
-        return opts?.resolved ? resolved : resolved.token;
+        return { token: session.accessToken, source: "oauth", sessionId: session.id };
       } catch (err) {
         if (err instanceof vscode.CancellationError) {
+          oauthLog("Sign-in cancelled by user");
           return undefined;
         }
-        const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`Buildkite sign-in failed: ${message}`);
+        reportSignInFailure(err);
         return undefined;
       }
     }
 
     if (choice === "Use API Token") {
-      await vscode.commands.executeCommand("buildkite.setToken");
-      return opts?.resolved ? this.resolveToken() : this.getToken();
+      const token = await this.promptForApiToken();
+      return token ? { token, source: "pat" } : undefined;
     }
 
     return undefined;
   }
 
-  static async handleUnauthorized(
-    source: TokenSource,
-    sessionId?: string,
-  ): Promise<string> {
-    if (source === "pat") {
-      return "Invalid Buildkite API token. Please update your Buildkite API token.";
+  private createOAuthSession(scopes: string[]): Thenable<vscode.AuthenticationSession | undefined> {
+    return vscode.authentication.getSession(AUTH_PROVIDER_ID, scopes, { createIfNone: true });
+  }
+
+  private handleUnauthorized(source: TokenSource, sessionId?: string): Promise<void> {
+    if (this.unauthorizedPromptInFlight) {
+      return this.unauthorizedPromptInFlight;
     }
-
-    const message =
-      "Your Buildkite OAuth session has expired or been revoked. Sign in again to continue.";
-
-    if (sessionId && oauthProvider) {
+    oauthLog(`401 received: source=${source}${sessionId ? ` sessionId=${sessionId}` : ""}`);
+    this.unauthorizedPromptInFlight = (async () => {
       try {
-        await oauthProvider.removeSession(sessionId);
+        if (source === "pat") {
+          await this.promptPatRecovery();
+        } else {
+          await this.promptOAuthRecovery(sessionId);
+        }
       } catch {
-        // This is best effort, we still prompt the user below
+        // Swallow so an unhandled rejection can't escape the caller,
+        // which doesn't await this
+      } finally {
+        this.unauthorizedPromptInFlight = undefined;
+      }
+    })();
+    return this.unauthorizedPromptInFlight;
+  }
+
+  private async promptPatRecovery(): Promise<void> {
+    const choice = await vscode.window.showErrorMessage(
+      "Your Buildkite API token is invalid or has been revoked.",
+      "Set Token",
+    );
+    if (choice === "Set Token") {
+      await this.promptForApiToken();
+    }
+  }
+
+  private async promptOAuthRecovery(sessionId?: string): Promise<void> {
+    if (sessionId) {
+      try {
+        await this.oauthProvider.removeSession(sessionId);
+      } catch {
+        // Best effort, the recovery prompt below still runs
       }
     }
 
-    if (!this.reauthPromptInFlight) {
-      this.reauthPromptInFlight = true;
-      void (async () => {
-        try {
-          const choice = await vscode.window.showErrorMessage(
-            message,
-            { modal: false },
-            "Sign In Again",
-          );
-          if (choice === "Sign In Again") {
-            try {
-              const session = await vscode.authentication.getSession(
-                AUTH_PROVIDER_ID,
-                defaultOAuthScopes(),
-                { createIfNone: true },
-              );
-              if (session) {
-                vscode.window.showInformationMessage(
-                  `Signed in to Buildkite as ${session.account.label}.`,
-                );
-              }
-            } catch (err) {
-              if (err instanceof vscode.CancellationError) {
-                return;
-              }
-              const detail = err instanceof Error ? err.message : String(err);
-              vscode.window.showErrorMessage(`Buildkite sign-in failed: ${detail}`);
-            }
-          }
-        } finally {
-          this.reauthPromptInFlight = false;
-        }
-      })();
+    const choice = await vscode.window.showErrorMessage(
+      "Your Buildkite OAuth session has expired or been revoked. Sign in again to continue.",
+      "Sign In Again",
+    );
+    if (choice !== "Sign In Again") {
+      return;
     }
 
-    return message;
+    await this.signIn();
   }
 }
 
-function defaultOAuthScopes(): string[] {
+/**
+ * If `response` is a 401, kick off the session's recovery prompt without
+ * waiting for it and throw a generic "Authentication required" error
+ *
+ * Centralises the handling so the REST and GraphQL clients don't drift
+ * on it, and logs the (redacted) body so a server side detail like
+ * "revoked" or "missing scope" is recoverable from the OAuth channel
+ */
+export async function throwIfUnauthorized(response: Response, session: AuthSession): Promise<void> {
+  if (response.status !== 401) {
+    return;
+  }
+  try {
+    const body = (await response.clone().text()).trim();
+    if (body) {
+      oauthLog(`401 body: ${redactIfCredentialShaped(body)}`);
+    }
+  } catch {
+    // Body read is best effort, never let it block the recovery path
+  }
+  void session.invalidate();
+  throw new Error("Authentication required");
+}
+
+function reportSignInFailure(err: unknown): void {
+  const raw = err instanceof Error ? err.message : String(err);
+  const safe = redactIfCredentialShaped(raw);
+  oauthLog(`Sign-in failed: ${safe}`);
+  vscode.window.showErrorMessage(`Buildkite sign-in failed: ${safe}`);
+}
+
+function scopeKey(scopes: readonly string[]): string {
+  return [...scopes].sort().join(" ");
+}
+
+// Snapshot at call time so a config change in flight can't make us ask
+// for one scope set and check against another
+function snapshotScopes(): string[] {
   const config = vscode.workspace.getConfiguration("buildkite");
   return resolveScopesFromConfig({
     preset: config.get<string>("oauth.scopePreset"),

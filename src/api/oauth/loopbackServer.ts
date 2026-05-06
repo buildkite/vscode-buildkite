@@ -33,14 +33,45 @@ export async function startLoopbackServer(
     };
   });
 
-  const server = http.createServer((req, res) => {
-    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+  // Set after listen so the handler can validate the Host header against
+  // the exact expected value, blocking DNS rebinding attacks where the
+  // browser hits a hostname controlled by an attacker that resolves to
+  // 127.0.0.1
+  let expectedHost = "";
 
-    if (url.pathname !== "/callback") {
+  const server = http.createServer((req, res) => {
+    // Defence in depth on top of state validation, any process on the
+    // machine can connect to 127.0.0.1 so we drop requests that didn't
+    // come from loopback or whose Host header doesn't match the bound
+    // socket
+    //
+    // Dual stack hosts can present 127.0.0.1 as the IPv4 mapped
+    // `::ffff:127.0.0.1`, so accept the canonical loopback addresses
+    const remote = req.socket.remoteAddress ?? "";
+    if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Forbidden");
+      return;
+    }
+    if (req.headers.host !== expectedHost) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Forbidden");
+      return;
+    }
+    // Reject anything that doesn't start with a literal "/callback" path
+    // before parsing
+    //
+    // `new URL("//evil.com/callback", "http://127.0.0.1")` would resolve
+    // to evil.com with pathname "/callback" and bypass a check that
+    // looks at pathname only, insisting on the leading "/callback"
+    // prevents that
+    const rawPath = req.url ?? "/";
+    if (rawPath !== "/callback" && !rawPath.startsWith("/callback?")) {
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("Not Found");
       return;
     }
+    const url = new URL(rawPath, "http://127.0.0.1");
 
     const code = url.searchParams.get("code") ?? "";
     const state = url.searchParams.get("state") ?? "";
@@ -60,8 +91,8 @@ export async function startLoopbackServer(
     }
 
     if (state !== expectedState) {
-      respondFailure(res, "State mismatch — possible CSRF attack");
-      reject(new Error("OAuth state mismatch — refusing to continue"));
+      respondFailure(res, "State mismatch: possible CSRF attack");
+      reject(new Error("OAuth state mismatch; refusing to continue"));
       return;
     }
 
@@ -78,7 +109,8 @@ export async function startLoopbackServer(
   });
 
   const { port } = server.address() as AddressInfo;
-  const redirectUri = `http://127.0.0.1:${port}/callback`;
+  expectedHost = `127.0.0.1:${port}`;
+  const redirectUri = `http://${expectedHost}/callback`;
 
   const timeout = setTimeout(() => {
     reject(new Error("Timed out waiting for Buildkite sign-in to complete."));
@@ -92,6 +124,9 @@ export async function startLoopbackServer(
     disposed = true;
     clearTimeout(timeout);
     server.close();
+    // Kill HTTP keepalive sockets so the server actually releases the
+    // port instead of waiting for idle clients to close
+    server.closeAllConnections?.();
     if (!settled) {
       reject(new vscode.CancellationError());
     }
@@ -108,8 +143,18 @@ export async function startLoopbackServer(
   return { redirectUri, waitForCallback, dispose };
 }
 
+// Page URL contains "code" and "state" in the address bar, no store
+// keeps the URL out of the disk cache and no referrer keeps it out of
+// any outbound referrer headers if the user clicks a link on the page
+// later
+const SECURITY_HEADERS = {
+  "Content-Type": "text/html; charset=utf-8",
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+};
+
 function respondSuccess(res: http.ServerResponse) {
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  res.writeHead(200, SECURITY_HEADERS);
   res.end(`<!DOCTYPE html>
 <html>
 <head><title>Buildkite sign-in successful</title></head>
@@ -121,7 +166,7 @@ function respondSuccess(res: http.ServerResponse) {
 }
 
 function respondFailure(res: http.ServerResponse, message: string) {
-  res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+  res.writeHead(400, SECURITY_HEADERS);
   res.end(`<!DOCTYPE html>
 <html>
 <head><title>Buildkite sign-in failed</title></head>

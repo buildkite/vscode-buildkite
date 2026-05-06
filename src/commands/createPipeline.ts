@@ -2,9 +2,7 @@ import * as vscode from "vscode";
 import { BuildkiteClient } from "../api/client";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function createPipeline(): Promise<void> {
-  const client = new BuildkiteClient();
-
+export async function createPipeline(client: BuildkiteClient): Promise<void> {
   let org;
   try {
     org = await vscode.window.withProgress(

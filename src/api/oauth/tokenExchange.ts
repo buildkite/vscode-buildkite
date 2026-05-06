@@ -1,3 +1,4 @@
+import { trimTrailingSlash } from "./constants";
 
 export interface TokenResponse {
   accessToken: string;
@@ -40,6 +41,7 @@ export interface RefreshInput {
   webBaseUrl: string;
   clientId: string;
   refreshToken: string;
+  scopes: readonly string[];
 }
 
 export async function refreshAccessToken(
@@ -50,6 +52,14 @@ export async function refreshAccessToken(
     client_id: input.clientId,
     refresh_token: input.refreshToken,
   });
+  // Send the original grant's scopes so the server can't silently narrow
+  // the refreshed token below what the stored session claims to hold
+  //
+  // If the response comes back with a smaller `scope`, grantedScopes()
+  // picks it up and the session updates honestly
+  if (input.scopes.length > 0) {
+    body.set("scope", input.scopes.join(" "));
+  }
 
   return postToken(input.webBaseUrl, body, { classifyAsRefresh: true });
 }
@@ -72,6 +82,10 @@ async function postToken(
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
+        // RFC 6749 §5.1, token responses MUST NOT be cached, and the
+        // SHOULD on the request side keeps any intermediary from serving
+        // a stale 200
+        "Cache-Control": "no-store",
       },
       body: body.toString(),
     });
@@ -85,14 +99,28 @@ async function postToken(
 
   if (!response.ok) {
     const errorCode = typeof parsed?.error === "string" ? parsed.error : `http_${response.status}`;
+    // Only trust `error_description` from a parsed OAuth JSON body
+    //
+    // A non JSON body (HTML 502 from a proxy, etc.) could echo our form
+    // encoded request including the refresh_token, so we substitute a
+    // byte count summary in place of the body itself, which keeps it
+    // out of the thrown Error message (the full body still goes to the
+    // OAuth log via the caller)
     const errorDescription =
-      typeof parsed?.error_description === "string" ? parsed.error_description : rawBody;
-    const message = `Token request failed: ${errorCode}${errorDescription ? ` — ${errorDescription}` : ""}`;
+      typeof parsed?.error_description === "string"
+        ? parsed.error_description
+        : rawBody
+          ? `non-JSON response body (${rawBody.length} bytes)`
+          : "";
+    const message = `Token request failed: ${errorCode}${errorDescription ? ` (${errorDescription})` : ""}`;
 
-    if (
-      opts.classifyAsRefresh &&
-      (errorCode === "invalid_grant" || errorCode === "invalid_client" || errorCode === "unauthorized_client")
-    ) {
+    // Only invalid_grant means the user's refresh token is dead
+    //
+    // invalid_client and unauthorized_client point at a misconfigured
+    // client_id, wiping the user's session for a config typo would be
+    // wrong, so we surface a regular error and let the caller treat it
+    // as transient
+    if (opts.classifyAsRefresh && errorCode === "invalid_grant") {
       throw new RefreshTokenInvalidError(message);
     }
 
@@ -132,6 +160,3 @@ function tryParseJson(raw: string): Record<string, unknown> | undefined {
   }
 }
 
-function trimTrailingSlash(s: string): string {
-  return s.endsWith("/") ? s.slice(0, -1) : s;
-}

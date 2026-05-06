@@ -18,9 +18,8 @@ function getJobLogWebview(): JobLogWebview {
  * Views the log output for a specific job in a webview with ANSI color support.
  * @param jobNode - The job node from the tree view
  */
-export async function viewJobLog(jobNode: JobNode): Promise<void> {
+export async function viewJobLog(client: BuildkiteClient, jobNode: JobNode): Promise<void> {
   const logger = Logger.getInstance();
-  const client = new BuildkiteClient();
 
   try {
     const jobName = jobNode.job.name || jobNode.job.id || jobNode.job.step_key || "Unknown Job";

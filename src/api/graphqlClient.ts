@@ -1,5 +1,6 @@
-import { AuthManager } from "./auth";
+import { AuthManager, throwIfUnauthorized } from "./auth";
 import * as vscode from "vscode";
+import { DEFAULT_GRAPHQL_URL, resolveConfiguredUrl } from "./oauth/constants";
 
 interface GraphQLResponse<T> {
   data?: T;
@@ -10,51 +11,37 @@ interface GraphQLResponse<T> {
   }>;
 }
 
-/**
- * Client for interacting with the Buildkite GraphQL API.
- * Handles authentication and GraphQL requests.
- */
 export class BuildkiteGraphQLClient {
+  constructor(private readonly authManager: AuthManager) {}
+
   private get endpoint(): string {
-    const configured = vscode.workspace
-      .getConfiguration("buildkite")
-      .get<string>("graphqlUrl");
-    return configured && configured.trim()
-      ? configured.trim()
-      : "https://graphql.buildkite.com/v1";
+    return resolveConfiguredUrl(
+      vscode.workspace.getConfiguration("buildkite"),
+      "graphqlUrl",
+      DEFAULT_GRAPHQL_URL,
+    );
   }
 
-  /**
-   * Executes a GraphQL query.
-   * @template T - The expected response data type
-   * @param query - The GraphQL query string
-   * @param variables - Optional variables for the query
-   * @returns The query result data
-   * @throws {Error} If authentication fails or the API returns an error
-   */
   async query<T>(
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<T> {
-    const resolved = await AuthManager.requireToken({ resolved: true });
-    if (!resolved) {
+    const session = await this.authManager.requireSession();
+    if (!session) {
       throw new Error("Authentication required");
     }
-    const { token, source, sessionId } = resolved;
 
     const response = await fetch(this.endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${session.token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, variables }),
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error(await AuthManager.handleUnauthorized(source, sessionId));
-      }
+      await throwIfUnauthorized(response, session);
       if (response.status === 429) {
         throw new Error(
           "Buildkite API rate limit reached. Please wait before refreshing.",

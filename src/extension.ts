@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
-import { AUTH_PROVIDER_ID, AUTH_PROVIDER_LABEL} from "./api/oauth/constants";
-import { resolveScopesFromConfig } from "./api/oauth/scopes";
+import { BuildkiteClient } from "./api/client";
+import { AUTH_PROVIDER_ID, AUTH_PROVIDER_LABEL } from "./api/oauth/constants";
 import { BuildkiteAuthProvider } from "./api/oauth/buildkiteAuthProvider";
 import { SessionStore } from "./api/oauth/sessionStore";
+import { initOAuthLogger, oauthLog } from "./api/oauth/log";
+import { AllScopes } from "./api/oauth/scopes";
 import {
   initTreeViews,
   getPipelinesTreeProvider,
@@ -39,11 +41,12 @@ import { searchDocs } from "./commands/searchDocs";
  */
 export function activate(context: vscode.ExtensionContext) {
 
-  AuthManager.initialize(context);
+  context.subscriptions.push(initOAuthLogger());
 
-  // Register the Buildkite OAuth authentication provider.
-  const authProvider = new BuildkiteAuthProvider(new SessionStore(context.secrets));
-  AuthManager.registerOAuthProvider(authProvider);
+  const sessionStore = new SessionStore(context.secrets);
+  const authProvider = new BuildkiteAuthProvider(sessionStore);
+  const authManager = new AuthManager(context.secrets, authProvider);
+
   context.subscriptions.push(
     vscode.authentication.registerAuthenticationProvider(
       AUTH_PROVIDER_ID,
@@ -52,127 +55,119 @@ export function activate(context: vscode.ExtensionContext) {
       { supportsMultipleAccounts: false },
     ),
     authProvider,
+    authManager,
+    sessionStore,
   );
 
-  initTreeViews(context);
-  initStatusBar(context);
+  assertScopeListsInSync(context);
+
+  initTreeViews(context, authManager);
+  initStatusBar(context, authManager);
+
+  // Single shared client across all command invocations so the org id
+  // cache (set on the first /organizations call) actually pays off
+  // across commands
+  const client = new BuildkiteClient(authManager);
+
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.signIn.OAuth", async () => {
-      try {
-        const config = vscode.workspace.getConfiguration("buildkite");
-        const scopes = resolveScopesFromConfig({
-          preset: config.get<string>("oauth.scopePreset"),
-          customScopes: config.get<string[]>("oauth.scopes"),
-        });
-        const session = await vscode.authentication.getSession(
-          AUTH_PROVIDER_ID,
-          scopes,
-          { createIfNone: true },
-        );
-        if (session) {
-          await getPipelinesTreeProvider().refresh();
-          await getAgentsTreeProvider().refresh();
-          await getStatusBarManager()?.refresh();
-          vscode.window.showInformationMessage(
-            `Signed in to Buildkite as ${session.account.label}.`,
-          );
-        }
-      } catch (err) {
-        if (err instanceof vscode.CancellationError) {
-          return;
-        }
-        const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`Buildkite sign-in failed: ${message}`);
-      }
-    }),
+    vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
     vscode.commands.registerCommand("buildkite.signOut.OAuth", async () => {
-      const sessions = await authProvider.getSessions();
-      if (sessions.length === 0) {
+      const removed = await authProvider.removeAllSessions();
+      if (removed === 0) {
         vscode.window.showInformationMessage("No Buildkite session to sign out.");
         return;
       }
-      for (const session of sessions) {
-        await authProvider.removeSession(session.id);
-      }
-      await getPipelinesTreeProvider().refresh();
-      await getAgentsTreeProvider().refresh();
-      await getStatusBarManager()?.refresh();
-      vscode.window.showInformationMessage("Signed out of Buildkite.");
+      // PAT is a separate credential, signing out of OAuth doesn't clear
+      // it, so warn the user so they aren't surprised when API calls
+      // keep working
+      const message = (await authManager.hasStoredPat())
+        ? "Signed out of Buildkite OAuth. Your stored API token is still active; run \"Buildkite: Clear API Token\" to remove it."
+        : "Signed out of Buildkite.";
+      vscode.window.showInformationMessage(message);
     }),
-    vscode.authentication.onDidChangeSessions(async (e) => {
-      if (e.provider.id === AUTH_PROVIDER_ID) {
-        await getPipelinesTreeProvider().refresh();
-        await getAgentsTreeProvider().refresh();
-        await getStatusBarManager()?.refresh();
+    // The provider event covers writes from this window and from other
+    // VS Code windows (those flow in through secrets.onDidChange inside
+    // SessionStore)
+    //
+    // Filter out refresh token rotations, which only update the
+    // session and don't need a tree refresh
+    authProvider.onDidChangeSessions((e) => {
+      if (!e.added?.length && !e.removed?.length) {
+        return;
       }
+      authManager.notifyCredentialChanged();
+    }),
+    // One subscriber for both OAuth and PAT credential changes so every
+    // UI piece stays consistent
+    authManager.onDidChangeCredential(() => {
+      client.invalidateOrgCache();
+      void getPipelinesTreeProvider().refresh();
+      void getAgentsTreeProvider().refresh();
+      void getStatusBarManager()?.refresh();
     }),
     vscode.commands.registerCommand("buildkite.setToken", async () => {
-      const token = await vscode.window.showInputBox({
-        prompt: "Enter your Buildkite API Token",
-        password: true,
-        ignoreFocusOut: true,
-      });
+      const token = await authManager.promptForApiToken();
       if (token) {
-        await AuthManager.setToken(token);
-        await getPipelinesTreeProvider().refresh();
-        await getAgentsTreeProvider().refresh();
-        await getStatusBarManager()?.refresh();
-        vscode.window.showInformationMessage(
-          "Buildkite API Token saved securely.",
-        );
+        vscode.window.showInformationMessage("Buildkite API Token saved securely.");
       }
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
-      await AuthManager.clearToken();
-      await getPipelinesTreeProvider().refresh();
-      await getAgentsTreeProvider().refresh();
-      await getStatusBarManager()?.refresh();
+      await authManager.clearToken();
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
     }),
   );
 
+  // Threads the shared client into every command handler, VS Code passes
+  // the original arg(s) (typically a tree node) through unchanged
+  const withClient =
+    <Args extends unknown[], R>(
+      fn: (client: BuildkiteClient, ...args: Args) => R,
+    ) =>
+    (...args: Args) =>
+      fn(client, ...args);
+
   // Register Pipeline and Job Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.listPipelines", listPipelines),
+    vscode.commands.registerCommand("buildkite.listPipelines", withClient(listPipelines)),
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
-    vscode.commands.registerCommand("buildkite.pipeline.create", createPipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.edit", editPipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.archive", archivePipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.unarchive", unarchivePipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.delete", deletePipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.create", withClient(createPipeline)),
+    vscode.commands.registerCommand("buildkite.pipeline.edit", withClient(editPipeline)),
+    vscode.commands.registerCommand("buildkite.pipeline.archive", withClient(archivePipeline)),
+    vscode.commands.registerCommand("buildkite.pipeline.unarchive", withClient(unarchivePipeline)),
+    vscode.commands.registerCommand("buildkite.pipeline.delete", withClient(deletePipeline)),
   );
 
   // Register Build Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
-    vscode.commands.registerCommand("buildkite.build.create", createBuild),
-    vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
-    vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
-    vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
+    vscode.commands.registerCommand("buildkite.build.create", withClient(createBuild)),
+    vscode.commands.registerCommand("buildkite.build.rebuild", withClient(rebuildBuild)),
+    vscode.commands.registerCommand("buildkite.build.cancel", withClient(cancelBuild)),
+    vscode.commands.registerCommand("buildkite.build.unblock", withClient(unblockBuild)),
   );
 
   // Register Job Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.job.viewJobLog", viewJobLog),
+    vscode.commands.registerCommand("buildkite.job.viewJobLog", withClient(viewJobLog)),
     vscode.commands.registerCommand("buildkite.job.openJobLogUrl", openJobLogUrl),
-    vscode.commands.registerCommand("buildkite.job.retry", retryJob),
-    vscode.commands.registerCommand("buildkite.job.unblock", unblockJob),
+    vscode.commands.registerCommand("buildkite.job.retry", withClient(retryJob)),
+    vscode.commands.registerCommand("buildkite.job.unblock", withClient(unblockJob)),
   );
 
   // Register Artifact Commands
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "buildkite.artifact.download",
-      downloadArtifact,
+      withClient(downloadArtifact),
     ),
   );
 
   // Register Agent Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.agent.stop", stopAgent),
-    vscode.commands.registerCommand("buildkite.agent.forceStop", forceStopAgent),
-    vscode.commands.registerCommand("buildkite.agent.pause", pauseAgent),
-    vscode.commands.registerCommand("buildkite.agent.resume", resumeAgent),
+    vscode.commands.registerCommand("buildkite.agent.stop", withClient(stopAgent)),
+    vscode.commands.registerCommand("buildkite.agent.forceStop", withClient(forceStopAgent)),
+    vscode.commands.registerCommand("buildkite.agent.pause", withClient(pauseAgent)),
+    vscode.commands.registerCommand("buildkite.agent.resume", withClient(resumeAgent)),
   );
 
   // Register Support Commands
@@ -217,10 +212,50 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-/**
- * Deactivates the extension.
- * Called when the extension is deactivated by VS Code.
- */
 export function deactivate() {
   disposeJobLogWebview();
+}
+
+// Warns via the OAuth output channel if package.json's scope enum and
+// AllScopes drift out of sync, catching the mismatch the moment the
+// extension activates rather than waiting for a user to report it
+function assertScopeListsInSync(context: vscode.ExtensionContext): void {
+  const pkgScopes = readPackageScopeEnum(context.extension.packageJSON);
+  if (!pkgScopes) {
+    oauthLog("Scope list assertion skipped: could not locate buildkite.oauth.scopes enum in package.json.");
+    return;
+  }
+
+  const code = new Set(AllScopes);
+  const pkg = new Set(pkgScopes);
+  const missing = AllScopes.filter((s) => !pkg.has(s));
+  const extra = pkgScopes.filter((s) => !code.has(s));
+
+  if (missing.length || extra.length) {
+    const message =
+      `Scope list mismatch detected. Missing from package.json: [${missing.join(", ")}]; ` +
+      `extra in package.json: [${extra.join(", ")}]`;
+    oauthLog(message);
+    // Also log to the dev console, a contributor running the extension
+    // is more likely to notice a console error than to open the OAuth
+    // output channel
+    console.error(`Buildkite: ${message}`);
+  }
+}
+
+// VS Code lets `contributes.configuration` be either an object or an
+// array of category objects, walk both shapes and return the first
+// scopes enum found
+function readPackageScopeEnum(packageJSON: unknown): string[] | undefined {
+  const configRaw = (packageJSON as { contributes?: { configuration?: unknown } } | undefined)
+    ?.contributes?.configuration;
+  const blocks = Array.isArray(configRaw) ? configRaw : configRaw ? [configRaw] : [];
+  for (const block of blocks) {
+    const value = (block as { properties?: Record<string, { items?: { enum?: unknown } } | undefined> })
+      ?.properties?.["buildkite.oauth.scopes"]?.items?.enum;
+    if (Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string")) {
+      return value as string[];
+    }
+  }
+  return undefined;
 }

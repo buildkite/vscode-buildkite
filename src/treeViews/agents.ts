@@ -18,8 +18,8 @@ export class AgentsTreeProvider
   private client: BuildkiteClient;
   private filterQuery = "";
 
-  constructor() {
-    this.client = new BuildkiteClient();
+  constructor(private readonly authManager: AuthManager) {
+    this.client = new BuildkiteClient(authManager);
   }
 
   async refresh(): Promise<void> {
@@ -44,7 +44,8 @@ export class AgentsTreeProvider
   }
 
   async getChildren(element?: AgentsTreeNode): Promise<AgentsTreeNode[]> {
-    const token = await AuthManager.getToken();
+    const session = await this.authManager.resolveSession();
+    const token = session?.token;
 
     try {
       if (element) {

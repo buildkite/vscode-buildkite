@@ -7,9 +7,8 @@ import { BuildkiteClient } from "../api/client";
  * Shows an information message with the pipeline count on success,
  * or an error message if the request fails.
  */
-export async function listPipelines() {
+export async function listPipelines(client: BuildkiteClient) {
   try {
-    const client = new BuildkiteClient();
     const org = await client.getOrganization();
     // This is a basic call and doesn't factor in pagination, it's just to demonstrate making an API call to an endpoint
     const pipelines = await client.get(`/organizations/${org.slug}/pipelines`);

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { AuthManager } from "./auth";
+import { AuthManager, throwIfUnauthorized } from "./auth";
+import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./oauth/constants";
 import {
   Pipeline,
   Build,
@@ -41,14 +42,18 @@ export interface Organization {
  */
 export class BuildkiteClient {
   private get baseUrl(): string {
-    const configured = vscode.workspace
-      .getConfiguration("buildkite")
-      .get<string>("apiBaseUrl");
-    const raw = configured && configured.trim() ? configured.trim() : "https://api.buildkite.com/v2";
-    return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+    return resolveConfiguredUrl(
+      vscode.workspace.getConfiguration("buildkite"),
+      "apiBaseUrl",
+      DEFAULT_API_BASE_URL,
+    );
   }
   private organization: Organization | undefined;
-  private graphqlClient = new BuildkiteGraphQLClient();
+  private readonly graphqlClient: BuildkiteGraphQLClient;
+
+  constructor(private readonly authManager: AuthManager) {
+    this.graphqlClient = new BuildkiteGraphQLClient(authManager);
+  }
 
   /**
    * Fetches the organization associated with the API token
@@ -71,6 +76,15 @@ export class BuildkiteClient {
   }
 
   /**
+   * Drops the cached organization, call when the active credential
+   * changes (signout, sign in, or org switch) so a later
+   * getOrganization() doesn't return the previous account's org slug
+   */
+  invalidateOrgCache(): void {
+    this.organization = undefined;
+  }
+
+  /**
    * Makes a GET request to the Buildkite API.
    * @template T - The expected response type
    * @param endpoint - The API endpoint to request (e.g., "/organizations")
@@ -83,11 +97,10 @@ export class BuildkiteClient {
   }
 
   private async fetch(endpoint: string, options?: RequestInit): Promise<Response> {
-    const resolved = await AuthManager.requireToken({ resolved: true });
-    if (!resolved) {
+    const session = await this.authManager.requireSession();
+    if (!session) {
       throw new Error("Authentication required");
     }
-    const { token, source, sessionId } = resolved;
 
     const url = endpoint.startsWith("http")
       ? endpoint
@@ -96,15 +109,13 @@ export class BuildkiteClient {
     const response = await fetch(url, {
       ...options,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${session.token}`,
         ...options?.headers,
       },
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error(await AuthManager.handleUnauthorized(source, sessionId));
-      }
+      await throwIfUnauthorized(response, session);
       if (response.status === 429) {
         throw new Error(
           "Buildkite API rate limit reached. Please wait before refreshing.",
@@ -201,39 +212,12 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
-  /**
-   * Makes a PUT request that returns 204 No Content (no response body).
-   */
   async putNoContent(endpoint: string, body?: JsonValue): Promise<void> {
-    const token = await AuthManager.requireToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    await this.fetch(endpoint, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: body !== undefined ? JSON.stringify(body) : "{}",
     });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error(
-          "Invalid API token. Please update your Buildkite API token.",
-        );
-      }
-      if (response.status === 429) {
-        throw new Error(
-          "Buildkite API rate limit reached. Please wait before retrying.",
-        );
-      }
-      throw new Error(
-        `Buildkite API error: ${response.status} ${response.statusText}`,
-      );
-    }
   }
   /**
    * Makes a DELETE request to the Buildkite API.

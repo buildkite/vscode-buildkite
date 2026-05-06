@@ -4,7 +4,7 @@ import { JobNode } from "../treeViews/nodes/jobNode";
 import { canRetryJob, getJobDisplayName } from "../api/types";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function retryJob(node: JobNode): Promise<void> {
+export async function retryJob(client: BuildkiteClient, node: JobNode): Promise<void> {
   if (!node || !(node instanceof JobNode)) {
     vscode.window.showErrorMessage("Invalid job node");
     return;
@@ -29,7 +29,6 @@ export async function retryJob(node: JobNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
     await client.retryJob(
       node.orgSlug,
       node.pipelineSlug,

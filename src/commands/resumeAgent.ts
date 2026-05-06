@@ -3,7 +3,7 @@ import { BuildkiteClient } from "../api/client";
 import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
 
-export async function resumeAgent(node: AgentNode): Promise<void> {
+export async function resumeAgent(client: BuildkiteClient, node: AgentNode): Promise<void> {
   if (!node || !(node instanceof AgentNode)) {
     vscode.window.showErrorMessage("Invalid agent node");
     return;
@@ -20,7 +20,6 @@ export async function resumeAgent(node: AgentNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
     await client.resumeAgent(node.orgSlug, node.agent.id);
 
     vscode.window.showInformationMessage(

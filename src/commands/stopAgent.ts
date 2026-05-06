@@ -4,7 +4,7 @@ import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
 import { pollUntilAgentGone } from "./agentStopPoller";
 
-export async function stopAgent(node: AgentNode): Promise<void> {
+export async function stopAgent(client: BuildkiteClient, node: AgentNode): Promise<void> {
   if (!node || !(node instanceof AgentNode)) {
     vscode.window.showErrorMessage("Invalid agent node");
     return;
@@ -21,7 +21,6 @@ export async function stopAgent(node: AgentNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
     await client.stopAgent(node.orgSlug, node.agent.id);
 
     vscode.window.showInformationMessage(
@@ -30,7 +29,7 @@ export async function stopAgent(node: AgentNode): Promise<void> {
 
     const treeProvider = getAgentsTreeProvider();
     await treeProvider.refresh();
-    await pollUntilAgentGone(node.orgSlug, node.agent.id, treeProvider);
+    await pollUntilAgentGone(client, node.orgSlug, node.agent.id, treeProvider);
   } catch (error) {
     if (error instanceof Error) {
       vscode.window.showErrorMessage(`Failed to stop agent: ${error.message}`);

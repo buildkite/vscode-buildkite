@@ -3,7 +3,7 @@ import { BuildkiteClient } from "../api/client";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function rebuildBuild(node: BuildNode): Promise<void> {
+export async function rebuildBuild(client: BuildkiteClient, node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
     vscode.window.showErrorMessage("Invalid build node");
     return;
@@ -20,7 +20,6 @@ export async function rebuildBuild(node: BuildNode): Promise<void> {
   }
 
   try {
-    const client = new BuildkiteClient();
     await client.rebuildBuild(node.orgSlug, node.pipeline.slug, node.build.number);
 
     vscode.window.showInformationMessage(

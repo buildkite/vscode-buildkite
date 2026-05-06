@@ -1,27 +1,31 @@
-/**
- * OAuth-related constants for the Buildkite extension.
- */
-
-/** The default OAuth client ID registered with Buildkite for this extension. */
+// TODO: Placeholder value needs updating
 export const DEFAULT_CLIENT_ID = "buildkite-vscode";
-
-/** The default web base URL where OAuth authorize/token endpoints live. */
 export const DEFAULT_WEB_BASE_URL = "https://buildkite.com";
+export const DEFAULT_API_BASE_URL = "https://api.buildkite.com/v2";
+export const DEFAULT_GRAPHQL_URL = "https://graphql.buildkite.com/v1";
 
-/**
- * How close to `expiresAt` we consider an access token expired and eagerly
- * refresh it. Guards against clock skew and in-flight request latency.
- */
+// Refresh access tokens this far before expiry to absorb clock skew
+// and request latency
 export const REFRESH_LEEWAY_MS = 60_000;
 
-/** How long to wait for the user to complete the browser-based authorization. */
+export const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 export const AUTH_TIMEOUT_MS = 5 * 60_000;
+export const ACCOUNT_FETCH_TIMEOUT_MS = 15_000;
 
-/** Secret storage key where OAuth sessions are persisted (as JSON array). */
 export const SESSIONS_SECRET_KEY = "buildkite.oauth.sessions";
-
-/** The VS Code AuthenticationProvider id for this extension. */
 export const AUTH_PROVIDER_ID = "buildkite";
-
-/** Human-readable label shown in the Accounts menu. */
 export const AUTH_PROVIDER_LABEL = "Buildkite";
+
+export function trimTrailingSlash(s: string): string {
+  return s.endsWith("/") ? s.slice(0, -1) : s;
+}
+
+export function resolveConfiguredUrl(
+  config: { get<T>(key: string): T | undefined },
+  key: string,
+  fallback: string,
+): string {
+  const configured = config.get<string>(key);
+  const raw = configured && configured.trim() ? configured.trim() : fallback;
+  return trimTrailingSlash(raw);
+}

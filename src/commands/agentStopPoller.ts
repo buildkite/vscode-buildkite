@@ -9,12 +9,11 @@ const MAX_POLLS = 5;
  * connected (or max attempts reached), refreshing the tree view each time.
  */
 export async function pollUntilAgentGone(
+  client: BuildkiteClient,
   orgSlug: string,
   agentId: string,
   treeProvider: AgentsTreeProvider,
 ): Promise<void> {
-  const client = new BuildkiteClient();
-
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 

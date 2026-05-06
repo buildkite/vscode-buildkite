@@ -48,7 +48,7 @@ export const AllScopes: readonly string[] = [
   "write_portals",
 ];
 
-/** Subset of {@link AllScopes} granting read-only access. */
+/** Subset of {@link AllScopes} granting read-only access */
 export const ReadOnlyScopes: readonly string[] = AllScopes.filter((s) =>
   s.startsWith("read_"),
 );
@@ -61,8 +61,8 @@ export function resolveScopesFromConfig(config: {
     case "read-only":
       return [...ReadOnlyScopes];
     case "custom": {
-      const custom = config.customScopes ?? [];
-      return custom.length > 0 ? dedupe(custom) : [...AllScopes];
+      const custom = normalize(config.customScopes ?? []);
+      return custom.length > 0 ? custom : [...AllScopes];
     }
     case "all":
     default:
@@ -70,6 +70,12 @@ export function resolveScopesFromConfig(config: {
   }
 }
 
-function dedupe(scopes: readonly string[]): string[] {
-  return [...new Set(scopes)];
+// Scope IDs are lowercase snake_case, so normalize user input so a typo
+// like "Read_user" reaches the server as "read_user" instead of being
+// silently rejected
+function normalize(scopes: readonly string[]): string[] {
+  const out = scopes
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0);
+  return [...new Set(out)];
 }
