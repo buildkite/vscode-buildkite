@@ -15,6 +15,7 @@ import { retryJob } from "./commands/retryJob";
 import { downloadArtifact } from "./commands/downloadArtifact";
 import { unblockJob } from "./commands/unblockJob";
 import { viewJobLog, disposeJobLogWebview } from "./commands/viewJobLog";
+import { viewAnnotations, disposeAnnotationsWebview } from "./commands/viewAnnotations";
 import { stopAgent } from "./commands/stopAgent";
 import { forceStopAgent } from "./commands/forceStopAgent";
 import { pauseAgent } from "./commands/pauseAgent";
@@ -34,11 +35,11 @@ import { searchDocs } from "./commands/searchDocs";
  * Buildkite API tokens, pipelines, and jobs.
  * @param context - The extension context provided by VS Code
  */
-export function activate(context: vscode.ExtensionContext) { 
-
+export function activate(context: vscode.ExtensionContext) {
   AuthManager.initialize(context);
   initTreeViews(context);
   initStatusBar(context);
+
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.setToken", async () => {
       const token = await vscode.window.showInputBox({
@@ -88,6 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
     vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
     vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
+    vscode.commands.registerCommand("buildkite.build.viewAnnotations", viewAnnotations),
   );
 
   // Register Job Commands
@@ -162,4 +164,5 @@ export function activate(context: vscode.ExtensionContext) {
  */
 export function deactivate() {
   disposeJobLogWebview();
+  disposeAnnotationsWebview();
 }

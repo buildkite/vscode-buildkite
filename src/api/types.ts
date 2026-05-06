@@ -354,3 +354,12 @@ export interface PipelineWithBuilds {
   pipeline: Pipeline;
   builds: Build[];
 }
+
+export interface Annotation {
+  id: string;
+  context: string;
+  style: "success" | "info" | "warning" | "error" | "default";
+  body_html: string;
+  created_at: string;
+  updated_at: string;
+}
