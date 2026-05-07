@@ -104,7 +104,7 @@ export function activate(context: vscode.ExtensionContext) {
     // One subscriber for both OAuth and PAT credential changes so every
     // UI piece stays consistent
     authManager.onDidChangeCredential(() => {
-      client.invalidateOrgCache();
+      client.clearAll();
       void getPipelinesTreeProvider().refresh();
       void getAgentsTreeProvider().refresh();
       void getStatusBarManager()?.refresh();

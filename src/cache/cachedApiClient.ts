@@ -69,11 +69,9 @@ export class CachedApiClient {
   }
 
   /**
-   * Drop the cached organization on the underlying client and wipe every
-   * cached response, called when the active credential changes so the
-   * next call doesn't return the previous account's data
+   * Drop the underlying client's org cache and every cached response
    */
-  invalidateOrgCache(): void {
+  clearAll(): void {
     this.client.invalidateOrgCache();
     this.cache.clear();
   }
@@ -83,7 +81,7 @@ export class CachedApiClient {
    */
   async getOrganization(): Promise<Organization> {
     const cacheKey = this.generateCacheKey("GET", "/organizations");
-    
+
     let result = this.cache.get<Organization>(cacheKey);
     if (result !== null) {
       return result;
@@ -99,7 +97,7 @@ export class CachedApiClient {
    */
   async getPipelines(orgSlug: string): Promise<Pipeline[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines`);
-    
+
     let result = this.cache.get<Pipeline[]>(cacheKey);
     if (result !== null) {
       console.log(`[Cache HIT] ${cacheKey}`);
@@ -116,7 +114,7 @@ export class CachedApiClient {
    */
   async getBuilds(orgSlug: string, pipelineSlug: string, perPage = 10): Promise<Build[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds?per_page=${perPage}`);
-    
+
     let result = this.cache.get<Build[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -132,7 +130,7 @@ export class CachedApiClient {
    */
   async getBuild(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Build> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}`);
-    
+
     let result = this.cache.get<Build>(cacheKey);
     if (result !== null) {
       return result;
@@ -148,7 +146,7 @@ export class CachedApiClient {
    */
   async getJobs(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Job[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs`);
-    
+
     let result = this.cache.get<Job[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -164,7 +162,7 @@ export class CachedApiClient {
    */
   async getArtifacts(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Artifact[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/artifacts`);
-    
+
     let result = this.cache.get<Artifact[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -196,7 +194,7 @@ export class CachedApiClient {
    */
   async getJobArtifacts(orgSlug: string, pipelineSlug: string, buildNumber: number, jobId: string): Promise<Artifact[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/artifacts`);
-    
+
     let result = this.cache.get<Artifact[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -212,7 +210,7 @@ export class CachedApiClient {
    */
   async getAgents(orgSlug: string): Promise<Agent[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/agents`);
-    
+
     let result = this.cache.get<Agent[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -228,7 +226,7 @@ export class CachedApiClient {
    */
   async getPipelinesByRepository(orgSlug: string, repositoryUrl: string): Promise<PipelineWithBuilds[]> {
     const cacheKey = this.generateCacheKey("GRAPHQL", `pipelines:${orgSlug}:${repositoryUrl}`);
-    
+
     let result = this.cache.get<PipelineWithBuilds[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -244,7 +242,7 @@ export class CachedApiClient {
    */
   async getJobLog(job: Job): Promise<string> {
     const cacheKey = this.generateCacheKey("GET", job.raw_log_url || "");
-    
+
     let result = this.cache.get<string>(cacheKey);
     if (result !== null) {
       return result;

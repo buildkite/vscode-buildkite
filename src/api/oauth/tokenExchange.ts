@@ -99,13 +99,9 @@ async function postToken(
 
   if (!response.ok) {
     const errorCode = typeof parsed?.error === "string" ? parsed.error : `http_${response.status}`;
-    // Only trust `error_description` from a parsed OAuth JSON body
-    //
-    // A non JSON body (HTML 502 from a proxy, etc.) could echo our form
-    // encoded request including the refresh_token, so we substitute a
-    // byte count summary in place of the body itself, which keeps it
-    // out of the thrown Error message (the full body still goes to the
-    // OAuth log via the caller)
+    // Only trust `error_description` from parsed OAuth JSON, a non JSON
+    // body (HTML 502 etc) could echo our form encoded request including
+    // the refresh_token, so substitute a byte count instead
     const errorDescription =
       typeof parsed?.error_description === "string"
         ? parsed.error_description
@@ -114,12 +110,9 @@ async function postToken(
           : "";
     const message = `Token request failed: ${errorCode}${errorDescription ? ` (${errorDescription})` : ""}`;
 
-    // Only invalid_grant means the user's refresh token is dead
-    //
-    // invalid_client and unauthorized_client point at a misconfigured
-    // client_id, wiping the user's session for a config typo would be
-    // wrong, so we surface a regular error and let the caller treat it
-    // as transient
+    // Only invalid_grant kills the session, invalid_client and
+    // unauthorized_client are config typos, throw a regular error for
+    // those
     if (opts.classifyAsRefresh && errorCode === "invalid_grant") {
       throw new RefreshTokenInvalidError(message);
     }

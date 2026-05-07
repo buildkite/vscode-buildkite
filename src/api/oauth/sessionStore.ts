@@ -58,20 +58,14 @@ export class SessionStore implements vscode.Disposable {
     return removed;
   }
 
-  // Drop every prior session and store `session` in one write, returning
-  // whatever was there before so the caller can fire removed events
-  //
-  // Caller MUST pass a session with a fresh id, otherwise the returned
-  // `previous` could contain the id of the new session and consumers
-  // would fire `removed` for an id they just `added`, churning the UI
+  // Wipes everything and stores the new one in one write, returns the
+  // old set for the caller to fire removed events, pass a fresh id or
+  // you'll fire removed for an id you just added
   async replace(session: StoredSession): Promise<StoredSession[]> {
     let previous: StoredSession[] = [];
     await this.mutate((sessions) => {
       if (sessions.some((s) => s.id === session.id)) {
-        throw new Error(
-          `SessionStore.replace called with an id (${session.id}) that already exists. ` +
-            `Generate a new id for the replacement session.`,
-        );
+        throw new Error(`SessionStore.replace: id ${session.id} already exists, generate a new one`);
       }
       previous = sessions;
       return [session];
@@ -101,14 +95,9 @@ export class SessionStore implements vscode.Disposable {
     });
   }
 
-  // Only writes if the stored session's `expectedRefreshToken` still
-  // matches what the caller saw
-  //
-  // Used by the refresh path so a slower window can't overwrite a newer
-  // rotation that landed in storage between its read and its write
-  //
-  // Returns true on write, false if the precondition failed (caller
-  // should read again and retry)
+  // CAS, only writes if the stored refresh token still matches what we
+  // expected, stops a slow refresh from clobbering a newer rotation,
+  // returns false if we lost the race (caller should re-read and retry)
   async swapIfRefreshTokenMatches(
     next: StoredSession,
     expectedRefreshToken: string,

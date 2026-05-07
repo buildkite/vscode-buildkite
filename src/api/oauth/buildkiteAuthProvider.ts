@@ -46,10 +46,9 @@ export class BuildkiteAuthProvider
     this.storeSubscription = this.store.onExternalChange(() => {
       void this.recomputeAndFire();
     });
-    // Snapshot what's already saved so the first event we fire is for a
-    // real change, not for sessions that were already there when the
-    // extension started up, going through the same mutex as recomputeAndFire
-    // so events arriving during activation wait their turn
+    // Grab what's already there so the first event is an actual change,
+    // not stuff that was always saved, through the mutex so any events
+    // arriving during activation queue behind us
     this.recomputeMutex = this.recomputeMutex.then(async () => {
       const current = await this.store.getAll();
       this.lastFiredById = new Map(current.map((s) => [s.id, s]));
@@ -106,16 +105,9 @@ export class BuildkiteAuthProvider
   }
 
   async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
-    // Any stored session is good enough, strict matching would loop
-    // forever for users whose role can't grant every scope we ask for
-    // since grants are trimmed server side to what the role allows
-    //
-    // Missing scopes show up as 403s on the endpoint that needs them,
-    // which the clients don't treat as sign in failures, so only 401
-    // (token revoked) drives a sign in prompt
-    //
-    // We log when a returned session is missing requested scopes so it
-    // shows up in the output channel if we ever care
+    // Any session works, the server trims grants to the role so strict
+    // matching would loop forever, missing scopes show up as 403s which
+    // we don't treat as sign in failures, log shortfalls for visibility
     const all = await this.store.getAll();
     if (scopes && scopes.length > 0) {
       for (const s of all) {
@@ -320,11 +312,9 @@ export class BuildkiteAuthProvider
     }
 
     if (lastErr instanceof RefreshTokenInvalidError) {
-      // Our refresh token is dead (long live the new one), but another
-      // window may have rotated the stored record while we were trying,
-      // so read again first and only remove if our (now dead) token is
-      // still the one in storage, otherwise hand back the newer session
-      // and leave it alone
+      // Our refresh token is dead (long live the new one), another
+      // window may have rotated while we were trying, so read again
+      // and only remove if our token is still in storage
       const latest = await this.store.getById(session.id);
       if (latest && latest.refreshToken !== current.refreshToken) {
         oauthLog(`Refresh token invalid here, but session ${session.id} was rotated by another window, deferring`);
