@@ -10,19 +10,10 @@ const SECRET_KEY = "buildkite.apiToken";
 
 type TokenSource = "oauth" | "pat";
 
-/**
- * One handle for either an OAuth session or a PAT, callers get a `token`
- * and `invalidate()` for 401 recovery, the OAuth/PAT split stays inside
- * AuthManager
- */
+/** OAuth session or PAT, opaque to callers */
 export interface AuthSession {
   readonly token: string;
-  /**
-   * Tell AuthManager that this token got rejected
-   * Concurrent calls will surface a single prompt to prevent spam
-   * The returned promise resolves once the recovery flow finishes,
-   * mostly so tests can wait on it
-   */
+  /** Tell AuthManager the token got rejected, concurrent calls share one prompt */
   invalidate(): Promise<void>;
 }
 
@@ -43,11 +34,7 @@ export class AuthManager implements vscode.Disposable {
   >();
   private readonly credentialChangedEmitter = new vscode.EventEmitter<void>();
 
-  /**
-   * Fires whenever the active credential changes (PAT set, PAT cleared,
-   * or an OAuth swap), subscribers should refresh anything that reads
-   * tokens
-   */
+  /** Fires on PAT set, PAT cleared, or OAuth swap */
   readonly onDidChangeCredential = this.credentialChangedEmitter.event;
 
   constructor(
@@ -73,22 +60,11 @@ export class AuthManager implements vscode.Disposable {
     return (await this.secrets.get(SECRET_KEY)) !== undefined;
   }
 
-  /**
-   * Refires `onDidChangeCredential`, used by the OAuth session listener
-   * so subscribers to a single AuthManager event see every credential
-   * change regardless of source
-   */
+  /** Re-fires onDidChangeCredential so the OAuth listener can route through us */
   notifyCredentialChanged(): void {
     this.credentialChangedEmitter.fire();
   }
 
-  /**
-   * Prompts the user for a PAT and stores it, returning the token or
-   * undefined if the user dismissed the input
-   *
-   * Used by both the "Set Token" command and the "Use API Token" recovery
-   * path so the prompt copy and the storage call live in one place
-   */
   async promptForApiToken(): Promise<string | undefined> {
     const token = await vscode.window.showInputBox({
       prompt: "Enter your Buildkite API Token",
@@ -123,12 +99,7 @@ export class AuthManager implements vscode.Disposable {
     return resolved ? this.toSession(resolved) : undefined;
   }
 
-  /**
-   * Ensures the user is signed in via OAuth, opening the browser flow
-   * only if no session exists, used by the "Sign in" command
-   *
-   * Shows a confirming toast naming the account either way
-   */
+  /** "Sign in" command, browser flow only if no session, toast either way */
   async signIn(): Promise<void> {
     try {
       const session = await this.createOAuthSession(snapshotScopes());
@@ -177,13 +148,8 @@ export class AuthManager implements vscode.Disposable {
       return existing;
     }
 
-    // No scope widening detection here, the server trims grants to what
-    // the user's role allows, so a stored session whose scopes don't
-    // match the configured set might be a server trim rather than a
-    // stale config
-    //
-    // Conflating the two would reprompt sign in on every command, users
-    // who want to apply a widened scopePreset must sign out and back in
+    // No scope widening detection, sign out and back in to apply a
+    // widened scopePreset
     const choice = await vscode.window.showInformationMessage(
       "You need to sign in to Buildkite to continue.",
       "Sign In with Browser",
@@ -272,14 +238,7 @@ export class AuthManager implements vscode.Disposable {
   }
 }
 
-/**
- * If `response` is a 401, kick off the session's recovery prompt without
- * waiting for it and throw a generic "Authentication required" error
- *
- * Centralises the handling so the REST and GraphQL clients don't drift
- * on it, and logs the (redacted) body so a server side detail like
- * "revoked" or "missing scope" is recoverable from the OAuth channel
- */
+/** 401 → kick recovery, log redacted body, throw "Authentication required" */
 export async function throwIfUnauthorized(response: Response, session: AuthSession): Promise<void> {
   if (response.status !== 401) {
     return;

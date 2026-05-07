@@ -100,14 +100,17 @@ export class BuildkiteAuthProvider
       if (added.length || removed.length || changed.length) {
         this.onDidChange.fire({ added, removed, changed });
       }
-    }).catch(() => undefined);
+    }).catch((err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      oauthLog(`recomputeAndFire failed: ${detail}`);
+    });
     return this.recomputeMutex;
   }
 
   async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
     // Any session works, the server trims grants to the role so strict
     // matching would loop forever, missing scopes show up as 403s which
-    // we don't treat as sign in failures, log shortfalls for visibility
+    // we don't treat as sign in failures, log shortfalls for visiblity
     const all = await this.store.getAll();
     if (scopes && scopes.length > 0) {
       for (const s of all) {
@@ -219,10 +222,7 @@ export class BuildkiteAuthProvider
     }
   }
 
-  // Oneshot signout, a concurrent createSession in another window can't
-  // slip in between snapshot and remove
-  //
-  // Returns the count so the caller can pick the right toast
+  // Atomic so a sign-in from another window can't slip between us
   async removeAllSessions(): Promise<number> {
     const removed = await this.store.clearAll();
     if (removed.length > 0) {

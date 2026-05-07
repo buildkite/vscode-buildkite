@@ -99,9 +99,7 @@ async function postToken(
 
   if (!response.ok) {
     const errorCode = typeof parsed?.error === "string" ? parsed.error : `http_${response.status}`;
-    // Only trust `error_description` from parsed OAuth JSON, a non JSON
-    // body (HTML 502 etc) could echo our form encoded request including
-    // the refresh_token, so substitute a byte count instead
+    // Raw non-JSON body could echo our refresh_token, send the size only
     const errorDescription =
       typeof parsed?.error_description === "string"
         ? parsed.error_description

@@ -59,8 +59,8 @@ export class SessionStore implements vscode.Disposable {
   }
 
   // Wipes everything and stores the new one in one write, returns the
-  // old set for the caller to fire removed events, pass a fresh id or
-  // you'll fire removed for an id you just added
+  // old set so the caller can fire removed events, fresh id or you'll
+  // fire removed for an id you just added
   async replace(session: StoredSession): Promise<StoredSession[]> {
     let previous: StoredSession[] = [];
     await this.mutate((sessions) => {

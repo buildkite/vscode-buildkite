@@ -33,20 +33,13 @@ export async function startLoopbackServer(
     };
   });
 
-  // Set after listen so the handler can validate the Host header against
-  // the exact expected value, blocking DNS rebinding attacks where the
-  // browser hits a hostname controlled by an attacker that resolves to
-  // 127.0.0.1
-  let expectedHost = "";
+  // Sentinel until listen returns the real port, any request that
+  // somehow lands before then fails the Host check by design
+  let expectedHost = "<unset>";
 
   const server = http.createServer((req, res) => {
-    // Defence in depth on top of state validation, any process on the
-    // machine can connect to 127.0.0.1 so we drop requests that didn't
-    // come from loopback or whose Host header doesn't match the bound
-    // socket
-    //
-    // Dual stack hosts can present 127.0.0.1 as the IPv4 mapped
-    // `::ffff:127.0.0.1`, so accept the canonical loopback addresses
+    // Any process on this machine can hit 127.0.0.1, so check remote +
+    // Host. Dual stack can present 127.0.0.1 as `::ffff:127.0.0.1`
     const remote = req.socket.remoteAddress ?? "";
     if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
       res.writeHead(403, { "Content-Type": "text/plain" });
@@ -58,13 +51,8 @@ export async function startLoopbackServer(
       res.end("Forbidden");
       return;
     }
-    // Reject anything that doesn't start with a literal "/callback" path
-    // before parsing
-    //
-    // `new URL("//evil.com/callback", "http://127.0.0.1")` would resolve
-    // to evil.com with pathname "/callback" and bypass a check that
-    // looks at pathname only, insisting on the leading "/callback"
-    // prevents that
+    // Check the literal path before URL parsing, otherwise `//x/callback`
+    // resolves to host x and bypasses a pathname-only check
     const rawPath = req.url ?? "/";
     if (rawPath !== "/callback" && !rawPath.startsWith("/callback?")) {
       res.writeHead(404, { "Content-Type": "text/plain" });
