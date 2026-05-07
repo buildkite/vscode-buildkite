@@ -251,10 +251,7 @@ function assertScopeListsInSync(context: vscode.ExtensionContext): void {
   }
 }
 
-// VS Code lets `contributes.configuration` be either an object or an
-// array of category objects, walk both shapes and return the first
-// scopes enum found
-function readPackageScopeEnum(packageJSON: unknown): string[] | undefined {
+export function readPackageScopeEnum(packageJSON: unknown): string[] | undefined {
   const configRaw = (packageJSON as { contributes?: { configuration?: unknown } } | undefined)
     ?.contributes?.configuration;
   const blocks = Array.isArray(configRaw) ? configRaw : configRaw ? [configRaw] : [];
