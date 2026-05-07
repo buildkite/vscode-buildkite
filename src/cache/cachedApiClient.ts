@@ -1,6 +1,6 @@
 import { BuildkiteClient, Organization } from "../api/client";
 import { CacheProvider } from "./cacheProvider";
-import { JsonValue, Pipeline, Build, Job, Agent, Artifact, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
+import { JsonValue, Pipeline, Build, Job, Agent, Artifact, Annotation, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
 
 /**
  * Cached API client wrapper that adds caching layer to BuildkiteClient
@@ -13,15 +13,27 @@ export class CachedApiClient {
 
   private static instance: CachedApiClient | undefined;
 
-  static getInstance(): CachedApiClient {
+  /**
+   * Initialise with the shared BuildkiteClient (constructed in extension.ts
+   * with the active AuthManager). Must be called once during activation
+   * before any command tries to read the cached client
+   */
+  static init(client: BuildkiteClient): CachedApiClient {
     if (!CachedApiClient.instance) {
-      CachedApiClient.instance = new CachedApiClient();
+      CachedApiClient.instance = new CachedApiClient(client);
     }
     return CachedApiClient.instance;
   }
 
-  private constructor() {
-    this.client = new BuildkiteClient();
+  static getInstance(): CachedApiClient {
+    if (!CachedApiClient.instance) {
+      throw new Error("CachedApiClient not initialised, call CachedApiClient.init first");
+    }
+    return CachedApiClient.instance;
+  }
+
+  private constructor(client: BuildkiteClient) {
+    this.client = client;
     this.cache = CacheProvider.getInstance();
   }
 
@@ -54,6 +66,16 @@ export class CachedApiClient {
   clearOrganizationCache(orgSlug: string): void {
     const pattern = `organizations/${orgSlug}`;
     this.cache.clearPattern(pattern);
+  }
+
+  /**
+   * Drop the cached organization on the underlying client and any cached
+   * /organizations responses, called when the active credential changes
+   * so the next call doesn't return the previous account's org slug
+   */
+  invalidateOrgCache(): void {
+    this.client.invalidateOrgCache();
+    this.cache.clearPattern(/organizations/);
   }
 
   /**
@@ -149,6 +171,22 @@ export class CachedApiClient {
     }
 
     result = await this.client.getArtifacts(orgSlug, pipelineSlug, buildNumber);
+    this.cache.set(cacheKey, result);
+    return result;
+  }
+
+  /**
+   * Get annotations with caching
+   */
+  async getAnnotations(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Annotation[]> {
+    const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/annotations`);
+
+    let result = this.cache.get<Annotation[]>(cacheKey);
+    if (result !== null) {
+      return result;
+    }
+
+    result = await this.client.getAnnotations(orgSlug, pipelineSlug, buildNumber);
     this.cache.set(cacheKey, result);
     return result;
   }

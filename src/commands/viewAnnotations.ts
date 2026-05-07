@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { AnnotationsWebview } from "../build/annotationsWebview";
 
@@ -16,7 +16,7 @@ function getAnnotationsWebview(): AnnotationsWebview {
  * Command handler to view annotations for a build.
  * Triggered from the build node context menu.
  */
-export async function viewAnnotations(node: BuildNode): Promise<void> {
+export async function viewAnnotations(client: CachedApiClient, node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
     vscode.window.showErrorMessage("Invalid build node");
     return;
@@ -33,7 +33,6 @@ export async function viewAnnotations(node: BuildNode): Promise<void> {
         title: `Loading annotations for ${buildLabel}...`,
       },
       async () => {
-        const client = new BuildkiteClient();
         const annotations = await client.getAnnotations(
           orgSlug,
           pipeline.slug,

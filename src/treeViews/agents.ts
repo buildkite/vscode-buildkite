@@ -41,7 +41,8 @@ export class AgentsTreeProvider
 
   dispose(): void {
     this._onDidChangeTreeData.dispose();
-    this.client.dispose();
+    // Don't dispose `this.client`, it's the shared CachedApiClient owned
+    // by extension.ts and used by other components too
   }
 
   getTreeItem(element: AgentsTreeNode): vscode.TreeItem {

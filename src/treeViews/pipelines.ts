@@ -378,6 +378,7 @@ export class PipelinesTreeProvider
 
   dispose(): void {
     this.stopAllPolling();
-    this.client.dispose(); // Dispose cache on extension deactivation
+    // Don't dispose `this.client`, it's the shared CachedApiClient owned
+    // by extension.ts and used by other components too
   }
 }

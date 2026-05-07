@@ -4,14 +4,19 @@ import { AgentsTreeProvider } from "./agents";
 import { PipelineTreeNode } from "./pipelines";
 import { SupportViewProvider } from "./support";
 import { AuthManager } from "../api/auth";
+import { CachedApiClient } from "../cache/cachedApiClient";
 
 let pipelinesTreeProvider: PipelinesTreeProvider;
 let agentsTreeProvider: AgentsTreeProvider;
 let pipelinesTreeView: vscode.TreeView<PipelineTreeNode>;
 
-export function initTreeViews(context: vscode.ExtensionContext, authManager: AuthManager): void {
-  pipelinesTreeProvider = new PipelinesTreeProvider(authManager);
-  agentsTreeProvider = new AgentsTreeProvider(authManager);
+export function initTreeViews(
+  context: vscode.ExtensionContext,
+  authManager: AuthManager,
+  client: CachedApiClient,
+): void {
+  pipelinesTreeProvider = new PipelinesTreeProvider(authManager, client);
+  agentsTreeProvider = new AgentsTreeProvider(authManager, client);
 
   pipelinesTreeView = vscode.window.createTreeView("buildkite.pipelines", {
     treeDataProvider: pipelinesTreeProvider,
