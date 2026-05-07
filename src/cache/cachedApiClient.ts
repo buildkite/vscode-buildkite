@@ -69,13 +69,13 @@ export class CachedApiClient {
   }
 
   /**
-   * Drop the cached organization on the underlying client and any cached
-   * /organizations responses, called when the active credential changes
-   * so the next call doesn't return the previous account's org slug
+   * Drop the cached organization on the underlying client and wipe every
+   * cached response, called when the active credential changes so the
+   * next call doesn't return the previous account's data
    */
   invalidateOrgCache(): void {
     this.client.invalidateOrgCache();
-    this.cache.clearPattern(/organizations/);
+    this.cache.clear();
   }
 
   /**

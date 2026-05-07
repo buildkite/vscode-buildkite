@@ -53,7 +53,11 @@ export class BuildkiteAuthProvider
     this.recomputeMutex = this.recomputeMutex.then(async () => {
       const current = await this.store.getAll();
       this.lastFiredById = new Map(current.map((s) => [s.id, s]));
-    }).catch(() => undefined);
+    }).catch((err) => {
+      // Log it, otherwise the next change event treats existing sessions as new
+      const detail = err instanceof Error ? err.message : String(err);
+      oauthLog(`Failed to seed lastFiredById on activation: ${detail}`);
+    });
   }
 
   dispose(): void {
