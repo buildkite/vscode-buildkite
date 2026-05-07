@@ -1,4 +1,5 @@
 import { trimTrailingSlash } from "./constants";
+import { redactIfCredentialShaped } from "./log";
 
 export interface TokenResponse {
   accessToken: string;
@@ -82,9 +83,7 @@ async function postToken(
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        // RFC 6749 §5.1, token responses MUST NOT be cached, and the
-        // SHOULD on the request side keeps any intermediary from serving
-        // a stale 200
+        // Stop intermediaries from serving a stale 200
         "Cache-Control": "no-store",
       },
       body: body.toString(),
@@ -100,9 +99,10 @@ async function postToken(
   if (!response.ok) {
     const errorCode = typeof parsed?.error === "string" ? parsed.error : `http_${response.status}`;
     // Raw non-JSON body could echo our refresh_token, send the size only
+    // and redact parsed error_description in case it leaks too
     const errorDescription =
       typeof parsed?.error_description === "string"
-        ? parsed.error_description
+        ? redactIfCredentialShaped(parsed.error_description)
         : rawBody
           ? `non-JSON response body (${rawBody.length} bytes)`
           : "";

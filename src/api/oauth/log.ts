@@ -26,7 +26,9 @@ export function oauthLog(message: string): void {
 // in unrelated errors readable while preventing a stray token from a
 // server error_description landing verbatim in the output channel or a
 // toast
-const CREDENTIAL_CONTEXT_PATTERN = /\b(token|bearer|secret|refresh|access|credential|authorization)\b/i;
+// No word boundaries because they exclude `refresh_token`, `access_token`
+// etc since `_` counts as a word char
+const CREDENTIAL_CONTEXT_PATTERN = /(token|bearer|secret|refresh|access|credential|authorization)/i;
 const CREDENTIAL_SHAPE_PATTERN = /[A-Za-z0-9_\-.]{24,}/g;
 
 export function redactIfCredentialShaped(s: string): string {
