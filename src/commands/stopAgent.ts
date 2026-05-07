@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
 import { pollUntilAgentGone } from "./agentStopPoller";
 
-export async function stopAgent(client: BuildkiteClient, node: AgentNode): Promise<void> {
+export async function stopAgent(client: CachedApiClient, node: AgentNode): Promise<void> {
   if (!node || !(node instanceof AgentNode)) {
     vscode.window.showErrorMessage("Invalid agent node");
     return;

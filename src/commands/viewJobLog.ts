@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { JobNode } from "../treeViews/nodes/jobNode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { Logger } from "../job/jobLogOutput";
 import { JobLogWebview } from "../job/jobLogWebview";
 
@@ -18,7 +18,7 @@ function getJobLogWebview(): JobLogWebview {
  * Views the log output for a specific job in a webview with ANSI color support.
  * @param jobNode - The job node from the tree view
  */
-export async function viewJobLog(client: BuildkiteClient, jobNode: JobNode): Promise<void> {
+export async function viewJobLog(client: CachedApiClient, jobNode: JobNode): Promise<void> {
   const logger = Logger.getInstance();
 
   try {

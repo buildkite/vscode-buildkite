@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function createPipeline(client: BuildkiteClient): Promise<void> {
+export async function createPipeline(client: CachedApiClient): Promise<void> {
   let org;
   try {
     org = await vscode.window.withProgress(

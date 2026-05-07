@@ -1,22 +1,23 @@
 import * as vscode from "vscode";
 import { PipelinesTreeProvider } from "./pipelines";
 import { AgentsTreeProvider } from "./agents";
+import { PipelineTreeNode } from "./pipelines";
 import { SupportViewProvider } from "./support";
 import { AuthManager } from "../api/auth";
 
 let pipelinesTreeProvider: PipelinesTreeProvider;
 let agentsTreeProvider: AgentsTreeProvider;
+let pipelinesTreeView: vscode.TreeView<PipelineTreeNode>;
 
 export function initTreeViews(context: vscode.ExtensionContext, authManager: AuthManager): void {
   pipelinesTreeProvider = new PipelinesTreeProvider(authManager);
   agentsTreeProvider = new AgentsTreeProvider(authManager);
 
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider(
-      "buildkite.pipelines",
-      pipelinesTreeProvider,
-    ),
-  );
+  pipelinesTreeView = vscode.window.createTreeView("buildkite.pipelines", {
+    treeDataProvider: pipelinesTreeProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(pipelinesTreeView);
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(
@@ -55,13 +56,19 @@ export function initTreeViews(context: vscode.ExtensionContext, authManager: Aut
     }),
   );
 
-  // Register dispose to clean up polling timers
   context.subscriptions.push({
     dispose: () => {
       pipelinesTreeProvider.dispose();
       agentsTreeProvider.dispose();
     },
   });
+}
+
+export function getPipelinesTreeView(): vscode.TreeView<PipelineTreeNode> {
+  if (!pipelinesTreeView) {
+    throw new Error("Tree view not initialized. Call initTreeViews first.");
+  }
+  return pipelinesTreeView;
 }
 
 export function getPipelinesTreeProvider(): PipelinesTreeProvider {

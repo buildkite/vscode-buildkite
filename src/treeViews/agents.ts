@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AuthManager } from "../api/auth";
 import { Agent } from "../api/types";
 import { AgentNode } from "./nodes/agentNode";
@@ -15,14 +15,18 @@ export class AgentsTreeProvider
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private client: BuildkiteClient;
+  private client: CachedApiClient;
   private filterQuery = "";
 
-  constructor(private readonly authManager: AuthManager) {
-    this.client = new BuildkiteClient(authManager);
+  constructor(
+    private readonly authManager: AuthManager,
+    client: CachedApiClient,
+  ) {
+    this.client = client;
   }
 
   async refresh(): Promise<void> {
+    this.client.clearCache();
     this._onDidChangeTreeData.fire(null);
   }
 
@@ -37,6 +41,7 @@ export class AgentsTreeProvider
 
   dispose(): void {
     this._onDidChangeTreeData.dispose();
+    this.client.dispose();
   }
 
   getTreeItem(element: AgentsTreeNode): vscode.TreeItem {

@@ -9,13 +9,13 @@ import {
   Agent,
   JsonValue,
   Artifact,
+  Annotation,
   PipelinesForRepositoryResponse,
   PipelineWithBuilds,
   CreatePipelineInput,
   UpdatePipelineInput,
 } from "./types";
 import { BuildkiteGraphQLClient } from "./graphqlClient";
-
 /**
  * Represents a Buildkite organization as returned by;
  * curl -H "Authorization: Bearer $TOKEN" \
@@ -35,7 +35,6 @@ export interface Organization {
   emojis_url: string;
   created_at: string;
 }
-
 /**
  * Client for interacting with the Buildkite REST API.
  * Handles authentication and API requests.
@@ -65,16 +64,13 @@ export class BuildkiteClient {
     if (this.organization) {
       return this.organization;
     }
-
     const orgs = await this.get<Organization[]>("/organizations");
     if (orgs.length === 0) {
       throw new Error("No organizations found for this API token.");
     }
-
     this.organization = orgs[0];
     return this.organization;
   }
-
   /**
    * Drops the cached organization, call when the active credential
    * changes (signout, sign in, or org switch) so a later
@@ -101,11 +97,9 @@ export class BuildkiteClient {
     if (!session) {
       throw new Error("Authentication required");
     }
-
     const url = endpoint.startsWith("http")
       ? endpoint
       : `${this.baseUrl}${endpoint}`;
-
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -113,7 +107,6 @@ export class BuildkiteClient {
         ...options?.headers,
       },
     });
-
     if (!response.ok) {
       await throwIfUnauthorized(response, session);
       if (response.status === 429) {
@@ -134,10 +127,8 @@ export class BuildkiteClient {
 
       throw new Error(errorMessage);
     }
-
     return response;
   }
-
   /**
    * Fetches all pages of a paginated endpoint.
    * Uses the Link header to find the next page URL.
@@ -145,25 +136,20 @@ export class BuildkiteClient {
   private async getAllPages<T>(endpoint: string): Promise<T[]> {
     const results: T[] = [];
     let nextUrl: string | null = endpoint;
-
     while (nextUrl) {
       const response = await this.fetch(nextUrl);
       const data = (await response.json()) as T[];
       results.push(...data);
-
       // Parse Link header for next page
       const linkHeader = response.headers.get("Link");
       nextUrl = this.parseNextLink(linkHeader);
     }
-
     return results;
   }
-
   private parseNextLink(linkHeader: string | null): string | null {
     if (!linkHeader) {
       return null;
     }
-
     // Link header format: <url>; rel="next", <url>; rel="prev", ...
     const links = linkHeader.split(",");
     for (const link of links) {
@@ -172,10 +158,8 @@ export class BuildkiteClient {
         return match[1];
       }
     }
-
     return null;
   }
-
   /**
    * Makes a PUT request to the Buildkite API.
    */
@@ -219,6 +203,7 @@ export class BuildkiteClient {
       body: body !== undefined ? JSON.stringify(body) : "{}",
     });
   }
+
   /**
    * Makes a DELETE request to the Buildkite API.
   **/
@@ -231,7 +216,6 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines?per_page=100`,
     );
   }
-
   async getBuilds(
     orgSlug: string,
     pipelineSlug: string,
@@ -241,7 +225,6 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds?per_page=${perPage}`,
     );
   }
-
   async getBuild(
     orgSlug: string,
     pipelineSlug: string,
@@ -251,7 +234,6 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}`,
     );
   }
-
   async rebuildBuild(
     orgSlug: string,
     pipelineSlug: string,
@@ -261,7 +243,6 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/rebuild`,
     );
   }
-
   async unblockJob(
     orgSlug: string,
     pipelineSlug: string,
@@ -275,7 +256,6 @@ export class BuildkiteClient {
       body,
     );
   }
-
   async cancelBuild(
     orgSlug: string,
     pipelineSlug: string,
@@ -305,7 +285,6 @@ export class BuildkiteClient {
     const build = await this.getBuild(orgSlug, pipelineSlug, buildNumber);
     return build.jobs || [];
   }
-
   async getArtifacts(
     orgSlug: string,
     pipelineSlug: string,
@@ -315,7 +294,15 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/artifacts?per_page=100`,
     );
   }
-
+  async getAnnotations(
+    orgSlug: string,
+    pipelineSlug: string,
+    buildNumber: number,
+  ): Promise<Annotation[]> {
+    return this.getAllPages<Annotation>(
+      `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/annotations?per_page=100`,
+    );
+  }
   async getJobArtifacts(
     orgSlug: string,
     pipelineSlug: string,
@@ -326,7 +313,6 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/artifacts?per_page=100`,
     );
   }
-
   async downloadArtifact(downloadUrl: string): Promise<Response> {
     return this.fetch(downloadUrl);
   }
@@ -341,16 +327,13 @@ export class BuildkiteClient {
       `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/retry`,
     );
   }
-
   async getJobLog(job: Job): Promise<string> {
     if (!job.raw_log_url) {
       return "No log available for this job.";
     }
-
     const response = await this.fetch(job.raw_log_url);
     return response.text();
   }
-
   /**
    * Fetches pipelines matching a repository URL using GraphQL.
    * Returns pipelines with their latest build in a single query.
@@ -388,13 +371,11 @@ export class BuildkiteClient {
         }
       }
     `;
-
     const data =
       await this.graphqlClient.query<PipelinesForRepositoryResponse>(query, {
         orgSlug,
         repoUrl: repositoryUrl,
       });
-
     return data.organization.pipelines.edges.map(({ node }) => {
       const pipeline: Pipeline = {
         id: "",
@@ -414,7 +395,6 @@ export class BuildkiteClient {
         running_jobs_count: 0,
         waiting_jobs_count: 0,
       };
-
       const builds: Build[] = node.builds.edges.map(({ node: buildNode }) => ({
         id: "",
         graphql_id: "",
@@ -449,7 +429,6 @@ export class BuildkiteClient {
           slug: node.slug,
         },
       }));
-
       return { pipeline, builds };
     });
   }

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
 import { BuildkiteClient } from "./api/client";
+import { CachedApiClient } from "./cache/cachedApiClient";
 import { AUTH_PROVIDER_ID, AUTH_PROVIDER_LABEL } from "./api/oauth/constants";
 import { BuildkiteAuthProvider } from "./api/oauth/buildkiteAuthProvider";
 import { SessionStore } from "./api/oauth/sessionStore";
@@ -21,6 +22,7 @@ import { retryJob } from "./commands/retryJob";
 import { downloadArtifact } from "./commands/downloadArtifact";
 import { unblockJob } from "./commands/unblockJob";
 import { viewJobLog, disposeJobLogWebview } from "./commands/viewJobLog";
+import { viewAnnotations, disposeAnnotationsWebview } from "./commands/viewAnnotations";
 import { stopAgent } from "./commands/stopAgent";
 import { forceStopAgent } from "./commands/forceStopAgent";
 import { pauseAgent } from "./commands/pauseAgent";
@@ -31,6 +33,7 @@ import { openJobLogUrl } from "./commands/openJobLogUrl";
 import { createPipeline } from "./commands/createPipeline";
 import { editPipeline } from "./commands/editPipeline";
 import { archivePipeline, unarchivePipeline, deletePipeline } from "./commands/archivePipeline";
+import { pickPipeline } from "./commands/pickPipeline";
 import { searchDocs } from "./commands/searchDocs";
 
 /**
@@ -40,7 +43,6 @@ import { searchDocs } from "./commands/searchDocs";
  * @param context - The extension context provided by VS Code
  */
 export function activate(context: vscode.ExtensionContext) {
-
   context.subscriptions.push(initOAuthLogger());
 
   const sessionStore = new SessionStore(context.secrets);
@@ -61,13 +63,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   assertScopeListsInSync(context);
 
-  initTreeViews(context, authManager);
-  initStatusBar(context, authManager);
+  // Build the shared API stack once with the active AuthManager and wrap
+  // it in a CachedApiClient, then thread that into every command, the
+  // tree views and the status bar
+  const restClient = new BuildkiteClient(authManager);
+  const client = CachedApiClient.init(restClient);
 
-  // Single shared client across all command invocations so the org id
-  // cache (set on the first /organizations call) actually pays off
-  // across commands
-  const client = new BuildkiteClient(authManager);
+  initTreeViews(context, authManager, client);
+  initStatusBar(context, authManager, client);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
@@ -117,11 +120,12 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Threads the shared client into every command handler, VS Code passes
-  // the original arg(s) (typically a tree node) through unchanged
+  // Threads the shared CachedApiClient into every command handler, VS
+  // Code passes the original arg(s) (typically a tree node) through
+  // unchanged
   const withClient =
     <Args extends unknown[], R>(
-      fn: (client: BuildkiteClient, ...args: Args) => R,
+      fn: (c: CachedApiClient, ...args: Args) => R,
     ) =>
     (...args: Args) =>
       fn(client, ...args);
@@ -132,6 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
     vscode.commands.registerCommand("buildkite.pipeline.create", withClient(createPipeline)),
     vscode.commands.registerCommand("buildkite.pipeline.edit", withClient(editPipeline)),
+    vscode.commands.registerCommand("buildkite.pipelines.pick", pickPipeline),
     vscode.commands.registerCommand("buildkite.pipeline.archive", withClient(archivePipeline)),
     vscode.commands.registerCommand("buildkite.pipeline.unarchive", withClient(unarchivePipeline)),
     vscode.commands.registerCommand("buildkite.pipeline.delete", withClient(deletePipeline)),
@@ -144,6 +149,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.build.rebuild", withClient(rebuildBuild)),
     vscode.commands.registerCommand("buildkite.build.cancel", withClient(cancelBuild)),
     vscode.commands.registerCommand("buildkite.build.unblock", withClient(unblockBuild)),
+    vscode.commands.registerCommand("buildkite.build.viewAnnotations", withClient(viewAnnotations)),
   );
 
   // Register Job Commands
@@ -214,6 +220,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   disposeJobLogWebview();
+  disposeAnnotationsWebview();
 }
 
 // Warns via the OAuth output channel if package.json's scope enum and

@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function createBuild(client: BuildkiteClient, node: PipelineNode): Promise<void> {
+export async function createBuild(client: CachedApiClient, node: PipelineNode): Promise<void> {
   try {
     // If node is missing or invalid, handle Command Palette flow
     if (!node || !node.orgSlug || !node.pipeline?.slug) {

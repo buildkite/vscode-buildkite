@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function editPipeline(client: BuildkiteClient, node: PipelineNode): Promise<void> {
+export async function editPipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;

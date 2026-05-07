@@ -4,7 +4,7 @@ import { Readable } from "stream";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { ArtifactNode } from "../treeViews/nodes/artifactNode";
 
 const PREVIEWABLE_MIME_PREFIXES = ["text/", "image/", "application/json"];
@@ -15,7 +15,7 @@ function isPreviewable(mimeType: string): boolean {
   );
 }
 
-export async function downloadArtifact(client: BuildkiteClient, node: ArtifactNode): Promise<void> {
+export async function downloadArtifact(client: CachedApiClient, node: ArtifactNode): Promise<void> {
   if (!node || !(node instanceof ArtifactNode)) {
     vscode.window.showErrorMessage("Invalid artifact node");
     return;

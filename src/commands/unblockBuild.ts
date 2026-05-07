@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { canUnblockJob, getJobDisplayName } from "../api/types";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 import { buildConfirmationMessage, collectFieldValues, normalizeFieldValues } from "./blockStepHelpers";
 
-export async function unblockBuild(client: BuildkiteClient, node: BuildNode): Promise<void> {
+export async function unblockBuild(client: CachedApiClient, node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
     vscode.window.showErrorMessage("Invalid build node");
     return;

@@ -1,4 +1,4 @@
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { AgentsTreeProvider } from "../treeViews/agents";
 
 const POLL_INTERVAL_MS = 2000;
@@ -9,7 +9,7 @@ const MAX_POLLS = 5;
  * connected (or max attempts reached), refreshing the tree view each time.
  */
 export async function pollUntilAgentGone(
-  client: BuildkiteClient,
+  client: CachedApiClient,
   orgSlug: string,
   agentId: string,
   treeProvider: AgentsTreeProvider,

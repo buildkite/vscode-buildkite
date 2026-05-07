@@ -118,6 +118,12 @@
         "icon": "$(play)"
       },
       {
+        "command": "buildkite.build.viewAnnotations",
+        "title": "View Annotations",
+        "category": "Buildkite",
+        "icon": "$(note)"
+      },
+      {
         "command": "buildkite.job.retry",
         "title": "Retry Job",
         "category": "Buildkite",
@@ -223,6 +229,19 @@
         "title": "Delete Pipeline",
         "category": "Buildkite",
         "icon": "$(trash)"
+      },
+      {
+        "command": "buildkite.pipelines.pick",
+        "title": "Switch Pipeline",
+        "category": "Buildkite",
+        "icon": "$(list-flat)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "buildkite.pipelines.pick",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
       }
     ],
     "configuration": {
@@ -319,6 +338,11 @@
     },
     "menus": {
       "view/title": [
+        {
+          "command": "buildkite.pipelines.pick",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines"
+        },
         {
           "command": "buildkite.pipelines.refresh",
           "group": "navigation",
@@ -417,6 +441,16 @@
           "group": "inline"
         },
         {
+          "command": "buildkite.build.viewAnnotations",
+          "when": "viewItem =~ /^build/",
+          "group": "inline@3"
+        },
+        {
+          "command": "buildkite.build.viewAnnotations",
+          "when": "viewItem =~ /^build/",
+          "group": "navigation@5"
+        },
+        {
           "command": "buildkite.job.unblock",
           "when": "viewItem =~ /^job\\.unblockable/",
           "group": "inline@2"
@@ -502,7 +536,7 @@
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
-    "typescript": "^5.9.0",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.0"
   },
   "overrides": {

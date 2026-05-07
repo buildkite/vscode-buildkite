@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { JobNode } from "../treeViews/nodes/jobNode";
 import { canRetryJob, getJobDisplayName } from "../api/types";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function retryJob(client: BuildkiteClient, node: JobNode): Promise<void> {
+export async function retryJob(client: CachedApiClient, node: JobNode): Promise<void> {
   if (!node || !(node instanceof JobNode)) {
     vscode.window.showErrorMessage("Invalid job node");
     return;

@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function archivePipeline(client: BuildkiteClient, node: PipelineNode): Promise<void> {
+export async function archivePipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;
@@ -40,7 +40,7 @@ export async function archivePipeline(client: BuildkiteClient, node: PipelineNod
   }
 }
 
-export async function unarchivePipeline(client: BuildkiteClient, node: PipelineNode): Promise<void> {
+export async function unarchivePipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;
@@ -68,7 +68,7 @@ export async function unarchivePipeline(client: BuildkiteClient, node: PipelineN
   }
 }
 
-export async function deletePipeline(client: BuildkiteClient, node: PipelineNode): Promise<void> {
+export async function deletePipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;
