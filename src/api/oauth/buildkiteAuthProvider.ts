@@ -108,9 +108,15 @@ export class BuildkiteAuthProvider
   }
 
   async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
-    // Any session works, the server trims grants to the role so strict
-    // matching would loop forever, missing scopes show up as 403s which
-    // we don't treat as sign in failures, log shortfalls for visiblity
+    // Yeah I know, ignoring `scopes` here looks wrong, tried strict
+    // matching first and got infinite reprompts because the server
+    // trims grants to whatever the user's role allows, so a session
+    // that asked for X but came back with Y never satisfies a check
+    // for X
+    //
+    // Any session is good enough, if a scope is genuinely missing the
+    // endpoint 403s and the clients don't treat that as a sign in
+    // failure, log the shortfall in case it ever matters
     const all = await this.store.getAll();
     if (scopes && scopes.length > 0) {
       for (const s of all) {

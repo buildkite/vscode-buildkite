@@ -85,7 +85,12 @@ export async function startLoopbackServer(
     }
 
     respondSuccess(res);
-    resolve({ code, state });
+    // Wait for the response to flush before resolving, otherwise dispose
+    // can RST the socket and the browser sees a connection reset instead
+    // of the success page
+    const settle = () => resolve({ code, state });
+    res.once("finish", settle);
+    res.once("close", settle);
   });
 
   await new Promise<void>((res, rej) => {

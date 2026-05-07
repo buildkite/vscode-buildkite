@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
   // it in a CachedApiClient, then thread that into every command, the
   // tree views and the status bar
   const restClient = new BuildkiteClient(authManager);
-  const client = CachedApiClient.init(restClient);
+  const client = new CachedApiClient(restClient);
   context.subscriptions.push({ dispose: () => client.dispose() });
 
   initTreeViews(context, authManager, client);

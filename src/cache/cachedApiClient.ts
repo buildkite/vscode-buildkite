@@ -11,28 +11,7 @@ export class CachedApiClient {
   private cache: CacheProvider;
   private readonly CACHE_TTL = 60000; // 60 seconds
 
-  private static instance: CachedApiClient | undefined;
-
-  /**
-   * Initialise with the shared BuildkiteClient (constructed in extension.ts
-   * with the active AuthManager). Must be called once during activation
-   * before any command tries to read the cached client
-   */
-  static init(client: BuildkiteClient): CachedApiClient {
-    if (!CachedApiClient.instance) {
-      CachedApiClient.instance = new CachedApiClient(client);
-    }
-    return CachedApiClient.instance;
-  }
-
-  static getInstance(): CachedApiClient {
-    if (!CachedApiClient.instance) {
-      throw new Error("CachedApiClient not initialised, call CachedApiClient.init first");
-    }
-    return CachedApiClient.instance;
-  }
-
-  private constructor(client: BuildkiteClient) {
+  constructor(client: BuildkiteClient) {
     this.client = client;
     this.cache = CacheProvider.getInstance();
   }
@@ -356,11 +335,7 @@ export class CachedApiClient {
     return this.cache.getStats();
   }
 
-  /**
-   * Dispose the cached API client
-   */
   dispose(): void {
     CacheProvider.disposeInstance();
-    CachedApiClient.instance = undefined;
   }
 }
