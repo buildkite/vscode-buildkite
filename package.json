@@ -52,6 +52,11 @@
         "category": "Buildkite"
       },
       {
+        "command": "buildkite.signIn",
+        "title": "Sign In",
+        "category": "Buildkite"
+      },
+      {
         "command": "buildkite.signIn.OAuth",
         "title": "Sign In with OAuth",
         "category": "Buildkite"

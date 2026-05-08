@@ -1,4 +1,3 @@
-// TODO: Placeholder value needs updating
 export const DEFAULT_CLIENT_ID = "buildkite-vscode";
 export const DEFAULT_WEB_BASE_URL = "https://buildkite.com";
 export const DEFAULT_API_BASE_URL = "https://api.buildkite.com/v2";

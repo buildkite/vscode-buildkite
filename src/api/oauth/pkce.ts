@@ -20,7 +20,7 @@ export function codeChallengeFromVerifier(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-/** Generates a 128-bit base64url random `state` value for CSRF protection */
+/** Generates a 128-bit base64url random `state` value */
 export function generateState(): string {
   return randomBase64Url(16);
 }

@@ -1,5 +1,18 @@
 import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { readPackageScopeEnum } from "../extension";
+import { AllScopes } from "../api/oauth/scopes";
+
+describe("scope lists stay in sync", () => {
+  it("AllScopes matches the enum in package.json", () => {
+    const pkgPath = path.resolve(__dirname, "../../package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const fromPkg = readPackageScopeEnum(pkg);
+    assert.ok(fromPkg, "package.json must declare buildkite.oauth.scopes enum");
+    assert.deepEqual([...fromPkg].sort(), [...AllScopes].sort());
+  });
+});
 
 describe("readPackageScopeEnum", () => {
   it("returns the enum when configuration is an object", () => {

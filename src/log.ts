@@ -1,12 +1,17 @@
 import * as vscode from "vscode";
 
-let channel: vscode.OutputChannel | undefined;
+let channel: vscode.LogOutputChannel | undefined;
 
-export function initOAuthLogger(): vscode.Disposable {
-  channel = vscode.window.createOutputChannel("Buildkite (OAuth)");
+export function initLogger(): vscode.Disposable {
+  channel = vscode.window.createOutputChannel("Buildkite", { log: true });
   const created = channel;
+  let disposed = false;
   return {
     dispose: () => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
       created.dispose();
       // Null the module level ref so a later activate() in the same host
       // doesn't write to a disposed channel
@@ -17,8 +22,24 @@ export function initOAuthLogger(): vscode.Disposable {
   };
 }
 
-export function oauthLog(message: string): void {
-  channel?.appendLine(`[${new Date().toISOString()}] ${message}`);
+export function trace(message: string): void {
+  channel?.trace(message);
+}
+
+export function debug(message: string): void {
+  channel?.debug(message);
+}
+
+export function info(message: string): void {
+  channel?.info(message);
+}
+
+export function warn(message: string): void {
+  channel?.warn(message);
+}
+
+export function error(message: string): void {
+  channel?.error(message);
 }
 
 // Redact 24+ char base64url or JWT runs only when the message looks

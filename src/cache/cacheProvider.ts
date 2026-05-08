@@ -22,8 +22,8 @@ export class CacheProvider {
    */
   set<T>(key: string, data: T, ttl?: number): void {
     const now = Date.now();
-    const actualTTL = ttl || this.defaultTTL;
-    
+    const actualTTL = ttl ?? this.defaultTTL;
+
     this.cache.set(key, {
       data,
       cachedAt: now,
@@ -36,49 +36,16 @@ export class CacheProvider {
    */
   get<T>(key: string): T | null {
     const entry = this.cache.get(key);
-    
     if (!entry) {
       return null;
     }
-
-    // Check if entry has expired
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return null;
     }
-
     return entry.data as T;
   }
 
-  /**
-   * Check if key exists and is not expired
-   */
-  has(key: string): boolean {
-    const entry = this.cache.get(key);
-    
-    if (!entry) {
-      return false;
-    }
-
-    // Check if entry has expired
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(key);
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Delete specific entry
-   */
-  delete(key: string): boolean {
-    return this.cache.delete(key);
-  }
-
-  /**
-   * Clear all cache entries
-   */
   clear(): void {
     this.cache.clear();
   }
@@ -88,7 +55,7 @@ export class CacheProvider {
    */
   clearPattern(pattern: string | RegExp): void {
     const keysToDelete: string[] = [];
-    
+
     for (const key of this.cache.keys()) {
       if (typeof pattern === 'string') {
         if (key.includes(pattern)) {
@@ -105,59 +72,13 @@ export class CacheProvider {
   }
 
   /**
-   * Clean up expired entries (called periodically)
-   */
-  cleanup(): void {
-    const now = Date.now();
-    const keysToDelete: string[] = [];
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (now > entry.expiresAt) {
-        keysToDelete.push(key);
-      }
-    }
-
-    keysToDelete.forEach(key => this.cache.delete(key));
-  }
-
-  /**
-   * Get cache statistics
-   */
-  getStats(): { size: number; expiredCount: number } {
-    const now = Date.now();
-    let expiredCount = 0;
-
-    for (const entry of this.cache.values()) {
-      if (now > entry.expiresAt) {
-        expiredCount++;
-      }
-    }
-
-    return {
-      size: this.cache.size,
-      expiredCount,
-    };
-  }
-
-  /**
    * Dispose the cache provider
    */
   dispose(): void {
     this.cache.clear();
   }
 
-  // Shared singleton instance
-  private static instance: CacheProvider | undefined;
-
-  static getInstance(): CacheProvider {
-    if (!CacheProvider.instance) {
-      CacheProvider.instance = new CacheProvider();
-    }
-    return CacheProvider.instance;
-  }
-
-  static disposeInstance(): void {
-    CacheProvider.instance?.dispose();
-    CacheProvider.instance = undefined;
+  static create(defaultTTL?: number): CacheProvider {
+    return new CacheProvider(defaultTTL);
   }
 }

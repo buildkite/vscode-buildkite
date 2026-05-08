@@ -125,7 +125,7 @@ describe("AuthManager", () => {
   });
 
   describe("requireSession", () => {
-    it("dedupes concurrent calls for the same scope set", async () => {
+    it("collapses concurrent calls for the same scope set into one prompt", async () => {
       stubAuth(async () => undefined);
       let prompts = 0;
       stubInfo(async () => {

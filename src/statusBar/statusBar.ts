@@ -6,6 +6,7 @@ import { Pipeline, Build, BuildState } from "../api/types";
 import { getGitUrlVariants } from "../utils/gitUrl";
 import { getIconForBuild, getAggregateIcon } from "../treeViews/icons";
 import { showPipelineQuickPick } from "./statusBarCommands";
+import { error, redactIfCredentialShaped, warn } from "../log";
 
 const ACTIVE_POLL_INTERVAL_MS = 60000; // 60 seconds when builds are running
 const IDLE_POLL_INTERVAL_MS = 60000; // 60 seconds when idle (to catch new builds)
@@ -156,7 +157,7 @@ export class StatusBarManager {
 
       const timer = setTimeout(() => {
         disposable.dispose();
-        console.warn("Buildkite: timed out waiting for git repository remotes");
+        warn("[StatusBar] timed out waiting for git repository remotes");
         resolve();
       }, 5000);
     });
@@ -181,8 +182,10 @@ export class StatusBarManager {
       await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
       this.managePolling();
-    } catch (error) {
-      console.error("Buildkite status bar error:", error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
+      error(`[StatusBar] error: ${redactIfCredentialShaped(message + stack)}`);
       this.matchedPipelines = [];
       this.pipelineBuilds.clear();
       this.stopPolling();
@@ -219,8 +222,9 @@ export class StatusBarManager {
             orgSlug,
             repoUrl,
           );
-        } catch (error) {
-          console.error(`Failed to fetch pipelines for ${repoUrl}:`, error);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          warn(`[StatusBar] Failed to fetch pipelines for ${repoUrl}: ${redactIfCredentialShaped(message)}`);
           return [];
         }
       }),
@@ -387,13 +391,7 @@ export class StatusBarManager {
   async showQuickPick(): Promise<void> {
     const token = (await this.authManager.resolveSession())?.token;
     if (!token) {
-      const action = await vscode.window.showQuickPick(
-        [{ label: "Set API Token", description: "Configure your Buildkite API token" }],
-        { placeHolder: "Buildkite API token not configured" },
-      );
-      if (action) {
-        vscode.commands.executeCommand("buildkite.setToken");
-      }
+      await vscode.commands.executeCommand("buildkite.signIn");
       return;
     }
 
@@ -436,7 +434,9 @@ export function initStatusBar(
   // both of which can reject, so surface failures to the console rather
   // than letting them become silent unhandled rejections
   void statusBarManagerInstance.initialize().catch((err) => {
-    console.error("Buildkite: status bar initialization failed:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
+    error(`[StatusBar] initialization failed: ${redactIfCredentialShaped(message + stack)}`);
   });
 
   context.subscriptions.push(statusBarManagerInstance);

@@ -14,7 +14,7 @@ import {
   trimTrailingSlash,
 } from "./constants";
 import { OAuthProvider } from "./types";
-import { oauthLog, redactIfCredentialShaped } from "./log";
+import { debug, error, info, redactIfCredentialShaped, warn } from "../../log";
 import { AllScopes } from "./scopes";
 import { codeChallengeFromVerifier, generateCodeVerifier, generateState } from "./pkce";
 import { startLoopbackServer, LoopbackHandle } from "./loopbackServer";
@@ -35,6 +35,8 @@ export class BuildkiteAuthProvider
 
   private readonly refreshesInFlight = new Map<string, Promise<StoredSession | undefined>>();
   private readonly activeLoopbacks = new Set<LoopbackHandle>();
+  private readonly missingScopeWarnings = new Map<string, Set<string>>();
+  private disposed = false;
   // Cache of last fired sessions, diffed on each change so echoes from this
   // window's own secrets.onDidChange don't double trigger
   private lastFiredById = new Map<string, StoredSession>();
@@ -55,14 +57,18 @@ export class BuildkiteAuthProvider
     }).catch((err) => {
       // Log it, otherwise the next change event treats existing sessions as new
       const detail = err instanceof Error ? err.message : String(err);
-      oauthLog(`Failed to seed lastFiredById on activation: ${detail}`);
+      error(`[OAuth] Failed to seed lastFiredById on activation: ${detail}`);
     });
   }
 
   dispose(): void {
-    // Kill any sign in browser servers still running so closing the
-    // window partway through releases the port right away instead of
-    // waiting out the 5 minute auth timeout
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    // Kill any signin browser servers still running so closing the window
+    // partway through releases the port right away instead of waiting out
+    // the 5 minute auth timeout
     for (const handle of this.activeLoopbacks) {
       handle.dispose();
     }
@@ -71,11 +77,38 @@ export class BuildkiteAuthProvider
     this.onDidChange.dispose();
   }
 
+  private warnAboutMissingScopesOnce(session: StoredSession, requested: readonly string[]): void {
+    const granted = new Set(session.scopes);
+    const missing = requested.filter((scope) => !granted.has(scope));
+    if (missing.length === 0) {
+      return;
+    }
+    let warned = this.missingScopeWarnings.get(session.id);
+    if (!warned) {
+      warned = new Set();
+      this.missingScopeWarnings.set(session.id, warned);
+    }
+    const newlyMissing = missing.filter((scope) => !warned.has(scope));
+    if (newlyMissing.length === 0) {
+      return;
+    }
+    for (const scope of newlyMissing) {
+      warned.add(scope);
+    }
+    warn(
+      `[OAuth] Returning session that lacks requested scopes: missing=[${newlyMissing.join(", ")}]; ` +
+        `granted=[${session.scopes.join(", ")}]. The user's Buildkite role likely doesn't permit them.`,
+    );
+  }
+
   // Read the current sessions, work out what's added/removed/changed
   // against the last snapshot, and fire one event with the result, locked
   // so two callers don't race the snapshot
   private recomputeAndFire(): Promise<void> {
     this.recomputeMutex = this.recomputeMutex.then(async () => {
+      if (this.disposed) {
+        return;
+      }
       const current = await this.store.getAll();
       const currentById = new Map(current.map((s) => [s.id, s]));
       const added: vscode.AuthenticationSession[] = [];
@@ -93,41 +126,35 @@ export class BuildkiteAuthProvider
       for (const [id, prev] of this.lastFiredById) {
         if (!currentById.has(id)) {
           removed.push(toSession(prev));
+          this.missingScopeWarnings.delete(id);
         }
       }
 
       this.lastFiredById = currentById;
+      if (this.disposed) {
+        return;
+      }
       if (added.length || removed.length || changed.length) {
         this.onDidChange.fire({ added, removed, changed });
       }
     }).catch((err) => {
       const detail = err instanceof Error ? err.message : String(err);
-      oauthLog(`recomputeAndFire failed: ${detail}`);
+      error(`[OAuth] recomputeAndFire failed: ${detail}`);
     });
     return this.recomputeMutex;
   }
 
   async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
-    // Yeah I know, ignoring `scopes` here looks wrong, tried strict
-    // matching first and got infinite reprompts because the server
-    // trims grants to whatever the user's role allows, so a session
-    // that asked for X but came back with Y never satisfies a check
-    // for X
+    // Strict matching causes infinite reprompts because the server trims
+    // grants to whatever the user's role allows, a session that asked for
+    // X but came back with Y never satisfies a check for X
     //
     // Any session is good enough, if a scope is genuinely missing the
-    // endpoint 403s and the clients don't treat that as a sign in
-    // failure, log the shortfall in case it ever matters
+    // endpoint 403s and clients don't treat that as a signin failure
     const all = await this.store.getAll();
     if (scopes && scopes.length > 0) {
       for (const s of all) {
-        const granted = new Set(s.scopes);
-        const missing = scopes.filter((scope) => !granted.has(scope));
-        if (missing.length > 0) {
-          oauthLog(
-            `Returning session that lacks requested scopes: missing=[${missing.join(", ")}]; ` +
-              `granted=[${s.scopes.join(", ")}]. The user's Buildkite role likely doesn't permit them.`,
-          );
-        }
+        this.warnAboutMissingScopesOnce(s, scopes);
       }
     }
 
@@ -141,8 +168,8 @@ export class BuildkiteAuthProvider
 
   async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
     const resolvedScopes = scopes.length > 0 ? [...scopes] : [...AllScopes];
-    oauthLog(
-      `PKCE flow started: scopes=[${resolvedScopes.join(", ")}] (${resolvedScopes.length})`,
+    info(
+      `[OAuth] PKCE flow started: scopes=[${resolvedScopes.join(", ")}] (${resolvedScopes.length})`,
     );
 
     const clientId = this.config<string>("oauth.clientId") || DEFAULT_CLIENT_ID;
@@ -198,7 +225,7 @@ export class BuildkiteAuthProvider
       }
 
       const account = await fetchAccount(tokens.accessToken);
-      oauthLog(`Sign-in complete: account=${account.label}`);
+      info(`[OAuth] Sign-in complete: account=${account.label}`);
 
       const session: StoredSession = {
         id: randomUUID(),
@@ -210,9 +237,9 @@ export class BuildkiteAuthProvider
       };
       // We only support one account at a time, so swap every prior
       // session in one write to stop a sign in from another window from
-      // landing in the gap between read and write
+      // landing in the gap between read and write, the listener on
+      // secrets.onDidChange picks up this write and fires the event
       await this.store.replace(session);
-      await this.recomputeAndFire();
       return toSession(session);
     } finally {
       loopback.dispose();
@@ -223,8 +250,7 @@ export class BuildkiteAuthProvider
   async removeSession(sessionId: string): Promise<void> {
     const removed = await this.store.remove(sessionId);
     if (removed) {
-      oauthLog(`Session removed: id=${sessionId}`);
-      await this.recomputeAndFire();
+      info(`[OAuth] Session removed: id=${sessionId}`);
     }
   }
 
@@ -232,13 +258,15 @@ export class BuildkiteAuthProvider
   async removeAllSessions(): Promise<number> {
     const removed = await this.store.clearAll();
     if (removed.length > 0) {
-      oauthLog(`All sessions removed: count=${removed.length}`);
-      await this.recomputeAndFire();
+      info(`[OAuth] All sessions removed: count=${removed.length}`);
     }
     return removed.length;
   }
 
   private async ensureFresh(session: StoredSession): Promise<StoredSession | undefined> {
+    // System clock jumping forward can dip a healthy token below the leeway
+    // and force an early refresh, jumping backward only inflates the gap so
+    // it's a no op, either way the 401 path catches the leftover edge cases
     if (session.expiresAt - Date.now() > REFRESH_LEEWAY_MS) {
       return session;
     }
@@ -263,7 +291,7 @@ export class BuildkiteAuthProvider
     let lastErr: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        oauthLog(`Token refresh attempt ${attempt + 1} for session ${current.id}`);
+        debug(`[OAuth] Token refresh attempt ${attempt + 1} for session ${current.id}`);
         const tokens = await refreshAccessToken({
           clientId,
           webBaseUrl,
@@ -285,18 +313,17 @@ export class BuildkiteAuthProvider
           current.refreshToken,
         );
         if (!wrote) {
-          oauthLog(
-            `Token refresh succeeded for session ${current.id} but another window rotated first; deferring`,
+          debug(
+            `[OAuth] Token refresh succeeded for session ${current.id} but another window rotated first; deferring`,
           );
           return this.store.getById(current.id);
         }
-        oauthLog(`Token refresh succeeded for session ${current.id}`);
-        await this.recomputeAndFire();
+        info(`[OAuth] Token refresh succeeded for session ${current.id}`);
         return refreshed;
       } catch (err) {
         lastErr = err;
         const detail = err instanceof Error ? err.message : String(err);
-        oauthLog(`Token refresh attempt ${attempt + 1} failed: ${redactIfCredentialShaped(detail)}`);
+        warn(`[OAuth] Token refresh attempt ${attempt + 1} failed: ${redactIfCredentialShaped(detail)}`);
         if (err instanceof RefreshTokenInvalidError) {
           break;
         }
@@ -323,14 +350,11 @@ export class BuildkiteAuthProvider
       // and only remove if our token is still in storage
       const latest = await this.store.getById(session.id);
       if (latest && latest.refreshToken !== current.refreshToken) {
-        oauthLog(`Refresh token invalid here, but session ${session.id} was rotated by another window, deferring`);
+        debug(`[OAuth] Refresh token invalid here, but session ${session.id} was rotated by another window, deferring`);
         return latest;
       }
-      oauthLog(`Refresh token invalid, removing session ${session.id}`);
-      const removed = await this.store.remove(session.id);
-      if (removed) {
-        await this.recomputeAndFire();
-      }
+      warn(`[OAuth] Refresh token invalid, removing session ${session.id}`);
+      await this.store.remove(session.id);
       return undefined;
     }
     // Transient failure (network blip, 5xx) and the stored access token is
@@ -341,8 +365,8 @@ export class BuildkiteAuthProvider
     // path takes over
     const stillValid = await this.store.getById(session.id);
     if (stillValid && stillValid.expiresAt > Date.now()) {
-      oauthLog(
-        `Token refresh failed transiently for session ${session.id}; using existing token until next 401`,
+      warn(
+        `[OAuth] Token refresh failed transiently for session ${session.id}; using existing token until next 401`,
       );
       return stillValid;
     }
@@ -428,21 +452,21 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
     const causeErr = (err as { cause?: unknown })?.cause;
     const cause = causeErr instanceof Error ? causeErr.message : "";
     const detail = cause ? `${message} (${cause})` : message;
-    oauthLog(`Account fetch network error against ${apiBaseUrl}/user: ${detail}`);
+    warn(`[OAuth] Account fetch network error against ${apiBaseUrl}/user: ${detail}`);
     throw new Error(`Could not load Buildkite user account: ${detail}`);
   } finally {
     clearTimeout(timeout);
   }
 
   if (response.status === 401 || response.status === 403) {
-    oauthLog(`Account fetch failed: HTTP ${response.status} (likely missing read_user scope)`);
+    warn(`[OAuth] Account fetch failed: HTTP ${response.status} (likely missing read_user scope)`);
     throw new Error(
       `Sign-in succeeded but the Buildkite user could not be loaded (HTTP ${response.status}). ` +
         `Make sure your scope preset grants 'read_user'.`,
     );
   }
   if (!response.ok) {
-    oauthLog(`Account fetch failed: HTTP ${response.status}`);
+    warn(`[OAuth] Account fetch failed: HTTP ${response.status}`);
     throw new Error(
       `Sign-in succeeded but the Buildkite user could not be loaded (HTTP ${response.status}).`,
     );
@@ -460,7 +484,7 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
   if (!id || !label) {
     throw new Error("Buildkite returned an unexpected user payload.");
   }
-  oauthLog(`Account loaded: ${label}`);
+  info(`[OAuth] Account loaded: ${label}`);
   return { id, label };
 }
 

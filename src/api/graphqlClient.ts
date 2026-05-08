@@ -1,6 +1,7 @@
 import { AuthManager, throwIfUnauthorized } from "./auth";
 import * as vscode from "vscode";
 import { DEFAULT_GRAPHQL_URL, resolveConfiguredUrl } from "./oauth/constants";
+import { redactIfCredentialShaped } from "../log";
 
 interface GraphQLResponse<T> {
   data?: T;
@@ -56,7 +57,7 @@ export class BuildkiteGraphQLClient {
 
     if (result.errors && result.errors.length > 0) {
       const errorMessage = result.errors.map((e) => e.message).join("; ");
-      throw new Error(`GraphQL error: ${errorMessage}`);
+      throw new Error(`GraphQL error: ${redactIfCredentialShaped(errorMessage)}`);
     }
 
     if (!result.data) {

@@ -27,7 +27,7 @@ export async function pickPipeline(): Promise<void> {
     }
 
     if (children.some((c) => c instanceof NoTokenNode)) {
-      vscode.window.showErrorMessage("Buildkite: No API token set. Use 'Buildkite: Set API Token' first.");
+      vscode.window.showErrorMessage("Buildkite: not signed in. Run 'Buildkite: Sign In' first.");
       return;
     }
 

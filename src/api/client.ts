@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AuthManager, throwIfUnauthorized } from "./auth";
 import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./oauth/constants";
+import { redactIfCredentialShaped } from "../log";
 import {
   Pipeline,
   Build,
@@ -17,9 +18,8 @@ import {
 } from "./types";
 import { BuildkiteGraphQLClient } from "./graphqlClient";
 /**
- * Represents a Buildkite organization as returned by;
- * curl -H "Authorization: Bearer $TOKEN" \
- *  -X GET "https://api.buildkite.com/v2/organizations"
+ * Represents a Buildkite organization as returned by
+ * GET https://api.buildkite.com/v2/organizations
  *
  * A token can only be associated with a single org, so we can use this interface safely
  */
@@ -35,10 +35,6 @@ export interface Organization {
   emojis_url: string;
   created_at: string;
 }
-/**
- * Client for interacting with the Buildkite REST API.
- * Handles authentication and API requests.
- */
 export class BuildkiteClient {
   private get baseUrl(): string {
     return resolveConfiguredUrl(
@@ -54,12 +50,7 @@ export class BuildkiteClient {
     this.graphqlClient = new BuildkiteGraphQLClient(authManager);
   }
 
-  /**
-   * Fetches the organization associated with the API token
-   * Results are cached after the first fetch.
-   * @returns The organization details
-   * @throws {Error} If no organizations are found for the API token
-   */
+  // Cached after the first fetch
   async getOrganization(): Promise<Organization> {
     if (this.organization) {
       return this.organization;
@@ -80,13 +71,6 @@ export class BuildkiteClient {
     this.organization = undefined;
   }
 
-  /**
-   * Makes a GET request to the Buildkite API.
-   * @template T - The expected response type
-   * @param endpoint - The API endpoint to request (e.g., "/organizations")
-   * @returns The parsed JSON response
-   * @throws {Error} If authentication fails or the API returns an error
-   */
   async get<T = JsonValue>(endpoint: string): Promise<T> {
     const response = await this.fetch(endpoint);
     return response.json() as Promise<T>;
@@ -125,14 +109,13 @@ export class BuildkiteClient {
         // Ignore if we can't read the body
       }
 
-      throw new Error(errorMessage);
+      // Defensive redaction so a misbehaving server echoing an
+      // Authorization header in the body can't leak through to a toast
+      throw new Error(redactIfCredentialShaped(errorMessage));
     }
     return response;
   }
-  /**
-   * Fetches all pages of a paginated endpoint.
-   * Uses the Link header to find the next page URL.
-   */
+  // Walks the `Link: rel="next"` header to fetch every page
   private async getAllPages<T>(endpoint: string): Promise<T[]> {
     const results: T[] = [];
     let nextUrl: string | null = endpoint;
@@ -160,9 +143,6 @@ export class BuildkiteClient {
     }
     return null;
   }
-  /**
-   * Makes a PUT request to the Buildkite API.
-   */
   async put<T = JsonValue>(endpoint: string, body?: JsonValue): Promise<T> {
     const response = await this.fetch(endpoint, {
       method: "PUT",
@@ -172,9 +152,6 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
-  /**
-   * Makes a POST request to the Buildkite API.
-   */
   async post<T = JsonValue>(endpoint: string, body?: object): Promise<T> {
     const response = await this.fetch(endpoint, {
       method: "POST",
@@ -184,9 +161,6 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
-  /**
-   * Makes a PATCH request to the Buildkite API.
-   */
   async patch<T = JsonValue>(endpoint: string, body?: object): Promise<T> {
     const response = await this.fetch(endpoint, {
       method: "PATCH",
@@ -204,9 +178,6 @@ export class BuildkiteClient {
     });
   }
 
-  /**
-   * Makes a DELETE request to the Buildkite API.
-  **/
   async delete(endpoint: string): Promise<void> {
     await this.fetch(endpoint, { method: "DELETE" });
   }
@@ -334,10 +305,7 @@ export class BuildkiteClient {
     const response = await this.fetch(job.raw_log_url);
     return response.text();
   }
-  /**
-   * Fetches pipelines matching a repository URL using GraphQL.
-   * Returns pipelines with their latest build in a single query.
-   */
+  // GraphQL so pipeline metadata and recent builds come back in one round trip
   async getPipelinesByRepository(
     orgSlug: string,
     repositoryUrl: string,

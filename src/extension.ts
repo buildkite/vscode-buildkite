@@ -5,7 +5,7 @@ import { CachedApiClient } from "./cache/cachedApiClient";
 import { AUTH_PROVIDER_ID, AUTH_PROVIDER_LABEL } from "./api/oauth/constants";
 import { BuildkiteAuthProvider } from "./api/oauth/buildkiteAuthProvider";
 import { SessionStore } from "./api/oauth/sessionStore";
-import { initOAuthLogger, oauthLog } from "./api/oauth/log";
+import { initLogger, warn } from "./log";
 import { AllScopes } from "./api/oauth/scopes";
 import {
   initTreeViews,
@@ -43,7 +43,7 @@ import { searchDocs } from "./commands/searchDocs";
  * @param context - The extension context provided by VS Code
  */
 export function activate(context: vscode.ExtensionContext) {
-  context.subscriptions.push(initOAuthLogger());
+  context.subscriptions.push(initLogger());
 
   const sessionStore = new SessionStore(context.secrets);
   const authProvider = new BuildkiteAuthProvider(sessionStore);
@@ -75,6 +75,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
+    // Surface the choice between browser sign-in and PAT, both the welcome
+    // tree node and the status bar route through this so we don't end up
+    // with two paths that drift
+    vscode.commands.registerCommand("buildkite.signIn", () => authManager.requireSession()),
     vscode.commands.registerCommand("buildkite.signOut.OAuth", async () => {
       const removed = await authProvider.removeAllSessions();
       if (removed === 0) {
@@ -224,13 +228,13 @@ export function deactivate() {
   disposeAnnotationsWebview();
 }
 
-// Warns via the OAuth output channel if package.json's scope enum and
+// Warns via the Buildkite output channel if package.json's scope enum and
 // AllScopes drift out of sync, catching the mismatch the moment the
 // extension activates rather than waiting for a user to report it
 function assertScopeListsInSync(context: vscode.ExtensionContext): void {
   const pkgScopes = readPackageScopeEnum(context.extension.packageJSON);
   if (!pkgScopes) {
-    oauthLog("Scope list assertion skipped: could not locate buildkite.oauth.scopes enum in package.json.");
+    warn("[OAuth] Scope list assertion skipped: could not locate buildkite.oauth.scopes enum in package.json.");
     return;
   }
 
@@ -243,11 +247,7 @@ function assertScopeListsInSync(context: vscode.ExtensionContext): void {
     const message =
       `Scope list mismatch detected. Missing from package.json: [${missing.join(", ")}]; ` +
       `extra in package.json: [${extra.join(", ")}]`;
-    oauthLog(message);
-    // Also log to the dev console, a contributor running the extension
-    // is more likely to notice a console error than to open the OAuth
-    // output channel
-    console.error(`Buildkite: ${message}`);
+    warn(`[OAuth] ${message}`);
   }
 }
 

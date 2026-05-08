@@ -42,7 +42,7 @@ describe("resolveScopesFromConfig", () => {
     assert.deepEqual(result, ["read_user", "read_pipelines"]);
   });
 
-  it("custom values get deduped", () => {
+  it("custom values drop duplicates", () => {
     const result = resolveScopesFromConfig({
       preset: "custom",
       customScopes: ["read_user", "read_user", "Read_User"],

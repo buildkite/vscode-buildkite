@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
+import { error, redactIfCredentialShaped } from "../log";
 
 export async function createBuild(client: CachedApiClient, node: PipelineNode): Promise<void> {
   try {
@@ -63,7 +64,8 @@ export async function createBuild(client: CachedApiClient, node: PipelineNode): 
   }
   catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
     vscode.window.showErrorMessage(`Failed to create build: ${message}`);
-    console.error(err);
+    error(`[Build] Failed to create build: ${redactIfCredentialShaped(message + stack)}`);
   }
 }

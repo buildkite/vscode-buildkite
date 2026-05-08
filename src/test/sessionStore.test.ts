@@ -2,6 +2,7 @@ import * as assert from "node:assert/strict";
 import * as vscode from "vscode";
 import { SessionStore, StoredSession } from "../api/oauth/sessionStore";
 import { SESSIONS_SECRET_KEY } from "../api/oauth/constants";
+import { initLogger } from "../log";
 
 // Fake SecretStorage backed by a Map, fires onDidChange on writes so
 // we can exercise the cross window path
@@ -89,15 +90,6 @@ describe("SessionStore", () => {
       assert.deepEqual((await store.getAll()).map((s) => s.id), ["b"]);
     });
 
-    it("throws if the new id is already in storage", async () => {
-      const s = session("dup");
-      await store.replace(s);
-
-      await assert.rejects(
-        () => store.replace(s),
-        /already exists/,
-      );
-    });
   });
 
   describe("clearAll", () => {
@@ -218,6 +210,76 @@ describe("SessionStore", () => {
       assert.equal(fired, 1);
       const all = await store.getAll();
       assert.deepEqual(all.map((s) => s.id), ["from-other-window"]);
+    });
+  });
+
+  describe("readRaw resilience", () => {
+    let channelLines: string[];
+    let originalCreate: typeof vscode.window.createOutputChannel;
+    let loggerDisposable: vscode.Disposable | undefined;
+
+    beforeEach(() => {
+      channelLines = [];
+      originalCreate = vscode.window.createOutputChannel;
+      const record = (level: string) => (line: string) => { channelLines.push(`[${level}] ${line}`); };
+      const fakeChannel = {
+        name: "test",
+        logLevel: 1,
+        onDidChangeLogLevel: () => ({ dispose: () => {} }),
+        appendLine: (line: string) => { channelLines.push(line); },
+        append: () => {},
+        replace: () => {},
+        clear: () => {},
+        show: () => {},
+        hide: () => {},
+        dispose: () => {},
+        trace: record("trace"),
+        debug: record("debug"),
+        info: record("info"),
+        warn: record("warn"),
+        error: record("error"),
+      };
+      (vscode.window as unknown as { createOutputChannel: (name: string, opts?: unknown) => unknown }).createOutputChannel = () => fakeChannel;
+      loggerDisposable = initLogger();
+    });
+
+    afterEach(() => {
+      loggerDisposable?.dispose();
+      (vscode.window as unknown as { createOutputChannel: typeof vscode.window.createOutputChannel }).createOutputChannel = originalCreate;
+    });
+
+    it("returns empty when the stored secret is not valid JSON", async () => {
+      await secrets.writeRaw(SESSIONS_SECRET_KEY, "not-json{");
+      assert.deepEqual(await store.getAll(), []);
+      assert.ok(
+        channelLines.some((line) => line.includes("failed to parse")),
+        `expected a parse-failure log, got: ${channelLines.join(" | ")}`,
+      );
+    });
+
+    it("returns empty when the stored secret is not an array", async () => {
+      await secrets.writeRaw(SESSIONS_SECRET_KEY, JSON.stringify({ not: "an array" }));
+      assert.deepEqual(await store.getAll(), []);
+    });
+
+    it("drops malformed entries but keeps valid ones", async () => {
+      const good = session("good");
+      const bad = { id: "bad", missingFields: true };
+      await secrets.writeRaw(SESSIONS_SECRET_KEY, JSON.stringify([good, bad]));
+      const all = await store.getAll();
+      assert.deepEqual(all.map((s) => s.id), ["good"]);
+    });
+
+    it("rejects entries with a non-string scope", async () => {
+      const broken = { ...session("a"), scopes: ["read_user", 42] };
+      await secrets.writeRaw(SESSIONS_SECRET_KEY, JSON.stringify([broken]));
+      assert.deepEqual(await store.getAll(), []);
+    });
+
+    it("rejects entries missing the account block", async () => {
+      const broken = { ...session("a"), account: undefined };
+      await secrets.writeRaw(SESSIONS_SECRET_KEY, JSON.stringify([broken]));
+      assert.deepEqual(await store.getAll(), []);
     });
   });
 });

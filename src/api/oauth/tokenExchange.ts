@@ -1,5 +1,5 @@
 import { trimTrailingSlash } from "./constants";
-import { redactIfCredentialShaped } from "./log";
+import { redactIfCredentialShaped } from "../../log";
 
 export interface TokenResponse {
   accessToken: string;

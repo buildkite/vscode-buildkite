@@ -9,7 +9,7 @@ import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
 import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
-import { Logger } from "../job/jobLogOutput";
+import { debug, error, redactIfCredentialShaped } from "../log";
 import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
 import { SummaryNode } from "./nodes/summaryNode";
 
@@ -161,8 +161,7 @@ export class PipelinesTreeProvider
       }
 
       if (element instanceof BuildNode) {
-        const logger = Logger.getInstance();
-        logger.debug(`Fetching jobs for build #${element.build.number}`);
+        debug(`[Job] Fetching jobs for build #${element.build.number}`);
 
         try {
           const jobs = await this.client.getJobs(
@@ -239,10 +238,12 @@ export class PipelinesTreeProvider
           );
 
           return children;
-        } catch (error) {
-          logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
-          if (error instanceof Error) {
-            return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
+        } catch (err) {
+          const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
+          const message = err instanceof Error ? err.message : "Unknown error";
+          error(`[Job] Failed to fetch jobs for build #${element.build.number}: ${redactIfCredentialShaped(message + stack)}`);
+          if (err instanceof Error) {
+            return [new ErrorNode(`Failed to load jobs: ${err.message}`)];
           }
           return [new ErrorNode("Failed to load jobs")];
         }

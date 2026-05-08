@@ -9,11 +9,10 @@ import { JsonValue, Pipeline, Build, Job, Agent, Artifact, Annotation, PipelineW
 export class CachedApiClient {
   private client: BuildkiteClient;
   private cache: CacheProvider;
-  private readonly CACHE_TTL = 60000; // 60 seconds
 
   constructor(client: BuildkiteClient) {
     this.client = client;
-    this.cache = CacheProvider.getInstance();
+    this.cache = CacheProvider.create();
   }
 
   /**
@@ -35,16 +34,21 @@ export class CachedApiClient {
    * Clear cache for specific pipeline (used after mutating actions)
    */
   clearPipelineCache(orgSlug: string, pipelineSlug: string): void {
-    const pattern = new RegExp(`organizations/${orgSlug}/pipelines/${pipelineSlug}`);
-    this.cache.clearPattern(pattern);
+    // Trailing slash so `deploy` doesn't also match `deploy-staging`
+    this.cache.clearPattern(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/`);
+    // Build mutations change what getPipelinesByRepository returns too,
+    // its key is keyed by repo URL not pipeline slug so we drop the org's
+    // whole GraphQL pipeline bucket
+    this.cache.clearPattern(`GRAPHQL:pipelines:${orgSlug}:`);
   }
 
   /**
    * Clear cache for organization (used after token changes)
    */
   clearOrganizationCache(orgSlug: string): void {
-    const pattern = `organizations/${orgSlug}`;
-    this.cache.clearPattern(pattern);
+    // Trailing slash so `acme` doesn't also match `acme-staging`
+    this.cache.clearPattern(`/organizations/${orgSlug}/`);
+    this.cache.clearPattern(`GRAPHQL:pipelines:${orgSlug}:`);
   }
 
   /**
@@ -79,10 +83,8 @@ export class CachedApiClient {
 
     let result = this.cache.get<Pipeline[]>(cacheKey);
     if (result !== null) {
-      console.log(`[Cache HIT] ${cacheKey}`);
       return result;
     }
-    console.log(`[Cache MISS] ${cacheKey}`);
     result = await this.client.getPipelines(orgSlug);
     this.cache.set(cacheKey, result);
     return result;
@@ -328,14 +330,7 @@ export class CachedApiClient {
     return result;
   }
 
-  /**
-   * Get cache statistics for debugging
-   */
-  getCacheStats() {
-    return this.cache.getStats();
-  }
-
   dispose(): void {
-    CacheProvider.disposeInstance();
+    this.cache.dispose();
   }
 }

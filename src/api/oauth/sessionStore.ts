@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { SESSIONS_SECRET_KEY } from "./constants";
+import { warn } from "../../log";
 
 
 export interface StoredSession {
@@ -59,14 +60,10 @@ export class SessionStore implements vscode.Disposable {
   }
 
   // Wipes everything and stores the new one in one write, returns the
-  // old set so the caller can fire removed events, fresh id or you'll
-  // fire removed for an id you just added
+  // old set so the caller can fire removed events
   async replace(session: StoredSession): Promise<StoredSession[]> {
     let previous: StoredSession[] = [];
     await this.mutate((sessions) => {
-      if (sessions.some((s) => s.id === session.id)) {
-        throw new Error(`SessionStore.replace: id ${session.id} already exists, generate a new one`);
-      }
       previous = sessions;
       return [session];
     });
@@ -138,11 +135,43 @@ export class SessionStore implements vscode.Disposable {
     if (!raw) {
       return [];
     }
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as StoredSession[]) : [];
-    } catch {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      warn(`[OAuth] Stored sessions failed to parse, treating as empty: ${detail}`);
       return [];
     }
+    if (!Array.isArray(parsed)) {
+      warn("[OAuth] Stored sessions secret is not an array, treating as empty");
+      return [];
+    }
+    const valid: StoredSession[] = [];
+    for (const entry of parsed) {
+      if (isStoredSession(entry)) {
+        valid.push(entry);
+      } else {
+        warn("[OAuth] Dropping malformed session entry from stored sessions");
+      }
+    }
+    return valid;
   }
+}
+
+function isStoredSession(value: unknown): value is StoredSession {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const v = value as Record<string, unknown>;
+  if (typeof v.id !== "string") return false;
+  if (typeof v.accessToken !== "string") return false;
+  if (typeof v.refreshToken !== "string") return false;
+  if (typeof v.expiresAt !== "number") return false;
+  if (!Array.isArray(v.scopes) || !v.scopes.every((s) => typeof s === "string")) return false;
+  if (!v.account || typeof v.account !== "object") return false;
+  const acc = v.account as Record<string, unknown>;
+  if (typeof acc.id !== "string") return false;
+  if (typeof acc.label !== "string") return false;
+  return true;
 }

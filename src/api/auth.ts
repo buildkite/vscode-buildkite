@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { AUTH_PROVIDER_ID } from "./oauth/constants";
 import { resolveScopesFromConfig } from "./oauth/scopes";
-import { oauthLog, redactIfCredentialShaped } from "./oauth/log";
+import { debug, error, info, redactIfCredentialShaped, warn } from "../log";
 import type { OAuthProvider } from "./oauth/types";
 
 export type { OAuthProvider };
@@ -110,7 +110,7 @@ export class AuthManager implements vscode.Disposable {
       }
     } catch (err) {
       if (err instanceof vscode.CancellationError) {
-        oauthLog("Sign-in cancelled by user");
+        info("[OAuth] Sign-in cancelled by user");
         return;
       }
       reportSignInFailure(err);
@@ -165,7 +165,7 @@ export class AuthManager implements vscode.Disposable {
         return { token: session.accessToken, source: "oauth", sessionId: session.id };
       } catch (err) {
         if (err instanceof vscode.CancellationError) {
-          oauthLog("Sign-in cancelled by user");
+          info("[OAuth] Sign-in cancelled by user");
           return undefined;
         }
         reportSignInFailure(err);
@@ -189,7 +189,7 @@ export class AuthManager implements vscode.Disposable {
     if (this.unauthorizedPromptInFlight) {
       return this.unauthorizedPromptInFlight;
     }
-    oauthLog(`401 received: source=${source}${sessionId ? ` sessionId=${sessionId}` : ""}`);
+    warn(`[OAuth] 401 received: source=${source}${sessionId ? ` sessionId=${sessionId}` : ""}`);
     this.unauthorizedPromptInFlight = (async () => {
       try {
         if (source === "pat") {
@@ -197,9 +197,10 @@ export class AuthManager implements vscode.Disposable {
         } else {
           await this.promptOAuthRecovery(sessionId);
         }
-      } catch {
+      } catch (err) {
         // Swallow so an unhandled rejection can't escape the caller,
         // which doesn't await this
+        debug(`[OAuth] handleUnauthorized swallowed error: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         this.unauthorizedPromptInFlight = undefined;
       }
@@ -221,8 +222,9 @@ export class AuthManager implements vscode.Disposable {
     if (sessionId) {
       try {
         await this.oauthProvider.removeSession(sessionId);
-      } catch {
-        // Best effort, the recovery prompt below still runs
+      } catch (err) {
+        // Swallow so the recovery prompt below still runs
+        debug(`[OAuth] removeSession failed during recovery: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -246,10 +248,11 @@ export async function throwIfUnauthorized(response: Response, session: AuthSessi
   try {
     const body = (await response.clone().text()).trim();
     if (body) {
-      oauthLog(`401 body: ${redactIfCredentialShaped(body)}`);
+      debug(`[OAuth] 401 body: ${redactIfCredentialShaped(body)}`);
     }
-  } catch {
-    // Body read is best effort, never let it block the recovery path
+  } catch (err) {
+    // Don't let a stuck body read block the recovery path
+    debug(`[OAuth] 401 body read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   void session.invalidate();
   throw new Error("Authentication required");
@@ -258,7 +261,7 @@ export async function throwIfUnauthorized(response: Response, session: AuthSessi
 function reportSignInFailure(err: unknown): void {
   const raw = err instanceof Error ? err.message : String(err);
   const safe = redactIfCredentialShaped(raw);
-  oauthLog(`Sign-in failed: ${safe}`);
+  error(`[OAuth] Sign-in failed: ${safe}`);
   vscode.window.showErrorMessage(`Buildkite sign-in failed: ${safe}`);
 }
 

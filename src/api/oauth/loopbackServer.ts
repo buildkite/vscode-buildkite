@@ -79,8 +79,8 @@ export async function startLoopbackServer(
     }
 
     if (state !== expectedState) {
-      respondFailure(res, "State mismatch: possible CSRF attack");
-      reject(new Error("OAuth state mismatch; refusing to continue"));
+      respondFailure(res, "State mismatch, refusing to continue");
+      reject(new Error("OAuth state mismatch, refusing to continue"));
       return;
     }
 
@@ -125,13 +125,7 @@ export async function startLoopbackServer(
     }
   };
 
-  const waitForCallback = async () => {
-    try {
-      return await done;
-    } finally {
-      dispose();
-    }
-  };
+  const waitForCallback = () => done;
 
   return { redirectUri, waitForCallback, dispose };
 }

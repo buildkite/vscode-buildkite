@@ -1,4 +1,5 @@
 import * as assert from "node:assert/strict";
+import * as http from "node:http";
 import * as vscode from "vscode";
 import { BuildkiteAuthProvider } from "../api/oauth/buildkiteAuthProvider";
 import { SessionStore, StoredSession } from "../api/oauth/sessionStore";
@@ -331,6 +332,199 @@ describe("BuildkiteAuthProvider", () => {
 
       assert.equal(result?.accessToken, "stillvalid");
       assert.equal(fetchCalls, 2);
+    });
+
+    it("shares one fetch across concurrent refreshes via refreshesInFlight", async () => {
+      const expired = session("a", {
+        refreshToken: "rt-old",
+        expiresAt: Date.now() - 1000,
+      });
+      await store.replace(expired);
+
+      const [first, second, third] = await Promise.all([
+        provider.getSessions(["read_user"]),
+        provider.getSessions(["read_user"]),
+        provider.getSessions(["read_user"]),
+      ]);
+
+      assert.equal(first.length, 1);
+      assert.equal(second.length, 1);
+      assert.equal(third.length, 1);
+      assert.equal(fetchCalls, 1);
+    });
+  });
+
+  describe("disposal", () => {
+    it("ignores recompute callbacks scheduled after dispose", async () => {
+      let fired = 0;
+      const sub = provider.onDidChangeSessions(() => {
+        fired += 1;
+      });
+
+      provider.dispose();
+      await secrets.writeRaw(
+        SESSIONS_SECRET_KEY,
+        JSON.stringify([session("post-dispose")]),
+      );
+      await settle();
+
+      assert.equal(fired, 0);
+      sub.dispose();
+    });
+
+    it("dispose is idempotent", () => {
+      provider.dispose();
+      provider.dispose();
+    });
+  });
+
+  describe("missing scope warning memoization", () => {
+    function warnings(p: BuildkiteAuthProvider): Map<string, Set<string>> {
+      return (p as unknown as { missingScopeWarnings: Map<string, Set<string>> })
+        .missingScopeWarnings;
+    }
+
+    function freshSession(id: string, scopes: string[]): StoredSession {
+      return session(id, { scopes, expiresAt: Date.now() + 60 * 60 * 1000 });
+    }
+
+    it("records each missing scope only once per session id", async () => {
+      await store.replace(freshSession("a", ["read_user"]));
+      await settle();
+
+      await provider.getSessions(["read_pipelines"]);
+      await provider.getSessions(["read_pipelines"]);
+      await provider.getSessions(["read_pipelines"]);
+
+      assert.deepEqual([...(warnings(provider).get("a") ?? [])], ["read_pipelines"]);
+    });
+
+    it("adds entries when a new missing scope appears", async () => {
+      await store.replace(freshSession("a", ["read_user"]));
+      await settle();
+
+      await provider.getSessions(["read_pipelines"]);
+      await provider.getSessions(["read_builds"]);
+
+      assert.deepEqual(
+        [...(warnings(provider).get("a") ?? [])].sort(),
+        ["read_builds", "read_pipelines"],
+      );
+    });
+
+    it("forgets warnings when the session is removed", async () => {
+      await store.replace(freshSession("a", ["read_user"]));
+      await settle();
+
+      await provider.getSessions(["read_pipelines"]);
+      assert.equal(warnings(provider).get("a")?.size, 1);
+
+      await provider.removeAllSessions();
+      await settle();
+
+      assert.equal(warnings(provider).has("a"), false);
+    });
+  });
+
+  describe("createSession (happy path)", () => {
+    type AnyFn = (...args: unknown[]) => unknown;
+    const stubs: { restore: () => void }[] = [];
+
+    function stub<T extends object, K extends keyof T>(target: T, key: K, value: T[K]) {
+      const original = target[key];
+      target[key] = value;
+      stubs.push({ restore: () => { target[key] = original; } });
+    }
+
+    let originalFetch: typeof global.fetch;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      while (stubs.length) {
+        stubs.pop()!.restore();
+      }
+      global.fetch = originalFetch;
+    });
+
+    it("completes the loopback flow and stores a session", async () => {
+      stub(vscode.env as unknown as Record<string, AnyFn>, "openExternal", (async (uri: vscode.Uri) => {
+        const params = new URLSearchParams(uri.query);
+        const redirectUri = params.get("redirect_uri");
+        const state = params.get("state");
+        if (!redirectUri || !state) {
+          throw new Error(`authorize URL missing redirect_uri or state, query=${uri.query}`);
+        }
+        const target = new URL(redirectUri);
+        target.searchParams.set("code", "the-code");
+        target.searchParams.set("state", state);
+        await new Promise<void>((resolve, reject) => {
+          const req = http.request({
+            hostname: target.hostname,
+            port: target.port,
+            path: target.pathname + target.search,
+            method: "GET",
+          }, (res) => {
+            res.resume();
+            res.on("end", () => resolve());
+          });
+          req.on("error", reject);
+          req.end();
+        });
+        return true;
+      }) as unknown as AnyFn);
+
+      stub(vscode.window as unknown as Record<string, AnyFn>, "withProgress",
+        (async (_opts: unknown, task: (progress: unknown, token: vscode.CancellationToken) => Promise<unknown>) => {
+          const cts = new vscode.CancellationTokenSource();
+          try {
+            return await task({}, cts.token);
+          } finally {
+            cts.dispose();
+          }
+        }) as unknown as AnyFn);
+
+      global.fetch = async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.includes("/oauth/token")) {
+          return new Response(JSON.stringify({
+            access_token: "fresh-access",
+            refresh_token: "fresh-refresh",
+            expires_in: 3600,
+            scope: "read_user",
+            token_type: "Bearer",
+          }), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        if (url.endsWith("/user")) {
+          return new Response(JSON.stringify({
+            id: "user-42",
+            name: "Ada Lovelace",
+            email: "ada@example.com",
+          }), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        throw new Error(`Unexpected fetch ${url}`);
+      };
+
+      const cap = capture(provider);
+      try {
+        const result = await provider.createSession(["read_user"]);
+        await settle();
+
+        assert.equal(result.accessToken, "fresh-access");
+        assert.equal(result.account.label, "Ada Lovelace");
+        assert.equal(result.account.id, "user-42");
+
+        const stored = await store.getAll();
+        assert.equal(stored.length, 1);
+        assert.equal(stored[0].refreshToken, "fresh-refresh");
+
+        const addedIds = cap.events.flatMap((e) => e.added);
+        assert.ok(addedIds.length >= 1, `expected at least one added event, got ${cap.events.length}`);
+      } finally {
+        cap.dispose();
+      }
     });
   });
 });

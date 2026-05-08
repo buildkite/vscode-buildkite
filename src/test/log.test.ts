@@ -1,5 +1,5 @@
 import * as assert from "node:assert/strict";
-import { redactIfCredentialShaped } from "../api/oauth/log";
+import { redactIfCredentialShaped } from "../log";
 
 describe("redactIfCredentialShaped", () => {
   it("redacts a JWT-shaped run when the message smells credential-y", () => {
