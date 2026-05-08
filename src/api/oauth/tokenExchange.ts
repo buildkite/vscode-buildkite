@@ -53,11 +53,8 @@ export async function refreshAccessToken(
     client_id: input.clientId,
     refresh_token: input.refreshToken,
   });
-  // Send the original grant's scopes so the server can't silently narrow
-  // the refreshed token below what the stored session claims to hold
-  //
-  // If the response comes back with a smaller `scope`, grantedScopes()
-  // picks it up and the session updates honestly
+  // send original scopes so the server can't silently narrow on refresh,
+  // if it returns a smaller scope grantedScopes() updates the session honestly
   if (input.scopes.length > 0) {
     body.set("scope", input.scopes.join(" "));
   }
@@ -83,7 +80,7 @@ async function postToken(
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        // Stop intermediaries from serving a stale 200
+        // stop intermediaries serving a stale 200
         "Cache-Control": "no-store",
       },
       body: body.toString(),
@@ -98,8 +95,7 @@ async function postToken(
 
   if (!response.ok) {
     const errorCode = typeof parsed?.error === "string" ? parsed.error : `http_${response.status}`;
-    // Raw non-JSON body could echo our refresh_token, send the size only
-    // and redact parsed error_description in case it leaks too
+    // a non-JSON body might echo our refresh_token, send size only
     const errorDescription =
       typeof parsed?.error_description === "string"
         ? redactIfCredentialShaped(parsed.error_description)
@@ -108,9 +104,7 @@ async function postToken(
           : "";
     const message = `Token request failed: ${errorCode}${errorDescription ? ` (${errorDescription})` : ""}`;
 
-    // Only invalid_grant kills the session, invalid_client and
-    // unauthorized_client are config typos, throw a regular error for
-    // those
+    // only invalid_grant kills the session, invalid_client/unauthorized_client are config typos
     if (opts.classifyAsRefresh && errorCode === "invalid_grant") {
       throw new RefreshTokenInvalidError(message);
     }

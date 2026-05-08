@@ -62,7 +62,9 @@ export function resolveScopesFromConfig(config: {
       return [...ReadOnlyScopes];
     case "custom": {
       const custom = normalize(config.customScopes ?? []);
-      return custom.length > 0 ? custom : [...AllScopes];
+      // empty list silently widening to AllScopes is a footgun, fall back to
+      // the bare minimum we need to look up the user
+      return custom.length > 0 ? custom : ["read_user"];
     }
     case "all":
     default:

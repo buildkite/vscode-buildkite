@@ -23,7 +23,6 @@ export class CacheProvider {
   set<T>(key: string, data: T, ttl?: number): void {
     const now = Date.now();
     const actualTTL = ttl ?? this.defaultTTL;
-
     this.cache.set(key, {
       data,
       cachedAt: now,
@@ -46,29 +45,23 @@ export class CacheProvider {
     return entry.data as T;
   }
 
+  /**
+   * Clear all cache entries
+   */
   clear(): void {
     this.cache.clear();
   }
 
-  /**
-   * Clear entries matching a pattern
-   */
-  clearPattern(pattern: string | RegExp): void {
-    const keysToDelete: string[] = [];
-
+  clearMatching(predicate: (key: string) => boolean): void {
+    const toDelete: string[] = [];
     for (const key of this.cache.keys()) {
-      if (typeof pattern === 'string') {
-        if (key.includes(pattern)) {
-          keysToDelete.push(key);
-        }
-      } else {
-        if (pattern.test(key)) {
-          keysToDelete.push(key);
-        }
+      if (predicate(key)) {
+        toDelete.push(key);
       }
     }
-
-    keysToDelete.forEach(key => this.cache.delete(key));
+    for (const key of toDelete) {
+      this.cache.delete(key);
+    }
   }
 
   /**

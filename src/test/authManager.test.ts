@@ -217,6 +217,43 @@ describe("AuthManager", () => {
 
       assert.deepEqual(oauthProvider.removed, ["s1"]);
     });
+
+    it("a PAT 401 in flight swallows a concurrent OAuth 401", async () => {
+      stubAuth(async () => undefined);
+      await manager.setToken("dead-pat");
+
+      let resolveFirst!: () => void;
+      let prompts = 0;
+      stubError(async () => {
+        prompts += 1;
+        // hold the PAT prompt open so we can land an OAuth 401 mid-flight
+        await new Promise<void>((r) => { resolveFirst = r; });
+        return undefined;
+      });
+
+      const patSession = await manager.resolveSession();
+      assert.ok(patSession);
+
+      const patPromise = patSession.invalidate();
+
+      // simulate an OAuth 401 arriving while the PAT prompt is up
+      const oauthSession = {
+        token: "oauth-tok",
+        invalidate: () =>
+          (manager as unknown as {
+            handleUnauthorized(source: "oauth" | "pat", id?: string): Promise<void>;
+          }).handleUnauthorized("oauth", "s99"),
+      };
+      const oauthPromise = oauthSession.invalidate();
+
+      resolveFirst();
+      await Promise.all([patPromise, oauthPromise]);
+
+      // both 401s share the same prompt, so the OAuth removeSession path
+      // never runs while the PAT prompt is in flight
+      assert.equal(prompts, 1);
+      assert.deepEqual(oauthProvider.removed, []);
+    });
   });
 
   describe("promptForApiToken", () => {

@@ -27,7 +27,8 @@ export class BuildkiteGraphQLClient {
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<T> {
-    const session = await this.authManager.requireSession();
+    // see BuildkiteClient.fetch, same reason
+    const session = await this.authManager.resolveSession();
     if (!session) {
       throw new Error("Authentication required");
     }

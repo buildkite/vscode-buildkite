@@ -33,13 +33,12 @@ export async function startLoopbackServer(
     };
   });
 
-  // Sentinel until listen returns the real port, any request that
-  // somehow lands before then fails the Host check by design
+  // sentinel until listen() returns, anything earlier fails Host check
   let expectedHost = "<unset>";
 
   const server = http.createServer((req, res) => {
-    // Any process on this machine can hit 127.0.0.1, so check remote +
-    // Host. Dual stack can present 127.0.0.1 as `::ffff:127.0.0.1`
+    // any process on this box can hit 127.0.0.1, so check remote + Host
+    // (dual stack ::ffff:127.0.0.1 form too)
     const remote = req.socket.remoteAddress ?? "";
     if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
       res.writeHead(403, { "Content-Type": "text/plain" });
@@ -51,8 +50,8 @@ export async function startLoopbackServer(
       res.end("Forbidden");
       return;
     }
-    // Check the literal path before URL parsing, otherwise `//x/callback`
-    // resolves to host x and bypasses a pathname-only check
+    // literal path check before URL parsing, otherwise //x/callback parses
+    // to host x and slips past a pathname-only check
     const rawPath = req.url ?? "/";
     if (rawPath !== "/callback" && !rawPath.startsWith("/callback?")) {
       res.writeHead(404, { "Content-Type": "text/plain" });
@@ -85,9 +84,8 @@ export async function startLoopbackServer(
     }
 
     respondSuccess(res);
-    // Wait for the response to flush before resolving, otherwise dispose
-    // can RST the socket and the browser sees a connection reset instead
-    // of the success page
+    // wait for flush before resolving, otherwise dispose can RST the socket
+    // mid-write and the browser shows a connection reset
     const settle = () => resolve({ code, state });
     res.once("finish", settle);
     res.once("close", settle);
@@ -117,8 +115,7 @@ export async function startLoopbackServer(
     disposed = true;
     clearTimeout(timeout);
     server.close();
-    // Kill HTTP keepalive sockets so the server actually releases the
-    // port instead of waiting for idle clients to close
+    // close keepalive sockets so the port releases now, not when idle clients give up
     server.closeAllConnections?.();
     if (!settled) {
       reject(new vscode.CancellationError());
@@ -130,10 +127,8 @@ export async function startLoopbackServer(
   return { redirectUri, waitForCallback, dispose };
 }
 
-// Page URL contains "code" and "state" in the address bar, no store
-// keeps the URL out of the disk cache and no referrer keeps it out of
-// any outbound referrer headers if the user clicks a link on the page
-// later
+// page URL has code+state in it, no-store keeps it out of disk cache and
+// no-referrer keeps it out of outbound referer headers
 const SECURITY_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
   "Cache-Control": "no-store",

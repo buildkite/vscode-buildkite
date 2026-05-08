@@ -36,26 +36,22 @@ export class BuildkiteAuthProvider
   private readonly refreshesInFlight = new Map<string, Promise<StoredSession | undefined>>();
   private readonly activeLoopbacks = new Set<LoopbackHandle>();
   private readonly missingScopeWarnings = new Map<string, Set<string>>();
+  private createSessionInFlight: Promise<vscode.AuthenticationSession> | undefined;
   private disposed = false;
-  // Cache of last fired sessions, diffed on each change so echoes from this
-  // window's own secrets.onDidChange don't double trigger
+  // diffed on each change so we don't double fire on our own secret writes
   private lastFiredById = new Map<string, StoredSession>();
   private recomputeMutex: Promise<void> = Promise.resolve();
   private readonly storeSubscription: vscode.Disposable;
 
   constructor(private readonly store: SessionStore) {
-    // Pick up sign ins or sign outs from other VS Code windows
     this.storeSubscription = this.store.onExternalChange(() => {
       void this.recomputeAndFire();
     });
-    // Grab what's already there so the first event is an actual change,
-    // not stuff that was always saved, through the mutex so any events
-    // arriving during activation queue behind us
+    // seed from what's already there so the first event is an actual change
     this.recomputeMutex = this.recomputeMutex.then(async () => {
       const current = await this.store.getAll();
       this.lastFiredById = new Map(current.map((s) => [s.id, s]));
     }).catch((err) => {
-      // Log it, otherwise the next change event treats existing sessions as new
       const detail = err instanceof Error ? err.message : String(err);
       error(`[OAuth] Failed to seed lastFiredById on activation: ${detail}`);
     });
@@ -66,9 +62,7 @@ export class BuildkiteAuthProvider
       return;
     }
     this.disposed = true;
-    // Kill any signin browser servers still running so closing the window
-    // partway through releases the port right away instead of waiting out
-    // the 5 minute auth timeout
+    // kill any in-flight loopbacks so we don't sit on the port for 5min
     for (const handle of this.activeLoopbacks) {
       handle.dispose();
     }
@@ -101,9 +95,7 @@ export class BuildkiteAuthProvider
     );
   }
 
-  // Read the current sessions, work out what's added/removed/changed
-  // against the last snapshot, and fire one event with the result, locked
-  // so two callers don't race the snapshot
+  // diff against last snapshot and fire, mutexed so concurrent callers don't race
   private recomputeAndFire(): Promise<void> {
     this.recomputeMutex = this.recomputeMutex.then(async () => {
       if (this.disposed) {
@@ -119,7 +111,7 @@ export class BuildkiteAuthProvider
         const prev = this.lastFiredById.get(s.id);
         if (!prev) {
           added.push(toSession(s));
-        } else if (prev.accessToken !== s.accessToken) {
+        } else if (publicSessionChanged(prev, s)) {
           changed.push(toSession(s));
         }
       }
@@ -145,12 +137,9 @@ export class BuildkiteAuthProvider
   }
 
   async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
-    // Strict matching causes infinite reprompts because the server trims
-    // grants to whatever the user's role allows, a session that asked for
-    // X but came back with Y never satisfies a check for X
-    //
-    // Any session is good enough, if a scope is genuinely missing the
-    // endpoint 403s and clients don't treat that as a signin failure
+    // not strict matching, the server trims grants to the user's role so
+    // asking for X and getting Y back is normal, 403s surface the real
+    // missing scopes when an endpoint actually needs them
     const all = await this.store.getAll();
     if (scopes && scopes.length > 0) {
       for (const s of all) {
@@ -158,15 +147,24 @@ export class BuildkiteAuthProvider
       }
     }
 
-    // Refresh in parallel since `refreshesInFlight` already shares one
-    // refresh per session, so adding multiple accounts later won't
-    // serialise N round trips
+    // refresh in parallel, refreshesInFlight shares one fetch per session
     const refreshed = await Promise.all(all.map((s) => this.ensureFresh(s)));
     return refreshed.filter((s): s is StoredSession => s !== undefined).map(toSession);
   }
 
 
   async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
+    // clicking sign in twice shouldn't open two browser tabs and two loopbacks
+    if (this.createSessionInFlight) {
+      return this.createSessionInFlight;
+    }
+    this.createSessionInFlight = this.doCreateSession(scopes).finally(() => {
+      this.createSessionInFlight = undefined;
+    });
+    return this.createSessionInFlight;
+  }
+
+  private async doCreateSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
     const resolvedScopes = scopes.length > 0 ? [...scopes] : [...AllScopes];
     info(
       `[OAuth] PKCE flow started: scopes=[${resolvedScopes.join(", ")}] (${resolvedScopes.length})`,
@@ -235,10 +233,8 @@ export class BuildkiteAuthProvider
         scopes: grantedScopes(tokens, resolvedScopes),
         account,
       };
-      // We only support one account at a time, so swap every prior
-      // session in one write to stop a sign in from another window from
-      // landing in the gap between read and write, the listener on
-      // secrets.onDidChange picks up this write and fires the event
+      // one account at a time, swap atomically, the secrets.onDidChange
+      // listener fires the added event for us
       await this.store.replace(session);
       return toSession(session);
     } finally {
@@ -254,7 +250,6 @@ export class BuildkiteAuthProvider
     }
   }
 
-  // Atomic so a sign-in from another window can't slip between us
   async removeAllSessions(): Promise<number> {
     const removed = await this.store.clearAll();
     if (removed.length > 0) {
@@ -264,9 +259,6 @@ export class BuildkiteAuthProvider
   }
 
   private async ensureFresh(session: StoredSession): Promise<StoredSession | undefined> {
-    // System clock jumping forward can dip a healthy token below the leeway
-    // and force an early refresh, jumping backward only inflates the gap so
-    // it's a no op, either way the 401 path catches the leftover edge cases
     if (session.expiresAt - Date.now() > REFRESH_LEEWAY_MS) {
       return session;
     }
@@ -305,9 +297,7 @@ export class BuildkiteAuthProvider
           expiresAt: computeExpiresAt(tokens),
           scopes: grantedScopes(tokens, current.scopes),
         };
-        // Compare and swap, if another window rotated the refresh token
-        // between our read and write, take its newer session instead of
-        // clobbering it
+        // CAS: if another window rotated first, take theirs not ours
         const wrote = await this.store.swapIfRefreshTokenMatches(
           refreshed,
           current.refreshToken,
@@ -328,15 +318,12 @@ export class BuildkiteAuthProvider
           break;
         }
         if (attempt === 0) {
-          // Jitter so two windows hitting the same transient failure don't
-          // retry in lockstep against the auth server
+          // jitter so multi-window doesn't retry in lockstep
           const jitter = Math.floor(Math.random() * TRANSIENT_REFRESH_RETRY_JITTER_MS);
           await sleep(TRANSIENT_REFRESH_RETRY_BASE_MS + jitter);
-          // Another window may have rotated the refresh_token while we
-          // slept, read again so the retry doesn't replay a consumed token
+          // re-read in case another window rotated while we slept
           const latest = await this.store.getById(current.id);
           if (!latest) {
-            // Session was removed (e.g. invalid_grant elsewhere), give up
             return undefined;
           }
           current = latest;
@@ -345,9 +332,8 @@ export class BuildkiteAuthProvider
     }
 
     if (lastErr instanceof RefreshTokenInvalidError) {
-      // Our refresh token is dead (long live the new one), another
-      // window may have rotated while we were trying, so read again
-      // and only remove if our token is still in storage
+      // our refresh token is dead but another window may have rotated,
+      // re-read and only remove if it really is gone
       const latest = await this.store.getById(session.id);
       if (latest && latest.refreshToken !== current.refreshToken) {
         debug(`[OAuth] Refresh token invalid here, but session ${session.id} was rotated by another window, deferring`);
@@ -357,12 +343,8 @@ export class BuildkiteAuthProvider
       await this.store.remove(session.id);
       return undefined;
     }
-    // Transient failure (network blip, 5xx) and the stored access token is
-    // still valid for at least REFRESH_LEEWAY_MS, so hand it back instead
-    // of making the user think they got signed out
-    //
-    // If it has actually expired by the time the API call runs, the 401
-    // path takes over
+    // transient (network/5xx) and the access token is still valid, hand it
+    // back rather than signing the user out, 401 path will pick it up later
     const stillValid = await this.store.getById(session.id);
     if (stillValid && stillValid.expiresAt > Date.now()) {
       warn(
@@ -401,6 +383,18 @@ function grantedScopes(tokens: TokenResponse, fallback: readonly string[]): stri
   return [...fallback];
 }
 
+// only the bits VS Code's AuthenticationSession exposes, refreshToken
+// and expiresAt are internal so we don't fire on those
+function publicSessionChanged(a: StoredSession, b: StoredSession): boolean {
+  if (a.accessToken !== b.accessToken) return true;
+  if (a.account.id !== b.account.id || a.account.label !== b.account.label) return true;
+  if (a.scopes.length !== b.scopes.length) return true;
+  for (let i = 0; i < a.scopes.length; i++) {
+    if (a.scopes[i] !== b.scopes[i]) return true;
+  }
+  return false;
+}
+
 interface AuthorizeUrlInput {
   clientId: string;
   redirectUri: string;
@@ -430,8 +424,7 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
     DEFAULT_API_BASE_URL,
   );
 
-  // Bound the request so a stuck server can't hang sign in past the
-  // loopback timeout, which has already fired by the time we reach here
+  // bound it so a stuck server doesn't hang signin
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ACCOUNT_FETCH_TIMEOUT_MS);
   let response: Response;
@@ -446,8 +439,7 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
         `Buildkite user fetch timed out after ${ACCOUNT_FETCH_TIMEOUT_MS}ms.`,
       );
     }
-    // Node's fetch wraps the real reason in `err.cause`. Surface it so
-    // "fetch failed" doesn't hide the actual problem (DNS, TLS, etc)
+    // node's fetch hides the real reason in err.cause, surface it
     const message = err instanceof Error ? err.message : String(err);
     const causeErr = (err as { cause?: unknown })?.cause;
     const cause = causeErr instanceof Error ? causeErr.message : "";
@@ -473,13 +465,13 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
   }
 
   const body = (await response.json()) as { id?: unknown; email?: unknown; name?: unknown };
-  // Pin VS Code's account identity to the server's stable numeric `id`,
-  // using `email` would silently orphan stored sessions whenever a user
-  // changes their email
-  //
-  // Trade off, if `id` ever goes missing on a future API change we
-  // throw here loudly, which beats a silent session loss bug
-  const id = typeof body.id === "string" ? body.id : undefined;
+  // pin to the stable id, email changes orphan sessions
+  // REST returns id as a number, GraphQL as a string, normalise to string
+  const id = typeof body.id === "string"
+    ? body.id
+    : typeof body.id === "number"
+      ? String(body.id)
+      : undefined;
   const name = typeof body.name === "string" ? body.name : undefined;
   const email = typeof body.email === "string" ? body.email : undefined;
   const label = name ?? email ?? id;

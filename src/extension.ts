@@ -63,9 +63,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   assertScopeListsInSync(context);
 
-  // Build the shared API stack once with the active AuthManager and wrap
-  // it in a CachedApiClient, then thread that into every command, the
-  // tree views and the status bar
   const restClient = new BuildkiteClient(authManager);
   const client = new CachedApiClient(restClient);
   context.subscriptions.push({ dispose: () => client.dispose() });
@@ -75,9 +72,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
-    // Surface the choice between browser sign-in and PAT, both the welcome
-    // tree node and the status bar route through this so we don't end up
-    // with two paths that drift
+    // welcome node and status bar both route through this so we don't drift
     vscode.commands.registerCommand("buildkite.signIn", () => authManager.requireSession()),
     vscode.commands.registerCommand("buildkite.signOut.OAuth", async () => {
       const removed = await authProvider.removeAllSessions();
@@ -85,28 +80,20 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage("No Buildkite session to sign out.");
         return;
       }
-      // PAT is a separate credential, signing out of OAuth doesn't clear
-      // it, so warn the user so they aren't surprised when API calls
-      // keep working
+      // PAT is separate, warn so the user isn't surprised when API calls keep working
       const message = (await authManager.hasStoredPat())
         ? "Signed out of Buildkite OAuth. Your stored API token is still active; run \"Buildkite: Clear API Token\" to remove it."
         : "Signed out of Buildkite.";
       vscode.window.showInformationMessage(message);
     }),
-    // The provider event covers writes from this window and from other
-    // VS Code windows (those flow in through secrets.onDidChange inside
-    // SessionStore)
-    //
-    // Filter out refresh token rotations, which only update the
-    // session and don't need a tree refresh
+    // skip refresh-token rotations, those only update the session, no tree refresh needed
     authProvider.onDidChangeSessions((e) => {
       if (!e.added?.length && !e.removed?.length) {
         return;
       }
       authManager.notifyCredentialChanged();
     }),
-    // One subscriber for both OAuth and PAT credential changes so every
-    // UI piece stays consistent
+    // one subscriber for both OAuth and PAT changes so the UI stays consistent
     authManager.onDidChangeCredential(() => {
       client.clearAll();
       void getPipelinesTreeProvider().refresh();
@@ -125,9 +112,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Threads the shared CachedApiClient into every command handler, VS
-  // Code passes the original arg(s) (typically a tree node) through
-  // unchanged
+  // threads the shared client into commands, VS Code passes their tree node through
   const withClient =
     <Args extends unknown[], R>(
       fn: (c: CachedApiClient, ...args: Args) => R,
@@ -228,9 +213,7 @@ export function deactivate() {
   disposeAnnotationsWebview();
 }
 
-// Warns via the Buildkite output channel if package.json's scope enum and
-// AllScopes drift out of sync, catching the mismatch the moment the
-// extension activates rather than waiting for a user to report it
+// catches drift between AllScopes and package.json on activation
 function assertScopeListsInSync(context: vscode.ExtensionContext): void {
   const pkgScopes = readPackageScopeEnum(context.extension.packageJSON);
   if (!pkgScopes) {

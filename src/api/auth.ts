@@ -25,16 +25,15 @@ interface ResolvedToken {
 
 export class AuthManager implements vscode.Disposable {
   private unauthorizedPromptInFlight: Promise<void> | undefined;
-  // Keyed by scope set, two callers asking for different scopes shouldn't
-  // share a prompt because the result might satisfy one and not the other,
-  // callers asking for the same scopes still share a prompt
+  // keyed by scope set so callers asking for different scopes don't share
+  // a prompt that won't satisfy them both
   private readonly requireSessionInFlight = new Map<
     string,
     Promise<ResolvedToken | undefined>
   >();
   private readonly credentialChangedEmitter = new vscode.EventEmitter<void>();
 
-  /** Fires on PAT set, PAT cleared, or OAuth swap */
+  /** fires on PAT set/clear or OAuth swap */
   readonly onDidChangeCredential = this.credentialChangedEmitter.event;
 
   constructor(
@@ -60,7 +59,7 @@ export class AuthManager implements vscode.Disposable {
     return (await this.secrets.get(SECRET_KEY)) !== undefined;
   }
 
-  /** Re-fires onDidChangeCredential so the OAuth listener can route through us */
+  /** so the OAuth listener can route through us */
   notifyCredentialChanged(): void {
     this.credentialChangedEmitter.fire();
   }
@@ -78,13 +77,13 @@ export class AuthManager implements vscode.Disposable {
     return token;
   }
 
-  /** Returns the active session if one exists, without prompting */
+  /** active session or undefined, no prompt */
   async resolveSession(): Promise<AuthSession | undefined> {
     const resolved = await this.resolveToken(snapshotScopes());
     return resolved ? this.toSession(resolved) : undefined;
   }
 
-  /** Returns the active session, prompting the user to sign in if needed, concurrent callers share one prompt */
+  /** active session, prompting if needed. concurrent callers share one prompt */
   async requireSession(): Promise<AuthSession | undefined> {
     const scopes = snapshotScopes();
     const key = scopeKey(scopes);
@@ -99,7 +98,7 @@ export class AuthManager implements vscode.Disposable {
     return resolved ? this.toSession(resolved) : undefined;
   }
 
-  /** "Sign in" command, browser flow only if no session, toast either way */
+  /** sign in command, browser flow only if no session */
   async signIn(): Promise<void> {
     try {
       const session = await this.createOAuthSession(snapshotScopes());
@@ -148,8 +147,7 @@ export class AuthManager implements vscode.Disposable {
       return existing;
     }
 
-    // No scope widening detection, sign out and back in to apply a
-    // widened scopePreset
+    // no scope widening detection, sign out + back in to apply a wider preset
     const choice = await vscode.window.showInformationMessage(
       "You need to sign in to Buildkite to continue.",
       "Sign In with Browser",
@@ -186,6 +184,9 @@ export class AuthManager implements vscode.Disposable {
   }
 
   private handleUnauthorized(source: TokenSource, sessionId?: string): Promise<void> {
+    // shared across PAT and OAuth on purpose, both paths end up at "sign in
+    // again", so if a PAT 401 is in flight when an OAuth 401 lands the
+    // second is swallowed
     if (this.unauthorizedPromptInFlight) {
       return this.unauthorizedPromptInFlight;
     }
@@ -198,8 +199,7 @@ export class AuthManager implements vscode.Disposable {
           await this.promptOAuthRecovery(sessionId);
         }
       } catch (err) {
-        // Swallow so an unhandled rejection can't escape the caller,
-        // which doesn't await this
+        // caller doesn't await us, don't let this escape
         debug(`[OAuth] handleUnauthorized swallowed error: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         this.unauthorizedPromptInFlight = undefined;
@@ -223,7 +223,7 @@ export class AuthManager implements vscode.Disposable {
       try {
         await this.oauthProvider.removeSession(sessionId);
       } catch (err) {
-        // Swallow so the recovery prompt below still runs
+        // swallow, the recovery prompt below still runs
         debug(`[OAuth] removeSession failed during recovery: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
@@ -240,7 +240,7 @@ export class AuthManager implements vscode.Disposable {
   }
 }
 
-/** 401 → kick recovery, log redacted body, throw "Authentication required" */
+/** 401: kick recovery, log redacted body, throw */
 export async function throwIfUnauthorized(response: Response, session: AuthSession): Promise<void> {
   if (response.status !== 401) {
     return;
@@ -251,7 +251,7 @@ export async function throwIfUnauthorized(response: Response, session: AuthSessi
       debug(`[OAuth] 401 body: ${redactIfCredentialShaped(body)}`);
     }
   } catch (err) {
-    // Don't let a stuck body read block the recovery path
+    // don't let a stuck body read block recovery
     debug(`[OAuth] 401 body read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   void session.invalidate();
@@ -269,8 +269,7 @@ function scopeKey(scopes: readonly string[]): string {
   return [...scopes].sort().join(" ");
 }
 
-// Snapshot at call time so a config change in flight can't make us ask
-// for one scope set and check against another
+// snapshot at call time so a mid-flight config change can't desync ask vs check
 function snapshotScopes(): string[] {
   const config = vscode.workspace.getConfiguration("buildkite");
   return resolveScopesFromConfig({

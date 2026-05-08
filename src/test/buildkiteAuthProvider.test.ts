@@ -526,5 +526,121 @@ describe("BuildkiteAuthProvider", () => {
         cap.dispose();
       }
     });
+
+    it("collapses concurrent calls so we don't open two browser tabs", async () => {
+      let openExternalCalls = 0;
+      let tokenExchangeCalls = 0;
+
+      stub(vscode.env as unknown as Record<string, AnyFn>, "openExternal", (async (uri: vscode.Uri) => {
+        openExternalCalls += 1;
+        const params = new URLSearchParams(uri.query);
+        const redirectUri = params.get("redirect_uri")!;
+        const state = params.get("state")!;
+        const target = new URL(redirectUri);
+        target.searchParams.set("code", "the-code");
+        target.searchParams.set("state", state);
+        await new Promise<void>((resolve, reject) => {
+          const req = http.request({
+            hostname: target.hostname,
+            port: target.port,
+            path: target.pathname + target.search,
+            method: "GET",
+          }, (res) => {
+            res.resume();
+            res.on("end", () => resolve());
+          });
+          req.on("error", reject);
+          req.end();
+        });
+        return true;
+      }) as unknown as AnyFn);
+
+      stub(vscode.window as unknown as Record<string, AnyFn>, "withProgress",
+        (async (_opts: unknown, task: (progress: unknown, token: vscode.CancellationToken) => Promise<unknown>) => {
+          const cts = new vscode.CancellationTokenSource();
+          try {
+            return await task({}, cts.token);
+          } finally {
+            cts.dispose();
+          }
+        }) as unknown as AnyFn);
+
+      global.fetch = async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.includes("/oauth/token")) {
+          tokenExchangeCalls += 1;
+          return new Response(JSON.stringify({
+            access_token: "fresh-access",
+            refresh_token: "fresh-refresh",
+            expires_in: 3600,
+            scope: "read_user",
+            token_type: "Bearer",
+          }), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        if (url.endsWith("/user")) {
+          return new Response(JSON.stringify({ id: "user-42", name: "Ada", email: "a@x" }),
+            { status: 200, headers: { "content-type": "application/json" } });
+        }
+        throw new Error(`Unexpected fetch ${url}`);
+      };
+
+      const [a, b, c] = await Promise.all([
+        provider.createSession(["read_user"]),
+        provider.createSession(["read_user"]),
+        provider.createSession(["read_user"]),
+      ]);
+
+      assert.equal(a.accessToken, "fresh-access");
+      assert.equal(b.accessToken, "fresh-access");
+      assert.equal(c.accessToken, "fresh-access");
+      assert.equal(openExternalCalls, 1, "should only open the browser once");
+      assert.equal(tokenExchangeCalls, 1, "should only exchange the code once");
+      assert.equal((await store.getAll()).length, 1);
+    });
+  });
+
+  describe("recomputeAndFire diff", () => {
+    it("fires changed when the server narrows scopes on refresh", async () => {
+      const before = session("a", { accessToken: "v1", scopes: ["read_user", "read_pipelines"] });
+      await store.replace(before);
+      await settle();
+
+      const cap = capture(provider);
+      try {
+        // same accessToken, narrower scopes (e.g., server stripped a scope on refresh)
+        await secrets.writeRaw(
+          SESSIONS_SECRET_KEY,
+          JSON.stringify([session("a", { accessToken: "v1", scopes: ["read_user"] })]),
+        );
+        await settle();
+
+        const changedIds = cap.events.flatMap((e) => e.changed);
+        assert.deepEqual(changedIds, ["a"]);
+      } finally {
+        cap.dispose();
+      }
+    });
+
+    it("does not fire when only refresh token rotates", async () => {
+      // refreshToken and expiresAt aren't in the public AuthenticationSession
+      // shape, no point firing CHANGED for them
+      const before = session("a", { accessToken: "v1", refreshToken: "rt1" });
+      await store.replace(before);
+      await settle();
+
+      const cap = capture(provider);
+      try {
+        await secrets.writeRaw(
+          SESSIONS_SECRET_KEY,
+          JSON.stringify([session("a", { accessToken: "v1", refreshToken: "rt2" })]),
+        );
+        await settle();
+
+        const changedIds = cap.events.flatMap((e) => e.changed);
+        assert.deepEqual(changedIds, []);
+      } finally {
+        cap.dispose();
+      }
+    });
   });
 });

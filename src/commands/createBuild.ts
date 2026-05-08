@@ -28,7 +28,7 @@ export async function createBuild(client: CachedApiClient, node: PipelineNode): 
       // Construct a minimal PipelineNode for createBuild
       node = new PipelineNode(selectedItem.pipeline, orgs.slug);
     }
-  
+
     // get git branch
     const gitExtension = vscode.extensions.getExtension("vscode.git")?.exports;
     const gitApi = gitExtension?.getAPI(1);

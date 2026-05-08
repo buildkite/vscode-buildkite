@@ -13,8 +13,7 @@ export function initLogger(): vscode.Disposable {
       }
       disposed = true;
       created.dispose();
-      // Null the module level ref so a later activate() in the same host
-      // doesn't write to a disposed channel
+      // null the ref so a later activate() doesn't write to a disposed channel
       if (channel === created) {
         channel = undefined;
       }
@@ -42,13 +41,9 @@ export function error(message: string): void {
   channel?.error(message);
 }
 
-// Redact 24+ char base64url or JWT runs only when the message looks
-// like it could be a credential, which keeps URLs and stack trace paths
-// in unrelated errors readable while preventing a stray token from a
-// server error_description landing verbatim in the output channel or a
-// toast
-// No word boundaries because they exclude `refresh_token`, `access_token`
-// etc since `_` counts as a word char
+// only redact in messages that smell credential-y, keeps urls and stack
+// traces readable, no \b boundaries because _ is a word char so it'd
+// skip refresh_token / access_token
 const CREDENTIAL_CONTEXT_PATTERN = /(token|bearer|secret|refresh|access|credential|authorization)/i;
 const CREDENTIAL_SHAPE_PATTERN = /[A-Za-z0-9_\-.]{24,}/g;
 

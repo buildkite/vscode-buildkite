@@ -19,10 +19,10 @@ describe("resolveScopesFromConfig", () => {
     }
   });
 
-  it("preset 'custom' with empty list falls back to AllScopes", () => {
+  it("preset 'custom' with empty list falls back to read_user only", () => {
     assert.deepEqual(
       resolveScopesFromConfig({ preset: "custom", customScopes: [] }),
-      [...AllScopes],
+      ["read_user"],
     );
   });
 

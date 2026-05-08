@@ -1,6 +1,6 @@
 import { BuildkiteClient, Organization } from "../api/client";
 import { CacheProvider } from "./cacheProvider";
-import { JsonValue, Pipeline, Build, Job, Agent, Artifact, Annotation, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
+import { Pipeline, Build, Job, Agent, Artifact, Annotation, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
 
 /**
  * Cached API client wrapper that adds caching layer to BuildkiteClient
@@ -18,9 +18,8 @@ export class CachedApiClient {
   /**
    * Generate cache key for API requests
    */
-  private generateCacheKey(method: string, endpoint: string, body?: JsonValue): string {
-    const bodyHash = body ? JSON.stringify(body) : "";
-    return `${method}:${endpoint}:${bodyHash}`;
+  private generateCacheKey(method: string, endpoint: string): string {
+    return `${method}:${endpoint}`;
   }
 
   /**
@@ -30,25 +29,19 @@ export class CachedApiClient {
     this.cache.clear();
   }
 
-  /**
-   * Clear cache for specific pipeline (used after mutating actions)
-   */
+  // drop everything under /organizations/{slug}/pipelines/{pipeline}/ plus
+  // the org's graphql pipeline bucket (build mutations change those too)
   clearPipelineCache(orgSlug: string, pipelineSlug: string): void {
-    // Trailing slash so `deploy` doesn't also match `deploy-staging`
-    this.cache.clearPattern(`/organizations/${orgSlug}/pipelines/${pipelineSlug}/`);
-    // Build mutations change what getPipelinesByRepository returns too,
-    // its key is keyed by repo URL not pipeline slug so we drop the org's
-    // whole GraphQL pipeline bucket
-    this.cache.clearPattern(`GRAPHQL:pipelines:${orgSlug}:`);
+    const restPrefix = `GET:/organizations/${orgSlug}/pipelines/${pipelineSlug}/`;
+    const graphqlPrefix = `GRAPHQL:pipelines:${orgSlug}:`;
+    this.cache.clearMatching((key) => key.startsWith(restPrefix) || key.startsWith(graphqlPrefix));
   }
 
-  /**
-   * Clear cache for organization (used after token changes)
-   */
+  // drop everything for the org
   clearOrganizationCache(orgSlug: string): void {
-    // Trailing slash so `acme` doesn't also match `acme-staging`
-    this.cache.clearPattern(`/organizations/${orgSlug}/`);
-    this.cache.clearPattern(`GRAPHQL:pipelines:${orgSlug}:`);
+    const restPrefix = `GET:/organizations/${orgSlug}/`;
+    const graphqlPrefix = `GRAPHQL:pipelines:${orgSlug}:`;
+    this.cache.clearMatching((key) => key.startsWith(restPrefix) || key.startsWith(graphqlPrefix));
   }
 
   /**

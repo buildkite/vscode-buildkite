@@ -20,13 +20,8 @@ export class SessionStore implements vscode.Disposable {
   private readonly externalChangeEmitter = new vscode.EventEmitter<void>();
   private readonly secretsSubscription: vscode.Disposable;
 
-  /**
-   * Fires whenever the sessions secret changes from any window on the
-   * host, including this one
-   *
-   * Subscribers should ignore echoes from their own window by diffing
-   * the new state against what they last acted on
-   */
+  // fires on any window's write (including ours), subscribers should diff
+  // against what they last acted on
   readonly onExternalChange = this.externalChangeEmitter.event;
 
   constructor(private readonly secrets: vscode.SecretStorage) {
@@ -59,8 +54,7 @@ export class SessionStore implements vscode.Disposable {
     return removed;
   }
 
-  // Wipes everything and stores the new one in one write, returns the
-  // old set so the caller can fire removed events
+  // single write swap, returns what was there
   async replace(session: StoredSession): Promise<StoredSession[]> {
     let previous: StoredSession[] = [];
     await this.mutate((sessions) => {
@@ -70,10 +64,8 @@ export class SessionStore implements vscode.Disposable {
     return previous;
   }
 
-  // Wipe every stored session in one shot and return what was there
-  //
-  // Used by signout so a createSession running concurrently in another
-  // window can't slip in between a snapshot then loop remove and survive
+  // single write wipe, returns what was there, used by signout so a
+  // concurrent createSession in another window can't slip past
   async clearAll(): Promise<StoredSession[]> {
     let previous: StoredSession[] = [];
     await this.mutate((sessions) => {
@@ -83,8 +75,7 @@ export class SessionStore implements vscode.Disposable {
     return previous;
   }
 
-  // Reads through the mutex so callers retrying after a refresh see
-  // writes committed by other windows on the same host
+  // reads through the mutex so a retry after refresh sees other windows' writes
   async getById(id: string): Promise<StoredSession | undefined> {
     return this.withLock(async () => {
       const all = await this.readRaw();
@@ -92,9 +83,8 @@ export class SessionStore implements vscode.Disposable {
     });
   }
 
-  // CAS, only writes if the stored refresh token still matches what we
-  // expected, stops a slow refresh from clobbering a newer rotation,
-  // returns false if we lost the race (caller should re-read and retry)
+  // CAS write, returns false if another window rotated first, caller
+  // should re-read and back off
   async swapIfRefreshTokenMatches(
     next: StoredSession,
     expectedRefreshToken: string,
@@ -124,8 +114,7 @@ export class SessionStore implements vscode.Disposable {
 
   private async withLock<T>(fn: () => Promise<T>): Promise<T> {
     const next = this.writeMutex.then(fn);
-    // Swallow errors so one failed op doesn't poison the chain for
-    // later ones
+    // swallow so one failed op doesn't poison the chain
     this.writeMutex = next.catch(() => undefined);
     return next;
   }
