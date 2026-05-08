@@ -472,15 +472,17 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
     );
   }
 
-  const body = (await response.json()) as { id?: string; email?: string; name?: string };
+  const body = (await response.json()) as { id?: unknown; email?: unknown; name?: unknown };
   // Pin VS Code's account identity to the server's stable numeric `id`,
   // using `email` would silently orphan stored sessions whenever a user
   // changes their email
   //
   // Trade off, if `id` ever goes missing on a future API change we
   // throw here loudly, which beats a silent session loss bug
-  const id = body.id;
-  const label = body.name ?? body.email ?? body.id;
+  const id = typeof body.id === "string" ? body.id : undefined;
+  const name = typeof body.name === "string" ? body.name : undefined;
+  const email = typeof body.email === "string" ? body.email : undefined;
+  const label = name ?? email ?? id;
   if (!id || !label) {
     throw new Error("Buildkite returned an unexpected user payload.");
   }
