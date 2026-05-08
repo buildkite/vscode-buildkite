@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { BuildkiteClient } from "../api/client";
+import { CachedApiClient } from "../cache/cachedApiClient";
 import { Build, Pipeline } from "../api/types";
 
 interface ViewBuildErrorArgs {
@@ -17,7 +17,7 @@ export async function viewBuildError(args: ViewBuildErrorArgs): Promise<void> {
 
   if (!build.jobs || build.jobs.length === 0) {
     // Fetch jobs if not already loaded
-    const client = new BuildkiteClient();
+    const client = CachedApiClient.getInstance();
     try {
       const jobs = await client.getJobs(orgSlug, pipeline.slug, build.number);
       build.jobs = jobs;
