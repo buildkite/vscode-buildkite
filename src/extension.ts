@@ -74,18 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
     // welcome node and status bar both route through this so we don't drift
     vscode.commands.registerCommand("buildkite.signIn", () => authManager.requireSession()),
-    vscode.commands.registerCommand("buildkite.signOut.OAuth", async () => {
-      const removed = await authProvider.removeAllSessions();
-      if (removed === 0) {
-        vscode.window.showInformationMessage("No Buildkite session to sign out.");
-        return;
-      }
-      // PAT is separate, warn so the user isn't surprised when API calls keep working
-      const message = (await authManager.hasStoredPat())
-        ? "Signed out of Buildkite OAuth. Your stored API token is still active; run \"Buildkite: Clear API Token\" to remove it."
-        : "Signed out of Buildkite.";
-      vscode.window.showInformationMessage(message);
-    }),
+    vscode.commands.registerCommand("buildkite.signOut.OAuth", () => authManager.signOut()),
     // skip refresh-token rotations, those only update the session, no tree refresh needed
     authProvider.onDidChangeSessions((e) => {
       if (!e.added?.length && !e.removed?.length) {

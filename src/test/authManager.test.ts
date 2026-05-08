@@ -29,8 +29,14 @@ class FakeSecretStorage implements vscode.SecretStorage {
 
 class FakeOAuthProvider implements OAuthProvider {
   removed: string[] = [];
+  removeAllCalls = 0;
+  pretendCount = 0;
   async removeSession(id: string): Promise<void> {
     this.removed.push(id);
+  }
+  async removeAllSessions(): Promise<number> {
+    this.removeAllCalls += 1;
+    return this.pretendCount;
   }
 }
 
@@ -282,6 +288,50 @@ describe("AuthManager", () => {
       const result = await manager.promptForApiToken();
       assert.equal(result, undefined);
       assert.equal(fired, 0);
+    });
+  });
+
+  describe("signOut", () => {
+    it("toasts 'no session' when there's nothing to remove", async () => {
+      oauthProvider.pretendCount = 0;
+      let info = "";
+      stubInfo(async (msg) => {
+        info = String(msg);
+        return undefined;
+      });
+
+      await manager.signOut();
+
+      assert.equal(oauthProvider.removeAllCalls, 1);
+      assert.match(info, /No Buildkite session/i);
+    });
+
+    it("warns about a stored PAT when the OAuth session is signed out", async () => {
+      oauthProvider.pretendCount = 1;
+      await manager.setToken("still-here-pat");
+      let info = "";
+      stubInfo(async (msg) => {
+        info = String(msg);
+        return undefined;
+      });
+
+      await manager.signOut();
+
+      assert.match(info, /API token is still active/i);
+    });
+
+    it("toasts plain signed-out when no PAT is stored", async () => {
+      oauthProvider.pretendCount = 1;
+      let info = "";
+      stubInfo(async (msg) => {
+        info = String(msg);
+        return undefined;
+      });
+
+      await manager.signOut();
+
+      assert.match(info, /Signed out of Buildkite\.?$/);
+      assert.doesNotMatch(info, /API token/i);
     });
   });
 });

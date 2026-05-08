@@ -116,6 +116,19 @@ export class AuthManager implements vscode.Disposable {
     }
   }
 
+  /** sign out of OAuth, leaves any stored PAT intact */
+  async signOut(): Promise<void> {
+    const removed = await this.oauthProvider.removeAllSessions();
+    if (removed === 0) {
+      vscode.window.showInformationMessage("No Buildkite session to sign out.");
+      return;
+    }
+    const message = (await this.hasStoredPat())
+      ? "Signed out of Buildkite OAuth. Your stored API token is still active, run \"Buildkite: Clear API Token\" to remove it."
+      : "Signed out of Buildkite.";
+    vscode.window.showInformationMessage(message);
+  }
+
   private toSession(resolved: ResolvedToken): AuthSession {
     return {
       token: resolved.token,
