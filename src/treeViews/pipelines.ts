@@ -383,13 +383,6 @@ export class PipelinesTreeProvider
     const poller = this.activePollers.get(buildId);
     if (poller) {
       clearTimeout(poller.timer);
-      // Stop tracking this build for notifications
-      const notificationService = getBuildNotificationService();
-      notificationService?.stopTrackingBuild(
-        poller.buildNumber,
-        poller.pipelineSlug,
-        poller.orgSlug,
-      );
     }
     this.activePollers.delete(buildId);
     this.buildCache.delete(buildId);

@@ -140,6 +140,8 @@ export class BuildNotificationService {
     ) {
       tracked.notified = true;
       this.queueNotification(build, pipeline, orgSlug);
+      // Clean up — the tracked entry has served its purpose
+      this.trackedBuilds.delete(buildKey);
     }
   }
 
