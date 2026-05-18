@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { JobNode } from "../treeViews/nodes/jobNode";
+import { Job } from "../api/types";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { Logger } from "../job/jobLogOutput";
 import { JobLogWebview } from "../job/jobLogWebview";
@@ -15,17 +15,27 @@ function getJobLogWebview(): JobLogWebview {
 }
 
 /**
- * Views the log output for a specific job in a webview with ANSI color support.
- * @param jobNode - The job node from the tree view
+ * Interface for job log context - can be from tree view or programmatic
  */
-export async function viewJobLog(jobNode: JobNode): Promise<void> {
+export interface JobLogContext {
+  job: Job;
+  pipelineSlug: string;
+  buildNumber: number;
+  orgSlug?: string;
+}
+
+/**
+ * Views the log output for a specific job in a webview with ANSI color support.
+ * @param context - The job context containing job data and build info
+ */
+export async function viewJobLog(context: JobLogContext): Promise<void> {
   const logger = Logger.getInstance();
   const client = CachedApiClient.getInstance();
 
   try {
-    const jobName = jobNode.job.name || jobNode.job.id || jobNode.job.step_key || "Unknown Job";
-    const jobId = jobNode.job.id || "Unknown Job ID";
-    logger.debug(`viewJobLog called for job: ${jobName} (id: ${jobId}, state: ${jobNode.job.state}, type: ${jobNode.job.type}, hasRawLogUrl: ${!!jobNode.job.raw_log_url})`);
+    const jobName = context.job.name || context.job.id || context.job.step_key || "Unknown Job";
+    const jobId = context.job.id || "Unknown Job ID";
+    logger.debug(`viewJobLog called for job: ${jobName} (id: ${jobId}, state: ${context.job.state}, type: ${context.job.type}, hasRawLogUrl: ${!!context.job.raw_log_url})`);
     logger.info(`Fetching log for job: ${jobName}`);
 
 
@@ -38,12 +48,12 @@ export async function viewJobLog(jobNode: JobNode): Promise<void> {
       },
       async () => {
         // Fetch the job log
-        const logContent = await client.getJobLog(jobNode.job);
+        const logContent = await client.getJobLog(context.job);
 
         // Display the log content in webview
         if (logContent && logContent.trim().length > 0) {
           const webview = getJobLogWebview();
-          const jobDetails = `${jobNode.pipelineSlug} > ${jobNode.buildNumber} > Log for ${jobName}`;
+          const jobDetails = `${context.pipelineSlug} > ${context.buildNumber} > Log for ${jobName}`;
           webview.show(jobId, jobName, jobDetails, logContent);
           logger.debug(`Successfully displayed log for job: ${jobName}`);
         } else {

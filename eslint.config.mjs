@@ -4,7 +4,7 @@ import globals from "globals";
 
 export default tseslint.config(
   {
-    ignores: ["out/**", "*.js", "**/*.js", "**/*.mjs"],
+    ignores: ["out/**", ".vscode-test/**", "*.js", "**/*.js", "**/*.mjs"],
   },
   {
     files: ["src/**/*.ts", "src/**/*.tsx"],
