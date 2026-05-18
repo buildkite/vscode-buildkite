@@ -17,7 +17,7 @@ function getJobLogWebview(): JobLogWebview {
 /**
  * Interface for job log context - can be from tree view or programmatic
  */
-interface JobLogContext {
+export interface JobLogContext {
   job: Job;
   pipelineSlug: string;
   buildNumber: number;

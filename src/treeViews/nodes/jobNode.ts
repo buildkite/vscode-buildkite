@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
 import { Job, canRetryJob, canUnblockJob, getJobDisplayName } from "../../api/types";
 import { getIconForJob } from "../icons";
+import { JobLogContext } from "../../commands/viewJobLog";
 
-export class JobNode extends vscode.TreeItem {
+export class JobNode extends vscode.TreeItem implements JobLogContext {
   constructor(
     public readonly job: Job,
     public readonly buildNumber: number,
