@@ -15,12 +15,12 @@ interface ViewBuildErrorArgs {
 export async function viewBuildError(args: ViewBuildErrorArgs): Promise<void> {
   const { build, pipeline, orgSlug } = args;
 
-  if (!build.jobs || build.jobs.length === 0) {
-    // Fetch jobs if not already loaded
+  // Use existing jobs from the build, or fetch them fresh
+  let jobs = build.jobs;
+  if (!jobs || jobs.length === 0) {
     const client = CachedApiClient.getInstance();
     try {
-      const jobs = await client.getJobs(orgSlug, pipeline.slug, build.number);
-      build.jobs = jobs;
+      jobs = await client.getJobs(orgSlug, pipeline.slug, build.number);
     } catch (error) {
       vscode.window.showErrorMessage(
         `Failed to fetch build details: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -31,7 +31,7 @@ export async function viewBuildError(args: ViewBuildErrorArgs): Promise<void> {
 
   // Find failed jobs (excluding soft failures)
   const failedJobs =
-    build.jobs?.filter(
+    jobs?.filter(
       (job) =>
         job.state === "failed" &&
         !job.soft_failed &&
@@ -39,19 +39,6 @@ export async function viewBuildError(args: ViewBuildErrorArgs): Promise<void> {
     ) || [];
 
   if (failedJobs.length === 0) {
-    vscode.window.showInformationMessage(
-      "No failed jobs found in this build. The failure may have been in a different stage or job.",
-    );
-
-    // Open the build in Buildkite for more details
-    const action = await vscode.window.showInformationMessage(
-      "Would you like to view the build in Buildkite?",
-      "Open in Buildkite",
-    );
-
-    if (action === "Open in Buildkite") {
-      await vscode.env.openExternal(vscode.Uri.parse(build.web_url));
-    }
     return;
   }
 
