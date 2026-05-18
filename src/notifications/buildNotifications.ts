@@ -59,6 +59,7 @@ interface PendingNotification {
  */
 export class BuildNotificationService {
   private trackedBuilds = new Map<string, TrackedBuild>();
+  private notifiedBuilds = new Set<string>(); // Guards against duplicate notifications
   private pendingNotifications: PendingNotification[] = [];
   private batchTimer: NodeJS.Timeout | null = null;
   private notificationQueue: PendingNotification[] = [];
@@ -124,7 +125,8 @@ export class BuildNotificationService {
       // Build wasn't tracked from an active state, but we might still want to notify
       // if it's already completed and user has "notifyOnAllBuilds" enabled
       const notifyOnAll = config.get<boolean>("notifyOnAllBuilds", false);
-      if (notifyOnAll && COMPLETED_BUILD_STATES.includes(build.state)) {
+      if (notifyOnAll && COMPLETED_BUILD_STATES.includes(build.state) && !this.notifiedBuilds.has(buildKey)) {
+        this.notifiedBuilds.add(buildKey);
         this.queueNotification(build, pipeline, orgSlug);
       }
       return;
@@ -139,6 +141,7 @@ export class BuildNotificationService {
       COMPLETED_BUILD_STATES.includes(build.state)
     ) {
       tracked.notified = true;
+      this.notifiedBuilds.add(buildKey);
       this.queueNotification(build, pipeline, orgSlug);
       // Clean up — the tracked entry has served its purpose
       this.trackedBuilds.delete(buildKey);
@@ -397,6 +400,7 @@ export class BuildNotificationService {
    */
   clearTrackedBuilds(): void {
     this.trackedBuilds.clear();
+    this.notifiedBuilds.clear();
     this.pendingNotifications = [];
     this.notificationQueue = [];
     if (this.batchTimer) {
