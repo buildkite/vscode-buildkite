@@ -184,10 +184,10 @@ export class BuildNotificationService {
       const isFailed = HARD_FAILURE_STATES.includes(build.state);
       const isPassed = build.state === "passed";
 
-      if (isFailed && !notifyOnFail) return false;
-      if (isPassed && !notifyOnPass) return false;
-      // Always notify for other states (canceled, skipped, etc.)
-      return true;
+      if (isFailed) return notifyOnFail;
+      if (isPassed) return notifyOnPass;
+      // Other terminal states (canceled, skipped, not_run) — treat like failures
+      return notifyOnFail;
     });
 
     if (filteredBatch.length === 0) {
