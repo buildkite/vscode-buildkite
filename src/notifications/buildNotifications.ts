@@ -258,11 +258,12 @@ export class BuildNotificationService {
 
     const message = `Buildkite: ${allNotifications.length} builds completed (${parts.join(", ")})`;
 
-    const selection = await vscode.window.showWarningMessage(
-      message,
-      "View Builds",
-      "Dismiss",
-    );
+    let selection: string | undefined;
+    if (failedCount > 0) {
+      selection = await vscode.window.showErrorMessage(message, "View Builds", "Dismiss");
+    } else {
+      selection = await vscode.window.showInformationMessage(message, "View Builds", "Dismiss");
+    }
 
     if (selection === "View Builds") {
       // Open quick pick to select which build to view
