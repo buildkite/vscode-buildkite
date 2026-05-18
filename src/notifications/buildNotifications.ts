@@ -39,7 +39,6 @@ interface TrackedBuild {
   build: Build;
   pipeline: PipelineInfo;
   orgSlug: string;
-  notified: boolean;
 }
 
 interface PendingNotification {
@@ -93,12 +92,7 @@ export class BuildNotificationService {
 
     // Only track if not already tracked
     if (!this.trackedBuilds.has(buildKey)) {
-      this.trackedBuilds.set(buildKey, {
-        build,
-        pipeline,
-        orgSlug,
-        notified: false,
-      });
+      this.trackedBuilds.set(buildKey, { build, pipeline, orgSlug });
     }
   }
 
@@ -137,10 +131,9 @@ export class BuildNotificationService {
 
     // Check if build has completed and we haven't notified yet
     if (
-      !tracked.notified &&
+      !this.notifiedBuilds.has(buildKey) &&
       COMPLETED_BUILD_STATES.includes(build.state)
     ) {
-      tracked.notified = true;
       this.notifiedBuilds.add(buildKey);
       this.queueNotification(build, pipeline, orgSlug);
       // Clean up — the tracked entry has served its purpose
@@ -273,7 +266,7 @@ export class BuildNotificationService {
     if (selection === "View Builds") {
       // Open quick pick to select which build to view
       const selected = await vscode.window.showQuickPick(
-        allNotifications.map(({ build, pipeline }) => ({
+        allNotifications.map(({ build, pipeline, orgSlug }) => ({
           label: `${pipeline.name} #${build.number}`,
           description: build.state,
           detail: build.message
@@ -281,7 +274,7 @@ export class BuildNotificationService {
             : undefined,
           build,
           pipeline,
-          orgSlug: allNotifications.find((n) => n.build === build)?.orgSlug || "",
+          orgSlug,
         })),
         {
           placeHolder: "Select a build to view",
@@ -310,8 +303,15 @@ export class BuildNotificationService {
     const isFailed = HARD_FAILURE_STATES.includes(build.state);
     const isPassed = build.state === "passed";
 
-    const message = this.createNotificationMessage(build, pipeline);
-    const buttons = this.createNotificationButtons(build, isFailed);
+    const stateLabel = build.state.charAt(0).toUpperCase() + build.state.slice(1);
+    const commitMsg = build.message
+      ? ` "${this.truncateMessage(build.message, 50)}"`
+      : "";
+    const message = `Buildkite: ${pipeline.name} #${build.number} ${stateLabel}${commitMsg}`;
+
+    const buttons = isFailed
+      ? ["View Error", "Open in Buildkite"]
+      : ["Open in Buildkite"];
 
     let selection: string | undefined;
 
@@ -324,35 +324,6 @@ export class BuildNotificationService {
     }
 
     await this.handleNotificationAction(selection, build, pipeline, orgSlug);
-  }
-
-  /**
-   * Create the notification message
-   */
-  private createNotificationMessage(build: Build, pipeline: PipelineInfo): string {
-    const stateLabel = build.state.charAt(0).toUpperCase() + build.state.slice(1);
-    const message = build.message
-      ? `"${this.truncateMessage(build.message, 50)}"`
-      : "";
-    return `Buildkite: ${pipeline.name} #${build.number} ${stateLabel} ${message}`;
-  }
-
-  /**
-   * Create notification buttons based on build state
-   */
-  private createNotificationButtons(
-    build: Build,
-    isFailed: boolean,
-  ): string[] {
-    const buttons: string[] = [];
-
-    if (isFailed) {
-      buttons.push("View Error");
-    }
-
-    buttons.push("Open in Buildkite");
-
-    return buttons;
   }
 
   /**
@@ -381,18 +352,6 @@ export class BuildNotificationService {
         await vscode.env.openExternal(vscode.Uri.parse(build.web_url));
         break;
     }
-  }
-
-  /**
-   * Stop tracking a build (e.g., when polling stops)
-   */
-  stopTrackingBuild(
-    buildNumber: number,
-    pipelineSlug: string,
-    orgSlug: string,
-  ): void {
-    const buildKey = this.getBuildKey(orgSlug, pipelineSlug, buildNumber);
-    this.trackedBuilds.delete(buildKey);
   }
 
   /**
