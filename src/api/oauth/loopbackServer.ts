@@ -103,10 +103,6 @@ export async function startLoopbackServer(
   expectedHost = `127.0.0.1:${port}`;
   const redirectUri = `http://${expectedHost}/callback`;
 
-  const timeout = setTimeout(() => {
-    reject(new Error("Timed out waiting for Buildkite sign-in to complete."));
-  }, timeoutMs);
-
   let disposed = false;
   const dispose = () => {
     if (disposed) {
@@ -121,6 +117,11 @@ export async function startLoopbackServer(
       reject(new vscode.CancellationError());
     }
   };
+
+  const timeout = setTimeout(() => {
+    reject(new Error("Timed out waiting for Buildkite sign-in to complete."));
+    dispose();
+  }, timeoutMs);
 
   const waitForCallback = () => done;
 

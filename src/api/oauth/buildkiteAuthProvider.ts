@@ -432,10 +432,12 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
     });
   } catch (err) {
     if (controller.signal.aborted) {
+      clearTimeout(timeout);
       throw new Error(
         `Buildkite user fetch timed out after ${ACCOUNT_FETCH_TIMEOUT_MS}ms.`,
       );
     }
+    clearTimeout(timeout);
     // node's fetch hides the real reason in err.cause, surface it
     const message = err instanceof Error ? err.message : String(err);
     const causeErr = (err as { cause?: unknown })?.cause;
@@ -443,40 +445,49 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
     const detail = cause ? `${message} (${cause})` : message;
     warn(`[OAuth] Account fetch network error against ${apiBaseUrl}/user: ${detail}`);
     throw new Error(`Could not load Buildkite user account: ${detail}`);
+  }
+
+  try {
+    if (response.status === 401 || response.status === 403) {
+      warn(`[OAuth] Account fetch failed: HTTP ${response.status} (likely missing read_user scope)`);
+      throw new Error(
+        `Sign-in succeeded but the Buildkite user could not be loaded (HTTP ${response.status}). ` +
+          `Make sure your scope preset grants 'read_user'.`,
+      );
+    }
+    if (!response.ok) {
+      warn(`[OAuth] Account fetch failed: HTTP ${response.status}`);
+      throw new Error(
+        `Sign-in succeeded but the Buildkite user could not be loaded (HTTP ${response.status}).`,
+      );
+    }
+
+    const body = (await response.json()) as { id?: unknown; email?: unknown; name?: unknown };
+    // pin to the stable id, email changes orphan sessions
+    // REST returns id as a number, GraphQL as a string, normalise to string
+    const id = typeof body.id === "string"
+      ? body.id
+      : typeof body.id === "number"
+        ? String(body.id)
+        : undefined;
+    const name = typeof body.name === "string" ? body.name : undefined;
+    const email = typeof body.email === "string" ? body.email : undefined;
+    const label = name ?? email ?? id;
+    if (!id || !label) {
+      throw new Error("Buildkite returned an unexpected user payload.");
+    }
+    info(`[OAuth] Account loaded: ${label}`);
+    return { id, label };
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        `Buildkite user fetch timed out reading body after ${ACCOUNT_FETCH_TIMEOUT_MS}ms.`,
+      );
+    }
+    throw err;
   } finally {
     clearTimeout(timeout);
   }
-
-  if (response.status === 401 || response.status === 403) {
-    warn(`[OAuth] Account fetch failed: HTTP ${response.status} (likely missing read_user scope)`);
-    throw new Error(
-      `Sign-in succeeded but the Buildkite user could not be loaded (HTTP ${response.status}). ` +
-        `Make sure your scope preset grants 'read_user'.`,
-    );
-  }
-  if (!response.ok) {
-    warn(`[OAuth] Account fetch failed: HTTP ${response.status}`);
-    throw new Error(
-      `Sign-in succeeded but the Buildkite user could not be loaded (HTTP ${response.status}).`,
-    );
-  }
-
-  const body = (await response.json()) as { id?: unknown; email?: unknown; name?: unknown };
-  // pin to the stable id, email changes orphan sessions
-  // REST returns id as a number, GraphQL as a string, normalise to string
-  const id = typeof body.id === "string"
-    ? body.id
-    : typeof body.id === "number"
-      ? String(body.id)
-      : undefined;
-  const name = typeof body.name === "string" ? body.name : undefined;
-  const email = typeof body.email === "string" ? body.email : undefined;
-  const label = name ?? email ?? id;
-  if (!id || !label) {
-    throw new Error("Buildkite returned an unexpected user payload.");
-  }
-  info(`[OAuth] Account loaded: ${label}`);
-  return { id, label };
 }
 
 function sleep(ms: number): Promise<void> {
