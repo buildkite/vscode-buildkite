@@ -252,7 +252,7 @@ export class StatusBarManager {
 
     if (!this.hasToken) {
       this.statusBarItem.text = "$(key) Buildkite";
-      this.statusBarItem.tooltip = "Click to set Buildkite API token";
+      this.statusBarItem.tooltip = "Click to sign in to Buildkite";
       this.statusBarItem.show();
       return;
     }

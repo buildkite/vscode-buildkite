@@ -1,9 +1,16 @@
 import * as vscode from "vscode";
-import { DEFAULT_CLIENT_ID, DEFAULT_WEB_BASE_URL, trimTrailingSlash } from "./constants";
+import {
+  DEFAULT_API_BASE_URL,
+  DEFAULT_CLIENT_ID,
+  DEFAULT_WEB_BASE_URL,
+  resolveConfiguredUrl,
+  trimTrailingSlash,
+} from "./constants";
 
 export interface OAuthConfig {
   clientId: string;
   webBaseUrl: string;
+  apiBaseUrl: string;
 }
 
 export function getOAuthConfig(): OAuthConfig {
@@ -13,5 +20,6 @@ export function getOAuthConfig(): OAuthConfig {
   const webBaseUrl = trimTrailingSlash(
     rawBase && rawBase.trim() ? rawBase.trim() : DEFAULT_WEB_BASE_URL,
   );
-  return { clientId, webBaseUrl };
+  const apiBaseUrl = resolveConfiguredUrl(c, "apiBaseUrl", DEFAULT_API_BASE_URL);
+  return { clientId, webBaseUrl, apiBaseUrl };
 }

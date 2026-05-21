@@ -19,7 +19,7 @@ class FakeClient {
   orgCalls = 0;
   pipelinesCalls = 0;
   buildsCalls = 0;
-  invalidateOrgCacheCalls = 0;
+  clearCachedOrganizationCalls = 0;
   rebuildCalls = 0;
   graphqlCalls = 0;
 
@@ -61,8 +61,8 @@ class FakeClient {
     void agentId;
   }
 
-  invalidateOrgCache(): void {
-    this.invalidateOrgCacheCalls += 1;
+  clearCachedOrganization(): void {
+    this.clearCachedOrganizationCalls += 1;
   }
 }
 
@@ -99,14 +99,14 @@ describe("CachedApiClient", () => {
     await client.getOrganization();
 
     assert.equal(fake.orgCalls, 2);
-    assert.equal(fake.invalidateOrgCacheCalls, 0);
+    assert.equal(fake.clearCachedOrganizationCalls, 0);
   });
 
   it("clearAll wipes the cache and invalidates the underlying client too", async () => {
     await client.getOrganization();
     client.clearAll();
 
-    assert.equal(fake.invalidateOrgCacheCalls, 1);
+    assert.equal(fake.clearCachedOrganizationCalls, 1);
 
     await client.getOrganization();
     assert.equal(fake.orgCalls, 2);

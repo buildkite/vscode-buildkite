@@ -48,7 +48,7 @@ export class CachedApiClient {
    * Drop the underlying client's org cache and every cached response
    */
   clearAll(): void {
-    this.client.invalidateOrgCache();
+    this.client.clearCachedOrganization();
     this.cache.clear();
   }
 

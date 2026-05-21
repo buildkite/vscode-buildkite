@@ -73,7 +73,7 @@ export class BuildkiteClient {
     return this.organization;
   }
   // call after signout / signin / org switch so we don't serve stale slug
-  invalidateOrgCache(): void {
+  clearCachedOrganization(): void {
     this.organization = undefined;
   }
 

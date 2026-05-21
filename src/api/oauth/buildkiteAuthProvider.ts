@@ -6,9 +6,7 @@ import {
   ACCOUNT_FETCH_TIMEOUT_MS,
   AUTH_TIMEOUT_MS,
   DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
-  DEFAULT_API_BASE_URL,
   REFRESH_LEEWAY_MS,
-  resolveConfiguredUrl,
   trimTrailingSlash,
 } from "./constants";
 import { getOAuthConfig } from "./config";
@@ -415,11 +413,7 @@ function buildAuthorizeUrl(webBaseUrl: string, input: AuthorizeUrlInput): string
 }
 
 async function fetchAccount(accessToken: string): Promise<StoredSession["account"]> {
-  const apiBaseUrl = resolveConfiguredUrl(
-    vscode.workspace.getConfiguration("buildkite"),
-    "apiBaseUrl",
-    DEFAULT_API_BASE_URL,
-  );
+  const { apiBaseUrl } = getOAuthConfig();
 
   // bound it so a stuck server doesn't hang signin
   const controller = new AbortController();
