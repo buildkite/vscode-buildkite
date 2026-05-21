@@ -5,14 +5,13 @@ import {
   AUTH_PROVIDER_LABEL,
   ACCOUNT_FETCH_TIMEOUT_MS,
   AUTH_TIMEOUT_MS,
-  DEFAULT_CLIENT_ID,
   DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
   DEFAULT_API_BASE_URL,
-  DEFAULT_WEB_BASE_URL,
   REFRESH_LEEWAY_MS,
   resolveConfiguredUrl,
   trimTrailingSlash,
 } from "./constants";
+import { getOAuthConfig } from "./config";
 import { OAuthProvider } from "./types";
 import { debug, error, info, redactIfCredentialShaped, warn } from "../../log";
 import { AllScopes } from "./scopes";
@@ -89,9 +88,10 @@ export class BuildkiteAuthProvider
     for (const scope of newlyMissing) {
       warned.add(scope);
     }
-    warn(
-      `[OAuth] Returning session that lacks requested scopes: missing=[${newlyMissing.join(", ")}]; ` +
-        `granted=[${session.scopes.join(", ")}]. The user's Buildkite role likely doesn't permit them.`,
+    debug(
+      `[OAuth] Stored session is missing scopes the caller asked for: missing=[${newlyMissing.join(", ")}], ` +
+        `granted=[${session.scopes.join(", ")}]. VS Code will drop the session if its filter is strict, ` +
+        `the user's Buildkite role likely doesn't permit the missing scopes`,
     );
   }
 
@@ -137,9 +137,11 @@ export class BuildkiteAuthProvider
   }
 
   async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
-    // not strict matching, the server trims grants to the user's role so
-    // asking for X and getting Y back is normal, 403s surface the real
-    // missing scopes when an endpoint actually needs them
+    // we return every stored session here regardless of scope match because the
+    // server trims grants to the user's role, so asking for X and getting Y back
+    // is normal. VS Code's own session filter will still drop sessions whose
+    // scopes don't satisfy the caller's request, so the warning below is purely
+    // a developer breadcrumb to make scope drift visible in the log
     const all = await this.store.getAll();
     if (scopes && scopes.length > 0) {
       for (const s of all) {
@@ -170,8 +172,7 @@ export class BuildkiteAuthProvider
       `[OAuth] PKCE flow started: scopes=[${resolvedScopes.join(", ")}] (${resolvedScopes.length})`,
     );
 
-    const clientId = this.config<string>("oauth.clientId") || DEFAULT_CLIENT_ID;
-    const webBaseUrl = this.config<string>("webBaseUrl") || DEFAULT_WEB_BASE_URL;
+    const { clientId, webBaseUrl } = getOAuthConfig();
 
     const verifier = generateCodeVerifier();
     const challenge = codeChallengeFromVerifier(verifier);
@@ -276,8 +277,7 @@ export class BuildkiteAuthProvider
   }
 
   private async refreshWithRetry(session: StoredSession): Promise<StoredSession | undefined> {
-    const clientId = this.config<string>("oauth.clientId") || DEFAULT_CLIENT_ID;
-    const webBaseUrl = this.config<string>("webBaseUrl") || DEFAULT_WEB_BASE_URL;
+    const { clientId, webBaseUrl } = getOAuthConfig();
 
     let current = session;
     let lastErr: unknown;
@@ -355,9 +355,6 @@ export class BuildkiteAuthProvider
     return undefined;
   }
 
-  private config<T>(key: string): T | undefined {
-    return vscode.workspace.getConfiguration("buildkite").get<T>(key);
-  }
 }
 
 function toSession(session: StoredSession): vscode.AuthenticationSession {

@@ -68,7 +68,7 @@ export class CacheProvider {
    * Dispose the cache provider
    */
   dispose(): void {
-    this.cache.clear();
+    this.clear();
   }
 
   static create(defaultTTL?: number): CacheProvider {

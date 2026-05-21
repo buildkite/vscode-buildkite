@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { readPackageScopeEnum } from "../extension";
 import { AllScopes } from "../api/oauth/scopes";
+import { DEFAULT_CLIENT_ID } from "../api/oauth/constants";
 
 describe("scope lists stay in sync", () => {
   it("AllScopes matches the enum in package.json", () => {
@@ -11,6 +12,13 @@ describe("scope lists stay in sync", () => {
     const fromPkg = readPackageScopeEnum(pkg);
     assert.ok(fromPkg, "package.json must declare buildkite.oauth.scopes enum");
     assert.deepEqual([...fromPkg].sort(), [...AllScopes].sort());
+  });
+
+  it("DEFAULT_CLIENT_ID matches the package.json default", () => {
+    const pkgPath = path.resolve(__dirname, "../../package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const fromPkg = pkg?.contributes?.configuration?.properties?.["buildkite.oauth.clientId"]?.default;
+    assert.equal(fromPkg, DEFAULT_CLIENT_ID);
   });
 });
 

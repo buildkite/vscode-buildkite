@@ -9,6 +9,7 @@ export async function openJobLogUrl(node: JobNode): Promise<void> {
   }
 
   try {
+    // Format: https://buildkite.com/organizations/{org-slug}/pipelines/{pipeline-slug}/builds/{build-number}/jobs/{job-id}/log
     const logUrl = `https://buildkite.com/organizations/${node.orgSlug}/pipelines/${node.pipelineSlug}/builds/${node.buildNumber}/jobs/${node.job.id}/log`;
 
     info(`[Job] Opening job log in external browser: ${logUrl}`);
