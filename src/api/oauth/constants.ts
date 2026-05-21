@@ -1,4 +1,4 @@
-export const DEFAULT_CLIENT_ID = "buildkite-vscode";
+export const DEFAULT_CLIENT_ID = "85bcd1d92d30dcb5e074";
 export const DEFAULT_WEB_BASE_URL = "https://buildkite.com";
 export const DEFAULT_API_BASE_URL = "https://api.buildkite.com/v2";
 export const DEFAULT_GRAPHQL_URL = "https://graphql.buildkite.com/v1";

@@ -193,7 +193,10 @@ describe("BuildkiteAuthProvider", () => {
     });
 
     it("returns the session even when scopes don't match the request", async () => {
-      const stored = session("a", { scopes: ["read_pipelines"] });
+      const stored = session("a", {
+        scopes: ["read_pipelines"],
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      });
       await store.replace(stored);
 
       const sessions = await provider.getSessions(["read_secrets_details"]);

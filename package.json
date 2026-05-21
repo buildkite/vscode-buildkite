@@ -274,7 +274,7 @@
         },
         "buildkite.oauth.clientId": {
           "type": "string",
-          "default": "buildkite-vscode",
+          "default": "85bcd1d92d30dcb5e074",
           "description": "OAuth client ID to use when signing in with the browser."
         },
         "buildkite.oauth.scopePreset": {
