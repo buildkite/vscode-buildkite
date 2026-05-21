@@ -113,6 +113,12 @@ export class SupportViewProvider implements vscode.WebviewViewProvider {
     </svg>
     Contact Support
   </a>
+  <a class="support-link" href="command:buildkite.raiseIssue">
+    <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1a6 6 0 1 0 0 12A6 6 0 0 0 8 2zm.75 9v1.5h-1.5V12h1.5zm0-8v6.5h-1.5V4h1.5z"/>
+    </svg>
+    Raise an Issue
+  </a>
   <script>
     const vscode = acquireVsCodeApi();
     const resultsEl = document.getElementById('results');

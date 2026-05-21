@@ -35,6 +35,8 @@ import { editPipeline } from "./commands/editPipeline";
 import { archivePipeline, unarchivePipeline, deletePipeline } from "./commands/archivePipeline";
 import { pickPipeline } from "./commands/pickPipeline";
 import { searchDocs } from "./commands/searchDocs";
+import { viewBuildError } from "./commands/viewBuildError";
+import { initBuildNotifications } from "./notifications/buildNotifications";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -48,6 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
   const sessionStore = new SessionStore(context.secrets);
   const authProvider = new BuildkiteAuthProvider(sessionStore);
   const authManager = new AuthManager(context.secrets, authProvider);
+  context.subscriptions.push(initBuildNotifications());
 
   context.subscriptions.push(
     vscode.authentication.registerAuthenticationProvider(
@@ -128,6 +131,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("buildkite.build.rebuild", withClient(rebuildBuild)),
     vscode.commands.registerCommand("buildkite.build.cancel", withClient(cancelBuild)),
     vscode.commands.registerCommand("buildkite.build.unblock", withClient(unblockBuild)),
+    vscode.commands.registerCommand("buildkite.build.viewError", withClient(viewBuildError)),
     vscode.commands.registerCommand("buildkite.build.viewAnnotations", withClient(viewAnnotations)),
   );
 

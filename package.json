@@ -123,6 +123,12 @@
         "icon": "$(play)"
       },
       {
+        "command": "buildkite.build.viewError",
+        "title": "View Build Error",
+        "category": "Buildkite",
+        "icon": "$(error)"
+      },
+      {
         "command": "buildkite.build.viewAnnotations",
         "title": "View Annotations",
         "category": "Buildkite",
@@ -338,6 +344,26 @@
           },
           "default": [],
           "description": "Custom list of Buildkite OAuth scopes to request. Only used when Buildkite > Oauth > Scope Preset is set to \"custom\". Changes to this will take effect after signing out and back in."
+        },
+        "buildkite.notifications.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications when builds complete"
+        },
+        "buildkite.notifications.notifyOnPass": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notification when a build passes"
+        },
+        "buildkite.notifications.notifyOnFail": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notification when a build fails"
+        },
+        "buildkite.notifications.notifyOnAllBuilds": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show notifications for builds that were already completed when first seen"
         }
       }
     },
@@ -521,6 +547,10 @@
         },
         {
           "command": "buildkite.pipeline.delete",
+          "when": "false"
+        },
+        {
+          "command": "buildkite.build.viewError",
           "when": "false"
         }
       ]

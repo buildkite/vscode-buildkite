@@ -55,12 +55,16 @@ export function initTreeViews(
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.openSupportEmail", () => {
+      vscode.env.openExternal(vscode.Uri.parse("mailto:support@buildkite.com"));
+    }),
+    vscode.commands.registerCommand("buildkite.raiseIssue", () => {
       vscode.env.openExternal(
-        vscode.Uri.parse("mailto:support@buildkite.com"),
+        vscode.Uri.parse("https://github.com/buildkite/vscode-buildkite/issues/new"),
       );
     }),
   );
 
+  // Register dispose to clean up polling timers
   context.subscriptions.push({
     dispose: () => {
       pipelinesTreeProvider.dispose();
