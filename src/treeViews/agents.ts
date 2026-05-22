@@ -4,9 +4,8 @@ import { AuthManager } from "../api/auth";
 import { Agent } from "../api/types";
 import { AgentNode } from "./nodes/agentNode";
 import { ErrorNode } from "./nodes/errorNode";
-import { NoTokenNode } from "./nodes/noTokenNode";
 
-type AgentsTreeNode = AgentNode | ErrorNode | NoTokenNode;
+type AgentsTreeNode = AgentNode | ErrorNode;
 
 export class AgentsTreeProvider
   implements vscode.TreeDataProvider<AgentsTreeNode> {
@@ -59,7 +58,8 @@ export class AgentsTreeProvider
       }
 
       if (!token) {
-        return [new NoTokenNode()];
+        // empty triggers viewsWelcome from package.json
+        return [];
       }
 
       const org = await this.client.getOrganization();
