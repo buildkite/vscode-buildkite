@@ -73,10 +73,26 @@ export function activate(context: vscode.ExtensionContext) {
   initTreeViews(context, authManager, client);
   initStatusBar(context, authManager, client);
 
+  // viewsWelcome reads this, when false the sign in / sign up buttons render in
+  const updateAuthContext = async (): Promise<void> => {
+    const session = await authManager.resolveSession();
+    await vscode.commands.executeCommand(
+      "setContext",
+      "buildkite.authenticated",
+      !!session,
+    );
+  };
+  void updateAuthContext();
+
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
-    // welcome node and status bar both route through this so we don't drift
+    // status bar and viewsWelcome both route through this so we don't drift
     vscode.commands.registerCommand("buildkite.signIn", () => authManager.requireSession()),
+    vscode.commands.registerCommand("buildkite.signUp", () =>
+      vscode.env.openExternal(
+        vscode.Uri.parse("https://buildkite.com/platform/get-started/"),
+      ),
+    ),
     vscode.commands.registerCommand("buildkite.signOut.OAuth", () => authManager.signOut()),
     // skip refresh-token rotations, those only update the session, no tree refresh needed
     authProvider.onDidChangeSessions((e) => {
@@ -87,6 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     // one subscriber for both OAuth and PAT changes so the UI stays consistent
     authManager.onDidChangeCredential(() => {
+      void updateAuthContext();
       client.clearAll();
       void getPipelinesTreeProvider().refresh();
       void getAgentsTreeProvider().refresh();

@@ -45,6 +45,18 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "buildkite.pipelines",
+        "contents": "Sign in to Buildkite to manage your pipelines, builds and agents from VS Code.\n[Sign in](command:buildkite.signIn)\nNew to Buildkite?\n[Sign up](command:buildkite.signUp)",
+        "when": "!buildkite.authenticated"
+      },
+      {
+        "view": "buildkite.agents",
+        "contents": "Sign in to Buildkite to see your agents.\n[Sign in](command:buildkite.signIn)\nNew to Buildkite?\n[Sign up](command:buildkite.signUp)",
+        "when": "!buildkite.authenticated"
+      }
+    ],
     "commands": [
       {
         "command": "buildkite.searchDocs",
@@ -54,6 +66,11 @@
       {
         "command": "buildkite.signIn",
         "title": "Sign In",
+        "category": "Buildkite"
+      },
+      {
+        "command": "buildkite.signUp",
+        "title": "Sign Up",
         "category": "Buildkite"
       },
       {

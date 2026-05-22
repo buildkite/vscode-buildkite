@@ -7,7 +7,6 @@ import { JobNode } from "./nodes/jobNode";
 import { ArtifactsFolderNode } from "./nodes/artifactsFolderNode";
 import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
-import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
 import { debug, error, redactIfCredentialShaped } from "../log";
 import { getBuildNotificationService } from "../notifications/buildNotifications";
@@ -21,7 +20,6 @@ export type PipelineTreeNode =
   | ArtifactsFolderNode
   | ArtifactNode
   | ErrorNode
-  | NoTokenNode
   | ViewAllStepsNode
   | SummaryNode;
 
@@ -116,9 +114,10 @@ export class PipelinesTreeProvider
     try {
       if (!element) {
         if (!token) {
-          return [new NoTokenNode()];
+          // empty triggers viewsWelcome from package.json
+          return [];
         }
-        
+
         const org = await this.client.getOrganization();
         const pipelines = await this.client.getPipelines(org.slug);
 
