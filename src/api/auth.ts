@@ -224,10 +224,13 @@ export class AuthManager implements vscode.Disposable {
   private async promptPatRecovery(): Promise<void> {
     const choice = await vscode.window.showErrorMessage(
       "Your Buildkite API token is invalid or has been revoked.",
-      "Set Token",
+      "Update Token",
+      "Clear Token",
     );
-    if (choice === "Set Token") {
+    if (choice === "Update Token") {
       await this.promptForApiToken();
+    } else if (choice === "Clear Token") {
+      await this.clearToken();
     }
   }
 
@@ -242,14 +245,13 @@ export class AuthManager implements vscode.Disposable {
     }
 
     const choice = await vscode.window.showErrorMessage(
-      "Your Buildkite OAuth session has expired or been revoked. Sign in again to continue.",
+      "Your Buildkite OAuth session has expired or been revoked.",
       "Sign In Again",
+      "Sign Out",
     );
-    if (choice !== "Sign In Again") {
-      return;
+    if (choice === "Sign In Again") {
+      await this.signIn();
     }
-
-    await this.signIn();
   }
 }
 

@@ -224,6 +224,105 @@ describe("AuthManager", () => {
       assert.deepEqual(oauthProvider.removed, ["s1"]);
     });
 
+    it("PAT 401 'Update Token' reopens the input box and stores the new value", async () => {
+      stubAuth(async () => undefined);
+      await manager.setToken("dead-pat");
+
+      stubError(async () => "Update Token");
+      stubInputBox(async () => "fresh-pat");
+
+      const session = await manager.resolveSession();
+      assert.ok(session);
+
+      await session.invalidate();
+
+      assert.equal(await manager.hasStoredPat(), true);
+      const stored = await secrets.get("buildkite.apiToken");
+      assert.equal(stored, "fresh-pat");
+    });
+
+    it("PAT 401 'Clear Token' removes the stored PAT and doesn't prompt for a new one", async () => {
+      stubAuth(async () => undefined);
+      await manager.setToken("dead-pat");
+
+      stubError(async () => "Clear Token");
+      let inputBoxCalls = 0;
+      stubInputBox(async () => {
+        inputBoxCalls += 1;
+        return undefined;
+      });
+
+      const session = await manager.resolveSession();
+      assert.ok(session);
+
+      await session.invalidate();
+
+      assert.equal(await manager.hasStoredPat(), false);
+      assert.equal(inputBoxCalls, 0);
+    });
+
+    it("OAuth 401 'Sign In Again' removes the dead session then kicks the browser flow", async () => {
+      const getSessionCalls: Array<{ options?: { createIfNone?: boolean; silent?: boolean } }> = [];
+      stubAuth(async (...args: unknown[]) => {
+        const options = args[2] as { createIfNone?: boolean; silent?: boolean } | undefined;
+        getSessionCalls.push({ options });
+        if (options?.silent) {
+          return {
+            id: "s1",
+            accessToken: "tok",
+            account: { id: "u1", label: "User" },
+            scopes: ["read_user"],
+          } as vscode.AuthenticationSession;
+        }
+        // browser flow result
+        return {
+          id: "s2",
+          accessToken: "fresh-tok",
+          account: { id: "u1", label: "User" },
+          scopes: ["read_user"],
+        } as vscode.AuthenticationSession;
+      });
+      stubError(async () => "Sign In Again");
+      stubInfo(async () => undefined);
+
+      const session = await manager.resolveSession();
+      assert.ok(session);
+
+      await session.invalidate();
+
+      assert.deepEqual(oauthProvider.removed, ["s1"]);
+      // first call was silent for resolveSession, second was createIfNone for the re-auth
+      const sawCreateIfNone = getSessionCalls.some((c) => c.options?.createIfNone === true);
+      assert.ok(sawCreateIfNone, "expected a createIfNone:true getSession call");
+    });
+
+    it("OAuth 401 'Sign Out' removes the session without kicking the browser flow", async () => {
+      const getSessionCalls: Array<{ options?: { createIfNone?: boolean; silent?: boolean } }> = [];
+      stubAuth(async (...args: unknown[]) => {
+        const options = args[2] as { createIfNone?: boolean; silent?: boolean } | undefined;
+        getSessionCalls.push({ options });
+        if (options?.silent) {
+          return {
+            id: "s1",
+            accessToken: "tok",
+            account: { id: "u1", label: "User" },
+            scopes: ["read_user"],
+          } as vscode.AuthenticationSession;
+        }
+        return undefined;
+      });
+      stubError(async () => "Sign Out");
+
+      const session = await manager.resolveSession();
+      assert.ok(session);
+
+      await session.invalidate();
+
+      assert.deepEqual(oauthProvider.removed, ["s1"]);
+      const sawCreateIfNone = getSessionCalls.some((c) => c.options?.createIfNone === true);
+      assert.equal(sawCreateIfNone, false, "Sign Out should not trigger the browser flow");
+    });
+
     it("a PAT 401 in flight swallows a concurrent OAuth 401", async () => {
       stubAuth(async () => undefined);
       await manager.setToken("dead-pat");
