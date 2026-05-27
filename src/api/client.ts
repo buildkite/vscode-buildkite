@@ -340,12 +340,18 @@ export class BuildkiteClient {
     const pipelines = await this.get<Pipeline[]>(
       `/organizations/${orgSlug}/pipelines?repository=${encodeURIComponent(repositoryUrl)}&per_page=100`,
     );
-    return Promise.all(
-      pipelines.map(async (pipeline) => ({
-        pipeline,
-        builds: await this.getBuilds(orgSlug, pipeline.slug, 10),
-      })),
+    // allSettled so one archived/deleted pipeline (404 from getBuilds) or a
+    // transient 5xx doesn't blank the whole result
+    const buildResults = await Promise.allSettled(
+      pipelines.map((pipeline) => this.getBuilds(orgSlug, pipeline.slug, 10)),
     );
+    return pipelines.map((pipeline, i) => {
+      const result = buildResults[i];
+      return {
+        pipeline,
+        builds: result.status === "fulfilled" ? result.value : [],
+      };
+    });
   }
 
   async getAgents(orgSlug: string): Promise<Agent[]> {
