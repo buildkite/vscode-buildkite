@@ -29,19 +29,19 @@ export class CachedApiClient {
     this.cache.clear();
   }
 
-  // drop everything under /organizations/{slug}/pipelines/{pipeline}/ plus
-  // the org's graphql pipeline bucket (build mutations change those too)
+  // drop everything under /organizations/{slug}/pipelines/{pipeline}/ plus the
+  // org's repository-search bucket (build mutations change cached repo-search
+  // results too, since they embed each pipeline's last 10 builds)
   clearPipelineCache(orgSlug: string, pipelineSlug: string): void {
-    const restPrefix = `GET:/organizations/${orgSlug}/pipelines/${pipelineSlug}/`;
-    const graphqlPrefix = `GRAPHQL:pipelines:${orgSlug}:`;
-    this.cache.clearMatching((key) => key.startsWith(restPrefix) || key.startsWith(graphqlPrefix));
+    const pipelinePrefix = `GET:/organizations/${orgSlug}/pipelines/${pipelineSlug}/`;
+    const repoSearchPrefix = `GET:/organizations/${orgSlug}/pipelines?repository=`;
+    this.cache.clearMatching((key) => key.startsWith(pipelinePrefix) || key.startsWith(repoSearchPrefix));
   }
 
   // drop everything for the org
   clearOrganizationCache(orgSlug: string): void {
-    const restPrefix = `GET:/organizations/${orgSlug}/`;
-    const graphqlPrefix = `GRAPHQL:pipelines:${orgSlug}:`;
-    this.cache.clearMatching((key) => key.startsWith(restPrefix) || key.startsWith(graphqlPrefix));
+    const prefix = `GET:/organizations/${orgSlug}/`;
+    this.cache.clearMatching((key) => key.startsWith(prefix));
   }
 
   /**
@@ -199,7 +199,7 @@ export class CachedApiClient {
    * Get pipelines by repository with caching
    */
   async getPipelinesByRepository(orgSlug: string, repositoryUrl: string): Promise<PipelineWithBuilds[]> {
-    const cacheKey = this.generateCacheKey("GRAPHQL", `pipelines:${orgSlug}:${repositoryUrl}`);
+    const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines?repository=${repositoryUrl}`);
 
     let result = this.cache.get<PipelineWithBuilds[]>(cacheKey);
     if (result !== null) {
