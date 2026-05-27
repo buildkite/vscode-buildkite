@@ -21,7 +21,7 @@ class FakeClient {
   buildsCalls = 0;
   clearCachedOrganizationCalls = 0;
   rebuildCalls = 0;
-  graphqlCalls = 0;
+  pipelinesByRepoCalls = 0;
 
   async getOrganization(): Promise<Organization> {
     this.orgCalls += 1;
@@ -52,7 +52,7 @@ class FakeClient {
   async getPipelinesByRepository(org: string, repo: string): Promise<PipelineWithBuilds[]> {
     void org;
     void repo;
-    this.graphqlCalls += 1;
+    this.pipelinesByRepoCalls += 1;
     return [];
   }
 
@@ -134,35 +134,35 @@ describe("CachedApiClient", () => {
     assert.equal(fake.buildsCalls, 2, "deploy-staging should still be cached");
   });
 
-  it("rebuild also drops the org's GraphQL pipeline cache", async () => {
+  it("rebuild also drops the org's repo-search cache", async () => {
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
-    assert.equal(fake.graphqlCalls, 1, "second read should be a cache hit");
+    assert.equal(fake.pipelinesByRepoCalls, 1, "second read should be a cache hit");
 
     await client.rebuildBuild("acme", "deploy", 1);
 
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
-    assert.equal(fake.graphqlCalls, 2, "rebuild should have dropped the GraphQL cache");
+    assert.equal(fake.pipelinesByRepoCalls, 2, "rebuild should have dropped the repo-search cache");
   });
 
-  it("clearing org `acme` does not drop the GraphQL cache for `acme-staging`", async () => {
+  it("clearing org `acme` does not drop the repo-search cache for `acme-staging`", async () => {
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
     await client.getPipelinesByRepository("acme-staging", "https://github.com/foo/bar");
-    assert.equal(fake.graphqlCalls, 2);
+    assert.equal(fake.pipelinesByRepoCalls, 2);
 
     await client.rebuildBuild("acme", "deploy", 1);
 
     await client.getPipelinesByRepository("acme-staging", "https://github.com/foo/bar");
-    assert.equal(fake.graphqlCalls, 2, "acme-staging should still be cached");
+    assert.equal(fake.pipelinesByRepoCalls, 2, "acme-staging should still be cached");
   });
 
-  it("agent mutations clear the org's GraphQL pipeline cache via clearOrganizationCache", async () => {
+  it("agent mutations clear the org's repo-search cache via clearOrganizationCache", async () => {
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
-    assert.equal(fake.graphqlCalls, 1);
+    assert.equal(fake.pipelinesByRepoCalls, 1);
 
     await client.stopAgent("acme", "agent-1");
 
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
-    assert.equal(fake.graphqlCalls, 2, "stopAgent should have cleared the GraphQL cache");
+    assert.equal(fake.pipelinesByRepoCalls, 2, "stopAgent should have cleared the repo-search cache");
   });
 });
