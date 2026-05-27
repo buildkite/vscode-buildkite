@@ -34,12 +34,12 @@ class StubClient extends BuildkiteClient {
     super(null as unknown as AuthManager);
   }
 
-  override async get<T>(endpoint: string): Promise<T> {
+  protected override async getAllPages<T>(endpoint: string): Promise<T[]> {
     const match = endpoint.match(/[?&]repository=([^&]+)/);
     if (match) {
       this.capturedFilters.push(decodeURIComponent(match[1]));
     }
-    return this.pipelinesResponse as unknown as T;
+    return this.pipelinesResponse as unknown as T[];
   }
 
   override async getBuilds(

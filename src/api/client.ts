@@ -128,7 +128,7 @@ export class BuildkiteClient {
    * Fetches all pages of a paginated endpoint.
    * Uses the Link header to find the next page URL.
    */
-  private async getAllPages<T>(endpoint: string): Promise<T[]> {
+  protected async getAllPages<T>(endpoint: string): Promise<T[]> {
     const results: T[] = [];
     let nextUrl: string | null = endpoint;
     while (nextUrl) {
@@ -344,7 +344,7 @@ export class BuildkiteClient {
     const filter = normalized
       ? `${normalized.owner}/${normalized.repo}`
       : repositoryUrl;
-    const candidates = await this.get<Pipeline[]>(
+    const candidates = await this.getAllPages<Pipeline>(
       `/organizations/${orgSlug}/pipelines?repository=${encodeURIComponent(filter)}&per_page=100`,
     );
     const pipelines = normalized
