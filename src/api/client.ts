@@ -5,18 +5,15 @@ import { redactIfCredentialShaped } from "../log";
 import {
   Pipeline,
   Build,
-  BuildState,
   Job,
   Agent,
   JsonValue,
   Artifact,
   Annotation,
-  PipelinesForRepositoryResponse,
   PipelineWithBuilds,
   CreatePipelineInput,
   UpdatePipelineInput,
 } from "./types";
-import { BuildkiteGraphQLClient } from "./graphqlClient";
 /**
  * Represents a Buildkite organization as returned by;
  * curl -H "Authorization: Bearer $TOKEN" \
@@ -49,11 +46,8 @@ export class BuildkiteClient {
     );
   }
   private organization: Organization | undefined;
-  private readonly graphqlClient: BuildkiteGraphQLClient;
 
-  constructor(private readonly authManager: AuthManager) {
-    this.graphqlClient = new BuildkiteGraphQLClient(authManager);
-  }
+  constructor(private readonly authManager: AuthManager) {}
 
   /**
    * Fetches the organization associated with the API token
@@ -335,102 +329,23 @@ export class BuildkiteClient {
     return response.text();
   }
   /**
-   * Fetches pipelines matching a repository URL using GraphQL.
-   * Returns pipelines with their latest build in a single query.
+   * Fetches pipelines matching a repository URL along with their recent builds.
+   * The REST endpoint matches the repository field with a case-insensitive
+   * substring, so it tolerates SSH/HTTPS and trailing-.git variants.
    */
   async getPipelinesByRepository(
     orgSlug: string,
     repositoryUrl: string,
   ): Promise<PipelineWithBuilds[]> {
-    const query = `
-      query GetPipelinesForRepository($orgSlug: ID!, $repoUrl: String!) {
-        organization(slug: $orgSlug) {
-          pipelines(first: 100, repository: {url: $repoUrl}) {
-            edges {
-              node {
-                slug
-                name
-                archivedAt
-                repository {
-                  url
-                }
-                builds(first: 10) {
-                  edges {
-                    node {
-                      number
-                      state
-                      branch
-                      message
-                      url
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `;
-    const data =
-      await this.graphqlClient.query<PipelinesForRepositoryResponse>(query, {
-        orgSlug,
-        repoUrl: repositoryUrl,
-      });
-    return data.organization.pipelines.edges.map(({ node }) => {
-      const pipeline: Pipeline = {
-        id: "",
-        graphql_id: "",
-        url: "",
-        web_url: "",
-        name: node.name,
-        slug: node.slug,
-        repository: node.repository.url,
-        description: null,
-        default_branch: "",
-        created_at: "",
-        archived_at: node.archivedAt ?? null,
-        scheduled_builds_count: 0,
-        running_builds_count: 0,
-        scheduled_jobs_count: 0,
-        running_jobs_count: 0,
-        waiting_jobs_count: 0,
-      };
-      const builds: Build[] = node.builds.edges.map(({ node: buildNode }) => ({
-        id: "",
-        graphql_id: "",
-        url: "",
-        web_url: buildNode.url,
-        number: buildNode.number,
-        state: buildNode.state.toLowerCase() as BuildState,
-        blocked: false,
-        message: buildNode.message || "",
-        commit: "",
-        branch: buildNode.branch,
-        env: {},
-        source: "",
-        creator: {
-          id: "",
-          name: "",
-          email: "",
-          avatar_url: "",
-          created_at: "",
-        },
-        created_at: "",
-        scheduled_at: "",
-        started_at: null,
-        finished_at: null,
-        meta_data: {},
-        pull_request: null,
-        pipeline: {
-          id: "",
-          graphql_id: "",
-          url: "",
-          name: node.name,
-          slug: node.slug,
-        },
-      }));
-      return { pipeline, builds };
-    });
+    const pipelines = await this.get<Pipeline[]>(
+      `/organizations/${orgSlug}/pipelines?repository=${encodeURIComponent(repositoryUrl)}&per_page=100`,
+    );
+    return Promise.all(
+      pipelines.map(async (pipeline) => ({
+        pipeline,
+        builds: await this.getBuilds(orgSlug, pipeline.slug, 10),
+      })),
+    );
   }
 
   async getAgents(orgSlug: string): Promise<Agent[]> {
