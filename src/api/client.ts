@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { AuthManager, throwIfUnauthorized } from "./auth";
 import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./oauth/constants";
 import { redactIfCredentialShaped } from "../log";
+import { gitUrlsMatch, normalizeGitUrl } from "../utils/gitUrl";
 import {
   Pipeline,
   Build,
@@ -330,16 +331,25 @@ export class BuildkiteClient {
   }
   /**
    * Fetches pipelines matching a repository URL along with their recent builds.
-   * The REST endpoint matches the repository field with a case-insensitive
-   * substring, so it tolerates SSH/HTTPS and trailing-.git variants.
    */
   async getPipelinesByRepository(
     orgSlug: string,
     repositoryUrl: string,
   ): Promise<PipelineWithBuilds[]> {
-    const pipelines = await this.get<Pipeline[]>(
-      `/organizations/${orgSlug}/pipelines?repository=${encodeURIComponent(repositoryUrl)}&per_page=100`,
+    // Narrow the REST ILIKE filter to "owner/repo" so a single call matches
+    // any URL format the pipeline could be configured with (SSH/HTTPS, with
+    // or without .git). Post-filter canonically to drop substring false
+    // positives like `acme/web` matching `acme/web-frontend`.
+    const normalized = normalizeGitUrl(repositoryUrl);
+    const filter = normalized
+      ? `${normalized.owner}/${normalized.repo}`
+      : repositoryUrl;
+    const candidates = await this.get<Pipeline[]>(
+      `/organizations/${orgSlug}/pipelines?repository=${encodeURIComponent(filter)}&per_page=100`,
     );
+    const pipelines = normalized
+      ? candidates.filter((p) => gitUrlsMatch(p.repository, repositoryUrl))
+      : candidates;
     // allSettled so one archived/deleted pipeline (404 from getBuilds) or a
     // transient 5xx doesn't blank the whole result
     const buildResults = await Promise.allSettled(

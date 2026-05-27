@@ -97,27 +97,3 @@ export function gitUrlsMatch(url1: string, url2: string): boolean {
   );
 }
 
-/**
- * Generates all common URL variants for a Git repository.
- * Used to query Buildkite API which may have the pipeline configured
- * with a different URL format than the local git remote.
- *
- * @param url - The Git URL to generate variants for
- * @returns Array of URL variants (HTTPS, SSH shorthand, SSH with .git suffix)
- */
-export function getGitUrlVariants(url: string): string[] {
-  const normalized = normalizeGitUrl(url);
-  if (!normalized) {
-    return [url]; // Return original if we can't parse it
-  }
-
-  const { host, owner, repo } = normalized;
-
-  // Generate common URL formats that Buildkite pipelines might use
-  return [
-    `https://${host}/${owner}/${repo}`,
-    `https://${host}/${owner}/${repo}.git`,
-    `git@${host}:${owner}/${repo}.git`,
-    `git@${host}:${owner}/${repo}`,
-  ];
-}
