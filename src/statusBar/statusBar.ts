@@ -178,7 +178,6 @@ export class StatusBarManager {
       const org = await this.client.getOrganization();
       this.orgSlug = org.slug;
 
-      // GraphQL fetches pipelines and builds in a single query per remote URL
       await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
       this.managePolling();
@@ -373,7 +372,6 @@ export class StatusBarManager {
     }
     this.currentPollInterval = interval;
     this.pollTimer = setInterval(async () => {
-      // Use GraphQL to fetch latest pipelines and builds
       await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
       this.managePolling(); // Adjust interval if build states changed
