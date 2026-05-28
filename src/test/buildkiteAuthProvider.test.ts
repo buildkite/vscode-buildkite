@@ -404,6 +404,29 @@ describe("BuildkiteAuthProvider", () => {
       provider.dispose();
       provider.dispose();
     });
+
+    it("recovers silently when the initial seed read throws", async () => {
+      const throwingSecrets = new FakeSecretStorage();
+      throwingSecrets.get = async () => {
+        throw new Error("storage corrupted");
+      };
+      const throwingStore = new SessionStore(throwingSecrets);
+
+      let constructorThrew = false;
+      let errorProvider: BuildkiteAuthProvider | undefined;
+      try {
+        errorProvider = new BuildkiteAuthProvider(throwingStore);
+        await settle();
+      } catch {
+        constructorThrew = true;
+      } finally {
+        errorProvider?.dispose();
+        throwingStore.dispose();
+        throwingSecrets.dispose();
+      }
+
+      assert.equal(constructorThrew, false, "constructor + seed must not throw");
+    });
   });
 
   describe("missing scope warning memoization", () => {
