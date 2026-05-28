@@ -55,7 +55,8 @@ Then press `F5` to launch the Extension Development Host.
 Once running in the Extension Development Host:
 
 1. Open the Command Palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Windows/Linux)
-2. Type "Buildkite: Set API Token" and enter your token
+2. Sign in by running "Buildkite: Sign In", which opens your browser for OAuth,
+   or "Buildkite: Set API Token" if you'd rather paste an API token
 3. Try other commands like "Buildkite: List Pipelines"
 
 ## Project Structure
@@ -63,7 +64,7 @@ Once running in the Extension Development Host:
 ```txt
 src/
 ├── api/
-│   ├── auth.ts               # Authentication management using VS Code's SecretStorage
+│   ├── auth.ts               # Auth manager (OAuth via vscode.authentication + PAT fallback)
 │   ├── client.ts             # Buildkite API client (already built)
 ├── job/
 │   └── jobCommands.ts        # Commands related to Buildkite jobs
@@ -95,11 +96,20 @@ const pipelines = await client.get(`/organizations/${org.slug}/pipelines`);
 
 ### Authentication (`src/api/auth.ts`)
 
-The `AuthManager` class is **already built** and handles:
+`AuthManager` hides whether the active session came from OAuth or a stored
+PAT behind a single `AuthSession` handle, so callers don't need to care
+which is in use. It handles:
 
-- Secure token storage using VS Code's `SecretStorage` API
-- Token retrieval with automatic prompting if missing
-- Token clearing
+- OAuth sign in via the browser (PKCE + loopback redirect), with refresh
+  token rotation and cross-window session adoption in `BuildkiteAuthProvider`
+- PAT fallback for users who'd rather paste a token
+- Scope-keyed in-flight dedup so concurrent sign in requests don't open
+  two browser tabs
+- 401 recovery for both sources, with user-facing prompts to update,
+  clear or re-authenticate
+- `onDidChangeCredential` events so the UI refreshes when the credential
+  changes
+- Secure storage via VS Code's `SecretStorage` API
 
 ### Command Structure
 
