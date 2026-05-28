@@ -226,23 +226,36 @@ export function deactivate() {
 
 // catches drift between AllScopes and package.json on activation
 function assertScopeListsInSync(context: vscode.ExtensionContext): void {
-  const pkgScopes = readPackageScopeEnum(context.extension.packageJSON);
-  if (!pkgScopes) {
+  const diff = diffScopeListsAgainstPackage(context.extension.packageJSON);
+  if (!diff) {
     warn("[OAuth] Scope list assertion skipped: could not locate buildkite.oauth.scopes enum in package.json.");
     return;
   }
 
-  const code = new Set(AllScopes);
-  const pkg = new Set(pkgScopes);
-  const missing = AllScopes.filter((s) => !pkg.has(s));
-  const extra = pkgScopes.filter((s) => !code.has(s));
-
-  if (missing.length || extra.length) {
+  if (diff.missing.length || diff.extra.length) {
     const message =
-      `Scope list mismatch detected. Missing from package.json: [${missing.join(", ")}]; ` +
-      `extra in package.json: [${extra.join(", ")}]`;
+      `Scope list mismatch detected. Missing from package.json: [${diff.missing.join(", ")}]; ` +
+      `extra in package.json: [${diff.extra.join(", ")}]`;
     warn(`[OAuth] ${message}`);
   }
+}
+
+export interface ScopeListDiff {
+  missing: string[];
+  extra: string[];
+}
+
+export function diffScopeListsAgainstPackage(packageJSON: unknown): ScopeListDiff | undefined {
+  const pkgScopes = readPackageScopeEnum(packageJSON);
+  if (!pkgScopes) {
+    return undefined;
+  }
+  const code = new Set(AllScopes);
+  const pkg = new Set(pkgScopes);
+  return {
+    missing: AllScopes.filter((s) => !pkg.has(s)),
+    extra: pkgScopes.filter((s) => !code.has(s)),
+  };
 }
 
 export function readPackageScopeEnum(packageJSON: unknown): string[] | undefined {
