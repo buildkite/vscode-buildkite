@@ -1,3 +1,4 @@
+import { warn } from "../../log";
 
 export const AllScopes: readonly string[] = [
   "read_agents",
@@ -61,10 +62,19 @@ export function resolveScopesFromConfig(config: {
     case "read-only":
       return [...ReadOnlyScopes];
     case "custom": {
-      const custom = normalize(config.customScopes ?? []);
+      // the package.json enum blocks unknown values in the settings UI but
+      // settings.json edited directly bypasses that, so drop typos here too
+      // and surface them in the log
+      const known = new Set<string>(AllScopes);
+      const requested = normalize(config.customScopes ?? []);
+      const valid = requested.filter((s) => known.has(s));
+      const dropped = requested.filter((s) => !known.has(s));
+      if (dropped.length > 0) {
+        warn(`[OAuth] Ignoring unknown scopes in buildkite.oauth.scopes: [${dropped.join(", ")}]`);
+      }
       // empty list silently widening to AllScopes is a footgun, fall back to
       // the bare minimum we need to look up the user
-      return custom.length > 0 ? custom : ["read_user"];
+      return valid.length > 0 ? valid : ["read_user"];
     }
     case "all":
     default:

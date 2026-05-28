@@ -57,4 +57,20 @@ describe("resolveScopesFromConfig", () => {
     });
     assert.deepEqual(result, ["read_user"]);
   });
+
+  it("unknown custom scopes are filtered out", () => {
+    const result = resolveScopesFromConfig({
+      preset: "custom",
+      customScopes: ["read_user", "read_pipeliens", "not_a_real_scope"],
+    });
+    assert.deepEqual(result, ["read_user"]);
+  });
+
+  it("falls back to read_user when every custom scope is unknown", () => {
+    const result = resolveScopesFromConfig({
+      preset: "custom",
+      customScopes: ["read_pipeliens", "totally_made_up"],
+    });
+    assert.deepEqual(result, ["read_user"]);
+  });
 });
