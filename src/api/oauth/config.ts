@@ -15,7 +15,8 @@ export interface OAuthConfig {
 
 export function getOAuthConfig(): OAuthConfig {
   const c = vscode.workspace.getConfiguration("buildkite");
-  const clientId = c.get<string>("oauth.clientId") || DEFAULT_CLIENT_ID;
+  const rawClientId = c.get<string>("oauth.clientId")?.trim();
+  const clientId = rawClientId || DEFAULT_CLIENT_ID;
   const rawBase = c.get<string>("webBaseUrl");
   const webBaseUrl = trimTrailingSlash(
     rawBase && rawBase.trim() ? rawBase.trim() : DEFAULT_WEB_BASE_URL,
