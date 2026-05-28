@@ -37,10 +37,11 @@ export async function startLoopbackServer(
   let expectedHost = "<unset>";
 
   const server = http.createServer((req, res) => {
-    // any process on this box can hit 127.0.0.1, so check remote + Host
-    // (dual stack ::ffff:127.0.0.1 form too)
+    // any process on this box can hit 127.0.0.1, so pin to the v4 loopback,
+    // the listener binds v4-only via listen(0, "127.0.0.1") so dual-stack
+    // peer forms can't reach this handler
     const remote = req.socket.remoteAddress ?? "";
-    if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
+    if (remote !== "127.0.0.1") {
       res.writeHead(403, { "Content-Type": "text/plain" });
       res.end("Forbidden");
       return;
