@@ -250,6 +250,9 @@ export class BuildkiteAuthProvider
         refreshToken: tokens.refreshToken,
         expiresAt: computeExpiresAt(tokens),
         scopes: grantedScopes(tokens, resolvedScopes),
+        // pin what the caller asked for, future getSessions checks against
+        // this so a role-limited user doesn't get re-prompted forever
+        requestedScopes: [...resolvedScopes],
         account,
       };
       // one account at a time, swap atomically, the secrets.onDidChange
@@ -512,10 +515,14 @@ function scopeKey(scopes: readonly string[]): string {
   return [...scopes].sort().join(" ");
 }
 
+// match against requestedScopes not granted scopes, otherwise a role-limited
+// user whose grant came back narrower than the ask gets re-prompted on every
+// getSessions for the same wider request and the server keeps narrowing the
+// grant the same way
 function sessionCoversScopes(session: StoredSession, requested: readonly string[]): boolean {
-  const granted = new Set(session.scopes);
+  const requestedAtSignIn = new Set(session.requestedScopes);
   for (const scope of requested) {
-    if (!granted.has(scope)) {
+    if (!requestedAtSignIn.has(scope)) {
       return false;
     }
   }

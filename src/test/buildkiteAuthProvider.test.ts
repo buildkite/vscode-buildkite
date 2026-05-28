@@ -40,12 +40,16 @@ class FakeSecretStorage implements vscode.SecretStorage {
 }
 
 function session(id: string, overrides: Partial<StoredSession> = {}): StoredSession {
+  const scopes = overrides.scopes ?? ["read_user"];
   return {
     id,
     accessToken: `at-${id}`,
     refreshToken: `rt-${id}`,
     expiresAt: Date.now() + 60_000,
-    scopes: ["read_user"],
+    scopes,
+    // default to whatever scopes is, tests that care about role narrowing
+    // set requestedScopes explicitly to be wider than scopes
+    requestedScopes: scopes,
     account: { id: `acct-${id}`, label: `Account ${id}` },
     ...overrides,
   };
@@ -213,6 +217,26 @@ describe("BuildkiteAuthProvider", () => {
       const sessions = await provider.getSessions(["read_pipelines"]);
       assert.equal(sessions.length, 1);
       assert.equal(sessions[0].id, "a");
+    });
+
+    it("returns a session when granted scopes are narrower than asked-for, as long as the original ask covers the request", async () => {
+      // role-limited user, asked for [read_user, write_secrets] at sign in,
+      // server granted only [read_user] because the user's role doesn't permit
+      // write_secrets, next getSessions for the same ask should still surface
+      // the session rather than loop the user back through sign in
+      const stored = session("a", {
+        scopes: ["read_user"],
+        requestedScopes: ["read_user", "write_secrets"],
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      });
+      await store.replace(stored);
+
+      const sessions = await provider.getSessions(["read_user", "write_secrets"]);
+      assert.equal(sessions.length, 1);
+      assert.equal(sessions[0].id, "a");
+      // the public scopes field reflects what was actually granted, not what
+      // was asked for, so callers can inspect what they really got
+      assert.deepEqual(sessions[0].scopes, ["read_user"]);
     });
 
     it("returns every stored session when no scopes are requested", async () => {
