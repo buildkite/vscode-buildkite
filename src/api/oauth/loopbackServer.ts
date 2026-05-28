@@ -121,7 +121,7 @@ export async function startLoopbackServer(
     clearTimeout(timeout);
     server.close();
     // close keepalive sockets so the port releases now, not when idle clients give up
-    server.closeAllConnections?.();
+    server.closeAllConnections();
     if (!settled) {
       reject(new vscode.CancellationError());
     }
@@ -151,7 +151,7 @@ function respondSuccess(res: http.ServerResponse) {
 <html>
 <head><title>Buildkite sign-in successful</title></head>
 <body style="font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 3rem;">
-  <h1>&#10003; Signed in to Buildkite</h1>
+  <h1>✓ Signed in to Buildkite</h1>
   <p>You can close this tab and return to VS Code.</p>
 </body>
 </html>`);
@@ -163,7 +163,7 @@ function respondFailure(res: http.ServerResponse, message: string) {
 <html>
 <head><title>Buildkite sign-in failed</title></head>
 <body style="font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 3rem;">
-  <h1>&#10005; Sign-in failed</h1>
+  <h1>✗ Sign-in failed</h1>
   <p>${escapeHtml(message)}</p>
   <p>You can close this tab and try again from VS Code.</p>
 </body>
