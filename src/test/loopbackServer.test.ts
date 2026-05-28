@@ -1,6 +1,60 @@
 import * as assert from "node:assert/strict";
 import * as http from "node:http";
-import { startLoopbackServer } from "../api/oauth/loopbackServer";
+import {
+  startLoopbackServer,
+  handleLoopbackRequest,
+  LoopbackHandlerContext,
+  LoopbackResult,
+} from "../api/oauth/loopbackServer";
+
+interface MockResponse {
+  status: number | undefined;
+  headers: Record<string, string> | undefined;
+  body: string | undefined;
+}
+
+function mockReq(opts: {
+  remoteAddress?: string;
+  host?: string;
+  url?: string;
+}): http.IncomingMessage {
+  return {
+    socket: { remoteAddress: opts.remoteAddress ?? "127.0.0.1" },
+    headers: { host: opts.host ?? "127.0.0.1:12345" },
+    url: opts.url ?? "/callback",
+  } as unknown as http.IncomingMessage;
+}
+
+function mockRes(): { res: http.ServerResponse; captured: MockResponse } {
+  const captured: MockResponse = { status: undefined, headers: undefined, body: undefined };
+  const res = {
+    writeHead: (status: number, headers?: Record<string, string>) => {
+      captured.status = status;
+      captured.headers = headers;
+    },
+    end: (body?: string) => {
+      captured.body = body;
+    },
+    once: () => res,
+  } as unknown as http.ServerResponse;
+  return { res, captured };
+}
+
+function ctx(over: Partial<LoopbackHandlerContext> = {}): LoopbackHandlerContext & {
+  resolved: LoopbackResult | undefined;
+  rejected: Error | undefined;
+} {
+  const out = {
+    expectedHost: "127.0.0.1:12345",
+    expectedState: "the-state",
+    resolved: undefined as LoopbackResult | undefined,
+    rejected: undefined as Error | undefined,
+    resolve(r: LoopbackResult) { this.resolved = r; },
+    reject(e: Error) { this.rejected = e; },
+    ...over,
+  };
+  return out;
+}
 
 interface RequestResult {
   status: number;
@@ -156,5 +210,101 @@ describe("loopbackServer", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     await assert.rejects(request(u), /ECONNREFUSED/);
+  });
+});
+
+describe("handleLoopbackRequest", () => {
+  it("rejects a non-loopback remote address with 403", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ remoteAddress: "10.0.0.5" }), res, c);
+
+    assert.equal(captured.status, 403);
+    assert.equal(captured.body, "Forbidden");
+    assert.equal(c.resolved, undefined);
+    assert.equal(c.rejected, undefined);
+  });
+
+  it("rejects an empty remote address with 403", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ remoteAddress: "" }), res, c);
+
+    assert.equal(captured.status, 403);
+  });
+
+  it("rejects the dual-stack IPv4-mapped IPv6 form with 403", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ remoteAddress: "::ffff:127.0.0.1" }), res, c);
+
+    assert.equal(captured.status, 403);
+  });
+
+  it("rejects a mismatched Host header with 403", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ host: "other.example.com" }), res, c);
+
+    assert.equal(captured.status, 403);
+  });
+
+  it("returns 404 for paths other than /callback", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ url: "/something-else" }), res, c);
+
+    assert.equal(captured.status, 404);
+  });
+
+  it("returns 404 for the //x/callback path-prefix bypass", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ url: "//other.example.com/callback?code=x&state=the-state" }), res, c);
+
+    assert.equal(captured.status, 404);
+  });
+
+  it("rejects /callback without a code", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ url: "/callback?state=the-state" }), res, c);
+
+    assert.equal(captured.status, 400);
+    assert.ok(c.rejected, "expected reject to fire");
+    assert.match(c.rejected!.message, /code/);
+  });
+
+  it("rejects state mismatch with 400", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(mockReq({ url: "/callback?code=x&state=wrong" }), res, c);
+
+    assert.equal(captured.status, 400);
+    assert.ok(c.rejected);
+    assert.match(c.rejected!.message, /state mismatch/i);
+  });
+
+  it("surfaces an OAuth error= query param", () => {
+    const { res, captured } = mockRes();
+    const c = ctx();
+
+    handleLoopbackRequest(
+      mockReq({ url: "/callback?error=access_denied&error_description=user+said+no" }),
+      res,
+      c,
+    );
+
+    assert.equal(captured.status, 400);
+    assert.ok(c.rejected);
+    assert.match(c.rejected!.message, /access_denied/);
   });
 });
