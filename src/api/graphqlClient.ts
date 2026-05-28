@@ -1,6 +1,6 @@
 import { AuthManager, throwIfUnauthorized } from "./auth";
 import * as vscode from "vscode";
-import { DEFAULT_GRAPHQL_URL, resolveConfiguredUrl } from "./oauth/constants";
+import { DEFAULT_GRAPHQL_URL, resolveConfiguredUrl } from "./urls";
 import { redactIfCredentialShaped } from "../log";
 
 interface GraphQLResponse<T> {

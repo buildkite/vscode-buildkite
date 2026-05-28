@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { AuthManager, throwIfUnauthorized } from "./auth";
-import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./oauth/constants";
+import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./urls";
 import { redactIfCredentialShaped } from "../log";
 import {
   Pipeline,

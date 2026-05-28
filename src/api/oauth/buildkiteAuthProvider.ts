@@ -7,8 +7,8 @@ import {
   AUTH_TIMEOUT_MS,
   DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_LEEWAY_MS,
-  trimTrailingSlash,
 } from "./constants";
+import { trimTrailingSlash } from "../urls";
 import { getOAuthConfig } from "./config";
 import { OAuthProvider } from "./types";
 import { debug, error, info, redactIfCredentialShaped, warn } from "../../log";
@@ -21,6 +21,20 @@ import { SessionStore, StoredSession } from "./sessionStore";
 const TRANSIENT_REFRESH_RETRY_BASE_MS = 500;
 const TRANSIENT_REFRESH_RETRY_JITTER_MS = 250;
 
+/**
+ * Buildkite OAuth provider for VS Code's authentication API.
+ *
+ * Implements three interfaces:
+ * - vscode.AuthenticationProvider for the standard createSession /
+ *   getSessions / removeSession surface VS Code drives
+ * - vscode.Disposable so the extension host can tear down loopback
+ *   servers and event emitters on deactivate
+ * - OAuthProvider so AuthManager can sign out and clean up sessions
+ *   without reaching into provider internals
+ *
+ * Sessions live in SecretStorage via SessionStore, refresh on demand
+ * via refreshAccessToken, and surface as vscode.AuthenticationSession.
+ */
 export class BuildkiteAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable, OAuthProvider
 {

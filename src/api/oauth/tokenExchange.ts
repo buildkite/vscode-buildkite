@@ -1,4 +1,4 @@
-import { trimTrailingSlash } from "./constants";
+import { trimTrailingSlash } from "../urls";
 import { redactIfCredentialShaped } from "../../log";
 
 export interface TokenResponse {
