@@ -580,6 +580,18 @@
         {
           "command": "buildkite.build.viewError",
           "when": "false"
+        },
+        {
+          "command": "buildkite.signIn",
+          "when": "!buildkite.authenticated"
+        },
+        {
+          "command": "buildkite.signIn.OAuth",
+          "when": "!buildkite.authenticated"
+        },
+        {
+          "command": "buildkite.signOut.OAuth",
+          "when": "buildkite.authenticated"
         }
       ]
     }

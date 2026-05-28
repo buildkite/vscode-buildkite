@@ -82,6 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
       !!session,
     );
   };
+  void vscode.commands.executeCommand("setContext", "buildkite.authenticated", false);
   void updateAuthContext();
 
   context.subscriptions.push(
