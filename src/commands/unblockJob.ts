@@ -5,7 +5,7 @@ import { JobNode } from "../treeViews/nodes/jobNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 import { buildConfirmationMessage, collectFieldValues, normalizeFieldValues } from "./blockStepHelpers";
 
-export async function unblockJob(node: JobNode): Promise<void> {
+export async function unblockJob(client: CachedApiClient, node: JobNode): Promise<void> {
   if (!node || !(node instanceof JobNode)) {
     vscode.window.showErrorMessage("Invalid job node");
     return;
@@ -42,7 +42,6 @@ export async function unblockJob(node: JobNode): Promise<void> {
       return;
     }
 
-    const client = CachedApiClient.getInstance();
 
     const normalizedFields = normalizeFieldValues(fieldValues);
 

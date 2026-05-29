@@ -1,6 +1,6 @@
 import { BuildkiteClient, Organization } from "../api/client";
 import { CacheProvider } from "./cacheProvider";
-import { JsonValue, Pipeline, Build, Job, Agent, Artifact, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
+import { Pipeline, Build, Job, Agent, Artifact, Annotation, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
 
 /**
  * Cached API client wrapper that adds caching layer to BuildkiteClient
@@ -9,28 +9,17 @@ import { JsonValue, Pipeline, Build, Job, Agent, Artifact, PipelineWithBuilds, C
 export class CachedApiClient {
   private client: BuildkiteClient;
   private cache: CacheProvider;
-  private readonly CACHE_TTL = 60000; // 60 seconds
 
-  private static instance: CachedApiClient | undefined;
-
-  static getInstance(): CachedApiClient {
-    if (!CachedApiClient.instance) {
-      CachedApiClient.instance = new CachedApiClient();
-    }
-    return CachedApiClient.instance;
-  }
-
-  private constructor() {
-    this.client = new BuildkiteClient();
-    this.cache = CacheProvider.getInstance();
+  constructor(client: BuildkiteClient) {
+    this.client = client;
+    this.cache = CacheProvider.create();
   }
 
   /**
    * Generate cache key for API requests
    */
-  private generateCacheKey(method: string, endpoint: string, body?: JsonValue): string {
-    const bodyHash = body ? JSON.stringify(body) : "";
-    return `${method}:${endpoint}:${bodyHash}`;
+  private generateCacheKey(method: string, endpoint: string): string {
+    return `${method}:${endpoint}`;
   }
 
   /**
@@ -40,20 +29,27 @@ export class CachedApiClient {
     this.cache.clear();
   }
 
-  /**
-   * Clear cache for specific pipeline (used after mutating actions)
-   */
+  // drop everything under /organizations/{slug}/pipelines/{pipeline}/ plus
+  // the org's graphql pipeline bucket (build mutations change those too)
   clearPipelineCache(orgSlug: string, pipelineSlug: string): void {
-    const pattern = new RegExp(`organizations/${orgSlug}/pipelines/${pipelineSlug}`);
-    this.cache.clearPattern(pattern);
+    const restPrefix = `GET:/organizations/${orgSlug}/pipelines/${pipelineSlug}/`;
+    const graphqlPrefix = `GRAPHQL:pipelines:${orgSlug}:`;
+    this.cache.clearMatching((key) => key.startsWith(restPrefix) || key.startsWith(graphqlPrefix));
+  }
+
+  // drop everything for the org
+  clearOrganizationCache(orgSlug: string): void {
+    const restPrefix = `GET:/organizations/${orgSlug}/`;
+    const graphqlPrefix = `GRAPHQL:pipelines:${orgSlug}:`;
+    this.cache.clearMatching((key) => key.startsWith(restPrefix) || key.startsWith(graphqlPrefix));
   }
 
   /**
-   * Clear cache for organization (used after token changes)
+   * Drop the underlying client's org cache and every cached response
    */
-  clearOrganizationCache(orgSlug: string): void {
-    const pattern = `organizations/${orgSlug}`;
-    this.cache.clearPattern(pattern);
+  clearAll(): void {
+    this.client.clearCachedOrganization();
+    this.cache.clear();
   }
 
   /**
@@ -61,7 +57,7 @@ export class CachedApiClient {
    */
   async getOrganization(): Promise<Organization> {
     const cacheKey = this.generateCacheKey("GET", "/organizations");
-    
+
     let result = this.cache.get<Organization>(cacheKey);
     if (result !== null) {
       return result;
@@ -77,13 +73,11 @@ export class CachedApiClient {
    */
   async getPipelines(orgSlug: string): Promise<Pipeline[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines`);
-    
+
     let result = this.cache.get<Pipeline[]>(cacheKey);
     if (result !== null) {
-      console.log(`[Cache HIT] ${cacheKey}`);
       return result;
     }
-    console.log(`[Cache MISS] ${cacheKey}`);
     result = await this.client.getPipelines(orgSlug);
     this.cache.set(cacheKey, result);
     return result;
@@ -94,7 +88,7 @@ export class CachedApiClient {
    */
   async getBuilds(orgSlug: string, pipelineSlug: string, perPage = 10): Promise<Build[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds?per_page=${perPage}`);
-    
+
     let result = this.cache.get<Build[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -110,7 +104,7 @@ export class CachedApiClient {
    */
   async getBuild(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Build> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}`);
-    
+
     let result = this.cache.get<Build>(cacheKey);
     if (result !== null) {
       return result;
@@ -126,7 +120,7 @@ export class CachedApiClient {
    */
   async getJobs(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Job[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs`);
-    
+
     let result = this.cache.get<Job[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -142,7 +136,7 @@ export class CachedApiClient {
    */
   async getArtifacts(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Artifact[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/artifacts`);
-    
+
     let result = this.cache.get<Artifact[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -154,11 +148,27 @@ export class CachedApiClient {
   }
 
   /**
+   * Get annotations with caching
+   */
+  async getAnnotations(orgSlug: string, pipelineSlug: string, buildNumber: number): Promise<Annotation[]> {
+    const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/annotations`);
+
+    let result = this.cache.get<Annotation[]>(cacheKey);
+    if (result !== null) {
+      return result;
+    }
+
+    result = await this.client.getAnnotations(orgSlug, pipelineSlug, buildNumber);
+    this.cache.set(cacheKey, result);
+    return result;
+  }
+
+  /**
    * Get job artifacts with caching
    */
   async getJobArtifacts(orgSlug: string, pipelineSlug: string, buildNumber: number, jobId: string): Promise<Artifact[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines/${pipelineSlug}/builds/${buildNumber}/jobs/${jobId}/artifacts`);
-    
+
     let result = this.cache.get<Artifact[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -174,7 +184,7 @@ export class CachedApiClient {
    */
   async getAgents(orgSlug: string): Promise<Agent[]> {
     const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/agents`);
-    
+
     let result = this.cache.get<Agent[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -190,7 +200,7 @@ export class CachedApiClient {
    */
   async getPipelinesByRepository(orgSlug: string, repositoryUrl: string): Promise<PipelineWithBuilds[]> {
     const cacheKey = this.generateCacheKey("GRAPHQL", `pipelines:${orgSlug}:${repositoryUrl}`);
-    
+
     let result = this.cache.get<PipelineWithBuilds[]>(cacheKey);
     if (result !== null) {
       return result;
@@ -206,7 +216,7 @@ export class CachedApiClient {
    */
   async getJobLog(job: Job): Promise<string> {
     const cacheKey = this.generateCacheKey("GET", job.raw_log_url || "");
-    
+
     let result = this.cache.get<string>(cacheKey);
     if (result !== null) {
       return result;
@@ -313,18 +323,7 @@ export class CachedApiClient {
     return result;
   }
 
-  /**
-   * Get cache statistics for debugging
-   */
-  getCacheStats() {
-    return this.cache.getStats();
-  }
-
-  /**
-   * Dispose the cached API client
-   */
   dispose(): void {
-    CacheProvider.disposeInstance();
-    CachedApiClient.instance = undefined;
+    this.cache.dispose();
   }
 }

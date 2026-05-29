@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { getPipelinesTreeProvider, getPipelinesTreeView } from "../treeViews/treeViews";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
-import { NoTokenNode } from "../treeViews/nodes/noTokenNode";
 import { ErrorNode } from "../treeViews/nodes/errorNode";
 
 export async function pickPipeline(): Promise<void> {
@@ -26,8 +25,9 @@ export async function pickPipeline(): Promise<void> {
       return;
     }
 
-    if (children.some((c) => c instanceof NoTokenNode)) {
-      vscode.window.showErrorMessage("Buildkite: No API token set. Use 'Buildkite: Set API Token' first.");
+    // tree returns [] when there's no session, viewsWelcome handles the UI
+    if (children.length === 0) {
+      vscode.window.showErrorMessage("Buildkite: not signed in. Run 'Buildkite: Sign In' first.");
       return;
     }
 

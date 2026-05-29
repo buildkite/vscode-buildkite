@@ -2,9 +2,9 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
+import { error, redactIfCredentialShaped } from "../log";
 
-export async function createBuild(node: PipelineNode): Promise<void> {
-  const client = CachedApiClient.getInstance(); 
+export async function createBuild(client: CachedApiClient, node: PipelineNode): Promise<void> {
   try {
     // If node is missing or invalid, handle Command Palette flow
     if (!node || !node.orgSlug || !node.pipeline?.slug) {
@@ -28,7 +28,7 @@ export async function createBuild(node: PipelineNode): Promise<void> {
       // Construct a minimal PipelineNode for createBuild
       node = new PipelineNode(selectedItem.pipeline, orgs.slug);
     }
-  
+
     // get git branch
     const gitExtension = vscode.extensions.getExtension("vscode.git")?.exports;
     const gitApi = gitExtension?.getAPI(1);
@@ -64,7 +64,8 @@ export async function createBuild(node: PipelineNode): Promise<void> {
   }
   catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
     vscode.window.showErrorMessage(`Failed to create build: ${message}`);
-    console.error(err);
+    error(`[Build] Failed to create build: ${redactIfCredentialShaped(message + stack)}`);
   }
 }

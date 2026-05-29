@@ -1,4 +1,7 @@
-import { AuthManager } from "./auth";
+import * as vscode from "vscode";
+import { AuthManager, throwIfUnauthorized } from "./auth";
+import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./urls";
+import { redactIfCredentialShaped } from "../log";
 import {
   Pipeline,
   Build,
@@ -38,9 +41,20 @@ export interface Organization {
  * Handles authentication and API requests.
  */
 export class BuildkiteClient {
-  private baseUrl = "https://api.buildkite.com/v2";
+  private get baseUrl(): string {
+    return resolveConfiguredUrl(
+      vscode.workspace.getConfiguration("buildkite"),
+      "apiBaseUrl",
+      DEFAULT_API_BASE_URL,
+    );
+  }
   private organization: Organization | undefined;
-  private graphqlClient = new BuildkiteGraphQLClient();
+  private readonly graphqlClient: BuildkiteGraphQLClient;
+
+  constructor(private readonly authManager: AuthManager) {
+    this.graphqlClient = new BuildkiteGraphQLClient(authManager);
+  }
+
   /**
    * Fetches the organization associated with the API token
    * Results are cached after the first fetch.
@@ -58,6 +72,11 @@ export class BuildkiteClient {
     this.organization = orgs[0];
     return this.organization;
   }
+  // call after signout / signin / org switch so we don't serve stale slug
+  clearCachedOrganization(): void {
+    this.organization = undefined;
+  }
+
   /**
    * Makes a GET request to the Buildkite API.
    * @template T - The expected response type
@@ -71,8 +90,10 @@ export class BuildkiteClient {
   }
 
   private async fetch(endpoint: string, options?: RequestInit): Promise<Response> {
-    const token = await AuthManager.requireToken();
-    if (!token) {
+    // resolve not require, pollers shouldn't pop sign in dialogs.
+    // user actions should call requireSession themselves before this
+    const session = await this.authManager.resolveSession();
+    if (!session) {
       throw new Error("Authentication required");
     }
     const url = endpoint.startsWith("http")
@@ -81,16 +102,12 @@ export class BuildkiteClient {
     const response = await fetch(url, {
       ...options,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${session.token}`,
         ...options?.headers,
       },
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error(
-          "Invalid API token. Please update your Buildkite API token.",
-        );
-      }
+      await throwIfUnauthorized(response, session);
       if (response.status === 429) {
         throw new Error(
           "Buildkite API rate limit reached. Please wait before refreshing.",
@@ -107,7 +124,8 @@ export class BuildkiteClient {
         // Ignore if we can't read the body
       }
 
-      throw new Error(errorMessage);
+      // redact in case the server ever echoes the Authorization header back
+      throw new Error(redactIfCredentialShaped(errorMessage));
     }
     return response;
   }
@@ -178,37 +196,12 @@ export class BuildkiteClient {
     return response.json() as Promise<T>;
   }
 
-  /**
-   * Makes a PUT request that returns 204 No Content (no response body).
-   */
   async putNoContent(endpoint: string, body?: JsonValue): Promise<void> {
-    const token = await AuthManager.requireToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    await this.fetch(endpoint, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: body !== undefined ? JSON.stringify(body) : "{}",
     });
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error(
-          "Invalid API token. Please update your Buildkite API token.",
-        );
-      }
-      if (response.status === 429) {
-        throw new Error(
-          "Buildkite API rate limit reached. Please wait before retrying.",
-        );
-      }
-      throw new Error(
-        `Buildkite API error: ${response.status} ${response.statusText}`,
-      );
-    }
   }
 
   /**

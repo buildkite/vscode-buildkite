@@ -5,7 +5,7 @@ import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 import { buildConfirmationMessage, collectFieldValues, normalizeFieldValues } from "./blockStepHelpers";
 
-export async function unblockBuild(node: BuildNode): Promise<void> {
+export async function unblockBuild(client: CachedApiClient, node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
     vscode.window.showErrorMessage("Invalid build node");
     return;
@@ -19,7 +19,6 @@ export async function unblockBuild(node: BuildNode): Promise<void> {
   }
 
   try {
-    const client = CachedApiClient.getInstance();
 
     const jobs = await client.getJobs(
       node.orgSlug,

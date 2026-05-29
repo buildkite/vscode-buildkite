@@ -4,7 +4,7 @@ import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
 import { pollUntilAgentGone } from "./agentStopPoller";
 
-export async function forceStopAgent(node: AgentNode): Promise<void> {
+export async function forceStopAgent(client: CachedApiClient, node: AgentNode): Promise<void> {
   if (!node || !(node instanceof AgentNode)) {
     vscode.window.showErrorMessage("Invalid agent node");
     return;
@@ -24,7 +24,6 @@ export async function forceStopAgent(node: AgentNode): Promise<void> {
   }
 
   try {
-    const client = CachedApiClient.getInstance();
     await client.forceStopAgent(node.orgSlug, node.agent.id);
 
     vscode.window.showInformationMessage(
@@ -33,7 +32,7 @@ export async function forceStopAgent(node: AgentNode): Promise<void> {
 
     const treeProvider = getAgentsTreeProvider();
     await treeProvider.refresh();
-    await pollUntilAgentGone(node.orgSlug, node.agent.id, treeProvider);
+    await pollUntilAgentGone(client, node.orgSlug, node.agent.id, treeProvider);
   } catch (error) {
     if (error instanceof Error) {
       vscode.window.showErrorMessage(`Failed to force stop agent: ${error.message}`);

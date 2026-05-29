@@ -7,9 +7,8 @@ import { CachedApiClient } from "../cache/cachedApiClient";
  * Shows an information message with the pipeline count on success,
  * or an error message if the request fails.
  */
-export async function listPipelines() {
+export async function listPipelines(client: CachedApiClient) {
   try {
-    const client = CachedApiClient.getInstance();
     const org = await client.getOrganization();
     // This is a basic call and doesn't factor in pagination, it's just to demonstrate making an API call to an endpoint
     const pipelines = await client.getPipelines(org.slug);

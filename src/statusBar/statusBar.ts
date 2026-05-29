@@ -6,6 +6,7 @@ import { Pipeline, Build, BuildState } from "../api/types";
 import { getGitUrlVariants } from "../utils/gitUrl";
 import { getIconForBuild, getAggregateIcon } from "../treeViews/icons";
 import { showPipelineQuickPick } from "./statusBarCommands";
+import { error, redactIfCredentialShaped, warn } from "../log";
 
 const ACTIVE_POLL_INTERVAL_MS = 60000; // 60 seconds when builds are running
 const IDLE_POLL_INTERVAL_MS = 60000; // 60 seconds when idle (to catch new builds)
@@ -25,12 +26,16 @@ export class StatusBarManager {
   private workspaceRemoteUrls: string[] = [];
   private matchedPipelines: Pipeline[] = [];
   private pipelineBuilds: Map<string, Build[]> = new Map();
+  private hasToken = false;
   private orgSlug: string | undefined;
   private pollTimer: ReturnType<typeof setInterval> | undefined;
   private disposables: vscode.Disposable[] = [];
 
-  constructor() {
-    this.client = CachedApiClient.getInstance();
+  constructor(
+    private readonly authManager: AuthManager,
+    client: CachedApiClient,
+  ) {
+    this.client = client;
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
       100,
@@ -142,26 +147,25 @@ export class StatusBarManager {
         return;
       }
 
-      // Otherwise wait for state change
       const disposable = repo.state.onDidChange(() => {
         if (repo.state.remotes.length > 0) {
+          clearTimeout(timer);
           disposable.dispose();
           resolve();
         }
       });
 
-      // Timeout after 5 seconds to avoid hanging forever
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         disposable.dispose();
-        console.warn("Buildkite: timed out waiting for git repository remotes");
+        warn("[StatusBar] timed out waiting for git repository remotes");
         resolve();
       }, 5000);
     });
   }
 
   async refresh(): Promise<void> {
-    // Check if we have a token
-    const token = await AuthManager.getToken();
+    const token = (await this.authManager.resolveSession())?.token;
+    this.hasToken = token !== undefined;
     if (!token) {
       this.matchedPipelines = [];
       this.pipelineBuilds.clear();
@@ -178,8 +182,10 @@ export class StatusBarManager {
       await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
       this.managePolling();
-    } catch (error) {
-      console.error("Buildkite status bar error:", error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
+      error(`[StatusBar] error: ${redactIfCredentialShaped(message + stack)}`);
       this.matchedPipelines = [];
       this.pipelineBuilds.clear();
       this.stopPolling();
@@ -216,8 +222,9 @@ export class StatusBarManager {
             orgSlug,
             repoUrl,
           );
-        } catch (error) {
-          console.error(`Failed to fetch pipelines for ${repoUrl}:`, error);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          warn(`[StatusBar] Failed to fetch pipelines for ${repoUrl}: ${redactIfCredentialShaped(message)}`);
           return [];
         }
       }),
@@ -243,13 +250,9 @@ export class StatusBarManager {
     const config = vscode.workspace.getConfiguration("buildkite.statusBar");
     const showWhenNoMatch = config.get<boolean>("showWhenNoMatch", false);
 
-    // Check if we have a token
-    const hasToken = AuthManager.getToken() !== undefined;
-
-    // No token state
-    if (!hasToken) {
+    if (!this.hasToken) {
       this.statusBarItem.text = "$(key) Buildkite";
-      this.statusBarItem.tooltip = "Click to set Buildkite API token";
+      this.statusBarItem.tooltip = "Click to sign in to Buildkite";
       this.statusBarItem.show();
       return;
     }
@@ -386,15 +389,9 @@ export class StatusBarManager {
   }
 
   async showQuickPick(): Promise<void> {
-    const token = await AuthManager.getToken();
+    const token = (await this.authManager.resolveSession())?.token;
     if (!token) {
-      const action = await vscode.window.showQuickPick(
-        [{ label: "Set API Token", description: "Configure your Buildkite API token" }],
-        { placeHolder: "Buildkite API token not configured" },
-      );
-      if (action) {
-        vscode.commands.executeCommand("buildkite.setToken");
-      }
+      await vscode.commands.executeCommand("buildkite.signIn");
       return;
     }
 
@@ -427,9 +424,20 @@ export class StatusBarManager {
   }
 }
 
-export function initStatusBar(context: vscode.ExtensionContext): void {
-  statusBarManagerInstance = new StatusBarManager();
-  statusBarManagerInstance.initialize();
+export function initStatusBar(
+  context: vscode.ExtensionContext,
+  authManager: AuthManager,
+  client: CachedApiClient,
+): void {
+  statusBarManagerInstance = new StatusBarManager(authManager, client);
+  // initialize() touches git API discovery and workspace remote detection,
+  // both of which can reject, so surface failures to the console rather
+  // than letting them become silent unhandled rejections
+  void statusBarManagerInstance.initialize().catch((err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
+    error(`[StatusBar] initialization failed: ${redactIfCredentialShaped(message + stack)}`);
+  });
 
   context.subscriptions.push(statusBarManagerInstance);
   context.subscriptions.push(

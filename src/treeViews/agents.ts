@@ -4,9 +4,8 @@ import { AuthManager } from "../api/auth";
 import { Agent } from "../api/types";
 import { AgentNode } from "./nodes/agentNode";
 import { ErrorNode } from "./nodes/errorNode";
-import { NoTokenNode } from "./nodes/noTokenNode";
 
-type AgentsTreeNode = AgentNode | ErrorNode | NoTokenNode;
+type AgentsTreeNode = AgentNode | ErrorNode;
 
 export class AgentsTreeProvider
   implements vscode.TreeDataProvider<AgentsTreeNode> {
@@ -18,8 +17,11 @@ export class AgentsTreeProvider
   private client: CachedApiClient;
   private filterQuery = "";
 
-  constructor() {
-    this.client = CachedApiClient.getInstance();
+  constructor(
+    private readonly authManager: AuthManager,
+    client: CachedApiClient,
+  ) {
+    this.client = client;
   }
 
   async refresh(): Promise<void> {
@@ -38,7 +40,8 @@ export class AgentsTreeProvider
 
   dispose(): void {
     this._onDidChangeTreeData.dispose();
-    this.client.dispose();
+    // Don't dispose `this.client`, it's the shared CachedApiClient owned
+    // by extension.ts and used by other components too
   }
 
   getTreeItem(element: AgentsTreeNode): vscode.TreeItem {
@@ -46,7 +49,8 @@ export class AgentsTreeProvider
   }
 
   async getChildren(element?: AgentsTreeNode): Promise<AgentsTreeNode[]> {
-    const token = await AuthManager.getToken();
+    const session = await this.authManager.resolveSession();
+    const token = session?.token;
 
     try {
       if (element) {
@@ -54,7 +58,8 @@ export class AgentsTreeProvider
       }
 
       if (!token) {
-        return [new NoTokenNode()];
+        // empty triggers viewsWelcome from package.json
+        return [];
       }
 
       const org = await this.client.getOrganization();

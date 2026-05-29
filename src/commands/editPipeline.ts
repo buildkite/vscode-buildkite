@@ -3,7 +3,7 @@ import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function editPipeline(node: PipelineNode): Promise<void> {
+export async function editPipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;
@@ -57,7 +57,6 @@ export async function editPipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = CachedApiClient.getInstance();
         const trimmedDescription = description.trim();
         await client.updatePipeline(orgSlug, pipeline.slug, {
           name: name.trim(),

@@ -3,7 +3,7 @@ import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function archivePipeline(node: PipelineNode): Promise<void> {
+export async function archivePipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;
@@ -28,7 +28,6 @@ export async function archivePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = CachedApiClient.getInstance();
         await client.archivePipeline(orgSlug, pipeline.slug);
       },
     );
@@ -41,7 +40,7 @@ export async function archivePipeline(node: PipelineNode): Promise<void> {
   }
 }
 
-export async function unarchivePipeline(node: PipelineNode): Promise<void> {
+export async function unarchivePipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;
@@ -57,7 +56,6 @@ export async function unarchivePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = CachedApiClient.getInstance();
         await client.unarchivePipeline(orgSlug, pipeline.slug);
       },
     );
@@ -70,7 +68,7 @@ export async function unarchivePipeline(node: PipelineNode): Promise<void> {
   }
 }
 
-export async function deletePipeline(node: PipelineNode): Promise<void> {
+export async function deletePipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
     vscode.window.showErrorMessage("Invalid pipeline node");
     return;
@@ -95,7 +93,6 @@ export async function deletePipeline(node: PipelineNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = CachedApiClient.getInstance();
         await client.deletePipeline(orgSlug, pipeline.slug);
       },
     );

@@ -1,4 +1,7 @@
-import { AuthManager } from "./auth";
+import { AuthManager, throwIfUnauthorized } from "./auth";
+import * as vscode from "vscode";
+import { DEFAULT_GRAPHQL_URL, resolveConfiguredUrl } from "./urls";
+import { redactIfCredentialShaped } from "../log";
 
 interface GraphQLResponse<T> {
   data?: T;
@@ -9,45 +12,38 @@ interface GraphQLResponse<T> {
   }>;
 }
 
-/**
- * Client for interacting with the Buildkite GraphQL API.
- * Handles authentication and GraphQL requests.
- */
 export class BuildkiteGraphQLClient {
-  private endpoint = "https://graphql.buildkite.com/v1";
+  constructor(private readonly authManager: AuthManager) {}
 
-  /**
-   * Executes a GraphQL query.
-   * @template T - The expected response data type
-   * @param query - The GraphQL query string
-   * @param variables - Optional variables for the query
-   * @returns The query result data
-   * @throws {Error} If authentication fails or the API returns an error
-   */
+  private get endpoint(): string {
+    return resolveConfiguredUrl(
+      vscode.workspace.getConfiguration("buildkite"),
+      "graphqlUrl",
+      DEFAULT_GRAPHQL_URL,
+    );
+  }
+
   async query<T>(
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<T> {
-    const token = await AuthManager.requireToken();
-    if (!token) {
+    // see BuildkiteClient.fetch, same reason
+    const session = await this.authManager.resolveSession();
+    if (!session) {
       throw new Error("Authentication required");
     }
 
     const response = await fetch(this.endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${session.token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, variables }),
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error(
-          "Invalid API token. Please update your Buildkite API token.",
-        );
-      }
+      await throwIfUnauthorized(response, session);
       if (response.status === 429) {
         throw new Error(
           "Buildkite API rate limit reached. Please wait before refreshing.",
@@ -62,7 +58,7 @@ export class BuildkiteGraphQLClient {
 
     if (result.errors && result.errors.length > 0) {
       const errorMessage = result.errors.map((e) => e.message).join("; ");
-      throw new Error(`GraphQL error: ${errorMessage}`);
+      throw new Error(`GraphQL error: ${redactIfCredentialShaped(errorMessage)}`);
     }
 
     if (!result.data) {

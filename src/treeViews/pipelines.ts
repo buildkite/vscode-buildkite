@@ -7,9 +7,8 @@ import { JobNode } from "./nodes/jobNode";
 import { ArtifactsFolderNode } from "./nodes/artifactsFolderNode";
 import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
-import { NoTokenNode } from "./nodes/noTokenNode";
 import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
-import { Logger } from "../job/jobLogOutput";
+import { debug, error, redactIfCredentialShaped } from "../log";
 import { getBuildNotificationService } from "../notifications/buildNotifications";
 import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
 import { SummaryNode } from "./nodes/summaryNode";
@@ -21,7 +20,6 @@ export type PipelineTreeNode =
   | ArtifactsFolderNode
   | ArtifactNode
   | ErrorNode
-  | NoTokenNode
   | ViewAllStepsNode
   | SummaryNode;
 
@@ -71,8 +69,11 @@ export class PipelinesTreeProvider
   private buildCache = new Map<string, Build>();
   private pipelineNodes: PipelineNode[] = [];
 
-  constructor() {
-    this.client = CachedApiClient.getInstance();
+  constructor(
+    private readonly authManager: AuthManager,
+    client: CachedApiClient,
+  ) {
+    this.client = client;
   }
 
   getPipelineNodes(): PipelineNode[] {
@@ -80,7 +81,7 @@ export class PipelinesTreeProvider
   }
 
   getParent(element: PipelineTreeNode): vscode.ProviderResult<PipelineTreeNode> {
-    // Pipeline nodes are root-level; all others are children
+    // Pipeline nodes are root level, all others are children
     if (element instanceof PipelineNode) {
       return undefined;
     }
@@ -107,14 +108,16 @@ export class PipelinesTreeProvider
   async getChildren(
     element?: PipelineTreeNode,
   ): Promise<PipelineTreeNode[]> {
-    const token = await AuthManager.getToken();
+    const session = await this.authManager.resolveSession();
+    const token = session?.token;
     
     try {
       if (!element) {
         if (!token) {
-          return [new NoTokenNode()];
+          // empty triggers viewsWelcome from package.json
+          return [];
         }
-        
+
         const org = await this.client.getOrganization();
         const pipelines = await this.client.getPipelines(org.slug);
 
@@ -161,8 +164,7 @@ export class PipelinesTreeProvider
       }
 
       if (element instanceof BuildNode) {
-        const logger = Logger.getInstance();
-        logger.debug(`Fetching jobs for build #${element.build.number}`);
+        debug(`[Job] Fetching jobs for build #${element.build.number}`);
 
         try {
           const jobs = await this.client.getJobs(
@@ -239,10 +241,12 @@ export class PipelinesTreeProvider
           );
 
           return children;
-        } catch (error) {
-          logger.error(`Failed to fetch jobs for build #${element.build.number}`, error as Error);
-          if (error instanceof Error) {
-            return [new ErrorNode(`Failed to load jobs: ${error.message}`)];
+        } catch (err) {
+          const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
+          const message = err instanceof Error ? err.message : "Unknown error";
+          error(`[Job] Failed to fetch jobs for build #${element.build.number}: ${redactIfCredentialShaped(message + stack)}`);
+          if (err instanceof Error) {
+            return [new ErrorNode(`Failed to load jobs: ${err.message}`)];
           }
           return [new ErrorNode("Failed to load jobs")];
         }
@@ -390,6 +394,7 @@ export class PipelinesTreeProvider
 
   dispose(): void {
     this.stopAllPolling();
-    this.client.dispose(); // Dispose cache on extension deactivation
+    // Don't dispose `this.client`, it's the shared CachedApiClient owned
+    // by extension.ts and used by other components too
   }
 }

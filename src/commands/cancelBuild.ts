@@ -3,7 +3,7 @@ import { CachedApiClient } from "../cache/cachedApiClient";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function cancelBuild(node: BuildNode): Promise<void> {
+export async function cancelBuild(client: CachedApiClient, node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
     vscode.window.showErrorMessage("Invalid build node");
     return;
@@ -36,7 +36,6 @@ export async function cancelBuild(node: BuildNode): Promise<void> {
         cancellable: false,
       },
       async () => {
-        const client = CachedApiClient.getInstance();
         await client.cancelBuild(node.orgSlug, node.pipeline.slug, node.build.number);
       },
     );

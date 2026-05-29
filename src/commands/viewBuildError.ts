@@ -12,13 +12,12 @@ interface ViewBuildErrorArgs {
  * View build errors by opening the job logs of failed jobs.
  * If multiple jobs failed, shows a quick pick to select which job's logs to view.
  */
-export async function viewBuildError(args: ViewBuildErrorArgs): Promise<void> {
+export async function viewBuildError(client: CachedApiClient, args: ViewBuildErrorArgs): Promise<void> {
   const { build, pipeline, orgSlug } = args;
 
   // Use existing jobs from the build, or fetch them fresh
   let jobs = build.jobs;
   if (!jobs || jobs.length === 0) {
-    const client = CachedApiClient.getInstance();
     try {
       jobs = await client.getJobs(orgSlug, pipeline.slug, build.number);
     } catch (error) {

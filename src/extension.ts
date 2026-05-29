@@ -1,5 +1,12 @@
 import * as vscode from "vscode";
 import { AuthManager } from "./api/auth";
+import { BuildkiteClient } from "./api/client";
+import { CachedApiClient } from "./cache/cachedApiClient";
+import { AUTH_PROVIDER_ID, AUTH_PROVIDER_LABEL } from "./api/oauth/constants";
+import { BuildkiteAuthProvider } from "./api/oauth/buildkiteAuthProvider";
+import { SessionStore } from "./api/oauth/sessionStore";
+import { initLogger, warn } from "./log";
+import { AllScopes } from "./api/oauth/scopes";
 import {
   initTreeViews,
   getPipelinesTreeProvider,
@@ -38,86 +45,136 @@ import { initBuildNotifications } from "./notifications/buildNotifications";
  * @param context - The extension context provided by VS Code
  */
 export function activate(context: vscode.ExtensionContext) {
-  AuthManager.initialize(context);
-  initTreeViews(context);
-  initStatusBar(context);
-  const notificationService = initBuildNotifications();
-  context.subscriptions.push(notificationService);
+  context.subscriptions.push(initLogger());
+
+  const sessionStore = new SessionStore(context.secrets);
+  const authProvider = new BuildkiteAuthProvider(sessionStore);
+  const authManager = new AuthManager(context.secrets, authProvider);
+  context.subscriptions.push(initBuildNotifications());
+
   context.subscriptions.push(
+    vscode.authentication.registerAuthenticationProvider(
+      AUTH_PROVIDER_ID,
+      AUTH_PROVIDER_LABEL,
+      authProvider,
+      { supportsMultipleAccounts: false },
+    ),
+    authProvider,
+    authManager,
+    sessionStore,
+  );
+
+  assertScopeListsInSync(context);
+
+  const restClient = new BuildkiteClient(authManager);
+  const client = new CachedApiClient(restClient);
+  context.subscriptions.push({ dispose: () => client.dispose() });
+
+  initTreeViews(context, authManager, client);
+  initStatusBar(context, authManager, client);
+
+  // viewsWelcome reads this, when false the sign in / sign up buttons render in
+  const updateAuthContext = async (): Promise<void> => {
+    const session = await authManager.resolveSession();
+    await vscode.commands.executeCommand(
+      "setContext",
+      "buildkite.authenticated",
+      !!session,
+    );
+  };
+  void vscode.commands.executeCommand("setContext", "buildkite.authenticated", false);
+  void updateAuthContext();
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
+    // status bar and viewsWelcome both route through this so we don't drift
+    vscode.commands.registerCommand("buildkite.signIn", () => authManager.requireSession()),
+    vscode.commands.registerCommand("buildkite.signUp", () =>
+      vscode.env.openExternal(
+        vscode.Uri.parse("https://buildkite.com/platform/get-started/"),
+      ),
+    ),
+    vscode.commands.registerCommand("buildkite.signOut.OAuth", () => authManager.signOut()),
+    // skip refresh-token rotations, those only update the session, no tree refresh needed
+    authProvider.onDidChangeSessions((e) => {
+      if (!e.added?.length && !e.removed?.length) {
+        return;
+      }
+      authManager.notifyCredentialChanged();
+    }),
+    // one subscriber for both OAuth and PAT changes so the UI stays consistent
+    authManager.onDidChangeCredential(() => {
+      void updateAuthContext();
+      client.clearAll();
+      void getPipelinesTreeProvider().refresh();
+      void getAgentsTreeProvider().refresh();
+      void getStatusBarManager()?.refresh();
+    }),
     vscode.commands.registerCommand("buildkite.setToken", async () => {
-      const token = await vscode.window.showInputBox({
-        prompt: "Enter your Buildkite API Token",
-        password: true,
-        ignoreFocusOut: true,
-      });
+      const token = await authManager.promptForApiToken();
       if (token) {
-        await AuthManager.setToken(token);
-        // Clear cache when token changes to ensure fresh data
-        const pipelinesProvider = getPipelinesTreeProvider();
-        await pipelinesProvider.refresh();
-        await getAgentsTreeProvider().refresh();
-        await getStatusBarManager()?.refresh();
-        vscode.window.showInformationMessage(
-          "Buildkite API Token saved securely.",
-        );
+        vscode.window.showInformationMessage("Buildkite API Token saved securely.");
       }
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
-      await AuthManager.clearToken();
-      // Clear cache when token is cleared to ensure fresh data
-      const pipelinesProvider = getPipelinesTreeProvider();
-      await pipelinesProvider.refresh();
-      await getAgentsTreeProvider().refresh();
-      await getStatusBarManager()?.refresh();
+      await authManager.clearToken();
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
     }),
   );
 
+  // threads the shared client into commands, VS Code passes their tree node through
+  const withClient =
+    <Args extends unknown[], R>(
+      fn: (c: CachedApiClient, ...args: Args) => R,
+    ) =>
+    (...args: Args) =>
+      fn(client, ...args);
+
   // Register Pipeline and Job Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.listPipelines", listPipelines),
+    vscode.commands.registerCommand("buildkite.listPipelines", withClient(listPipelines)),
     vscode.commands.registerCommand("buildkite.listJobs", listJobs),
-    vscode.commands.registerCommand("buildkite.pipeline.create", createPipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.edit", editPipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.create", withClient(createPipeline)),
+    vscode.commands.registerCommand("buildkite.pipeline.edit", withClient(editPipeline)),
     vscode.commands.registerCommand("buildkite.pipelines.pick", pickPipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.archive", archivePipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.unarchive", unarchivePipeline),
-    vscode.commands.registerCommand("buildkite.pipeline.delete", deletePipeline),
+    vscode.commands.registerCommand("buildkite.pipeline.archive", withClient(archivePipeline)),
+    vscode.commands.registerCommand("buildkite.pipeline.unarchive", withClient(unarchivePipeline)),
+    vscode.commands.registerCommand("buildkite.pipeline.delete", withClient(deletePipeline)),
   );
 
   // Register Build Commands
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.build.open", openBuildUrl),
-    vscode.commands.registerCommand("buildkite.build.create", createBuild),
-    vscode.commands.registerCommand("buildkite.build.rebuild", rebuildBuild),
-    vscode.commands.registerCommand("buildkite.build.cancel", cancelBuild),
-    vscode.commands.registerCommand("buildkite.build.unblock", unblockBuild),
-    vscode.commands.registerCommand("buildkite.build.viewError", viewBuildError),
-    vscode.commands.registerCommand("buildkite.build.viewAnnotations", viewAnnotations),
+    vscode.commands.registerCommand("buildkite.build.create", withClient(createBuild)),
+    vscode.commands.registerCommand("buildkite.build.rebuild", withClient(rebuildBuild)),
+    vscode.commands.registerCommand("buildkite.build.cancel", withClient(cancelBuild)),
+    vscode.commands.registerCommand("buildkite.build.unblock", withClient(unblockBuild)),
+    vscode.commands.registerCommand("buildkite.build.viewError", withClient(viewBuildError)),
+    vscode.commands.registerCommand("buildkite.build.viewAnnotations", withClient(viewAnnotations)),
   );
 
   // Register Job Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.job.viewJobLog", viewJobLog),
+    vscode.commands.registerCommand("buildkite.job.viewJobLog", withClient(viewJobLog)),
     vscode.commands.registerCommand("buildkite.job.openJobLogUrl", openJobLogUrl),
-    vscode.commands.registerCommand("buildkite.job.retry", retryJob),
-    vscode.commands.registerCommand("buildkite.job.unblock", unblockJob),
+    vscode.commands.registerCommand("buildkite.job.retry", withClient(retryJob)),
+    vscode.commands.registerCommand("buildkite.job.unblock", withClient(unblockJob)),
   );
 
   // Register Artifact Commands
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "buildkite.artifact.download",
-      downloadArtifact,
+      withClient(downloadArtifact),
     ),
   );
 
   // Register Agent Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.agent.stop", stopAgent),
-    vscode.commands.registerCommand("buildkite.agent.forceStop", forceStopAgent),
-    vscode.commands.registerCommand("buildkite.agent.pause", pauseAgent),
-    vscode.commands.registerCommand("buildkite.agent.resume", resumeAgent),
+    vscode.commands.registerCommand("buildkite.agent.stop", withClient(stopAgent)),
+    vscode.commands.registerCommand("buildkite.agent.forceStop", withClient(forceStopAgent)),
+    vscode.commands.registerCommand("buildkite.agent.pause", withClient(pauseAgent)),
+    vscode.commands.registerCommand("buildkite.agent.resume", withClient(resumeAgent)),
   );
 
   // Register Support Commands
@@ -162,11 +219,55 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-/**
- * Deactivates the extension.
- * Called when the extension is deactivated by VS Code.
- */
 export function deactivate() {
   disposeJobLogWebview();
   disposeAnnotationsWebview();
+}
+
+// catches drift between AllScopes and package.json on activation
+function assertScopeListsInSync(context: vscode.ExtensionContext): void {
+  const diff = diffScopeListsAgainstPackage(context.extension.packageJSON);
+  if (!diff) {
+    warn("[OAuth] Scope list assertion skipped: could not locate buildkite.oauth.scopes enum in package.json.");
+    return;
+  }
+
+  if (diff.missing.length || diff.extra.length) {
+    const message =
+      `Scope list mismatch detected. Missing from package.json: [${diff.missing.join(", ")}]; ` +
+      `extra in package.json: [${diff.extra.join(", ")}]`;
+    warn(`[OAuth] ${message}`);
+  }
+}
+
+export interface ScopeListDiff {
+  missing: string[];
+  extra: string[];
+}
+
+export function diffScopeListsAgainstPackage(packageJSON: unknown): ScopeListDiff | undefined {
+  const pkgScopes = readPackageScopeEnum(packageJSON);
+  if (!pkgScopes) {
+    return undefined;
+  }
+  const code = new Set(AllScopes);
+  const pkg = new Set(pkgScopes);
+  return {
+    missing: AllScopes.filter((s) => !pkg.has(s)),
+    extra: pkgScopes.filter((s) => !code.has(s)),
+  };
+}
+
+export function readPackageScopeEnum(packageJSON: unknown): string[] | undefined {
+  const configRaw = (packageJSON as { contributes?: { configuration?: unknown } } | undefined)
+    ?.contributes?.configuration;
+  const blocks = Array.isArray(configRaw) ? configRaw : configRaw ? [configRaw] : [];
+  for (const block of blocks) {
+    const value = (block as { properties?: Record<string, { items?: { enum?: unknown } } | undefined> })
+      ?.properties?.["buildkite.oauth.scopes"]?.items?.enum;
+    if (Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string")) {
+      return value as string[];
+    }
+  }
+  return undefined;
 }

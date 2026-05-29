@@ -2,9 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 
-export async function createPipeline(): Promise<void> {
-  const client = CachedApiClient.getInstance();
-
+export async function createPipeline(client: CachedApiClient): Promise<void> {
   let org;
   try {
     org = await vscode.window.withProgress(
