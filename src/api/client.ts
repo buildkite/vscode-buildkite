@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { AuthManager, throwIfUnauthorized } from "./auth";
 import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./urls";
 import { redactIfCredentialShaped } from "../log";
-import { gitUrlsMatch, normalizeGitUrl } from "../utils/gitUrl";
+import { gitUrlsMatch, repositorySearchFilter } from "../utils/gitUrl";
 import {
   Pipeline,
   Build,
@@ -128,7 +128,7 @@ export class BuildkiteClient {
    * Fetches all pages of a paginated endpoint.
    * Uses the Link header to find the next page URL.
    */
-  protected async getAllPages<T>(endpoint: string): Promise<T[]> {
+  private async getAllPages<T>(endpoint: string): Promise<T[]> {
     const results: T[] = [];
     let nextUrl: string | null = endpoint;
     while (nextUrl) {
@@ -336,20 +336,18 @@ export class BuildkiteClient {
     orgSlug: string,
     repositoryUrl: string,
   ): Promise<PipelineWithBuilds[]> {
-    // Narrow the REST ILIKE filter to "owner/repo" so a single call matches
-    // any URL format the pipeline could be configured with (SSH/HTTPS, with
-    // or without .git). Post-filter canonically to drop substring false
-    // positives like `acme/web` matching `acme/web-frontend`.
-    const normalized = normalizeGitUrl(repositoryUrl);
-    const filter = normalized
-      ? `${normalized.owner}/${normalized.repo}`
-      : repositoryUrl;
+    // The REST repository= filter is a case-insensitive substring match, so a
+    // single query narrowed to "owner/repo" matches any URL format the pipeline
+    // could be configured with (SSH/HTTPS, with or without .git). Post-filter
+    // canonically to drop substring false positives like `acme/web` matching
+    // `acme/web-frontend`.
+    const filter = repositorySearchFilter(repositoryUrl);
     const candidates = await this.getAllPages<Pipeline>(
       `/organizations/${orgSlug}/pipelines?repository=${encodeURIComponent(filter)}&per_page=100`,
     );
-    const pipelines = normalized
-      ? candidates.filter((p) => gitUrlsMatch(p.repository, repositoryUrl))
-      : candidates;
+    const pipelines = candidates.filter((p) =>
+      gitUrlsMatch(p.repository, repositoryUrl),
+    );
     // allSettled so one archived/deleted pipeline (404 from getBuilds) or a
     // transient 5xx doesn't blank the whole result
     const buildResults = await Promise.allSettled(
