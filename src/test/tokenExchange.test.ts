@@ -80,6 +80,31 @@ describe("exchangeAuthorizationCode", () => {
       stub.restore();
     }
   });
+
+  it("treats invalid_grant as a regular Error, not RefreshTokenInvalid", async () => {
+    const stub = withFetch(() =>
+      jsonResponse({ error: "invalid_grant", error_description: "expired code" }, 400),
+    );
+
+    try {
+      await assert.rejects(
+        () =>
+          exchangeAuthorizationCode({
+            webBaseUrl: "https://buildkite.com",
+            clientId: "x",
+            code: "stale",
+            codeVerifier: "v",
+            redirectUri: "http://127.0.0.1:1234/callback",
+          }),
+        (err: unknown) =>
+          err instanceof Error &&
+          !(err instanceof RefreshTokenInvalidError) &&
+          /invalid_grant/.test(err.message),
+      );
+    } finally {
+      stub.restore();
+    }
+  });
 });
 
 describe("refreshAccessToken", () => {

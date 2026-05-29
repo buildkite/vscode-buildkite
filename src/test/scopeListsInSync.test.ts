@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { readPackageScopeEnum } from "../extension";
+import { readPackageScopeEnum, diffScopeListsAgainstPackage } from "../extension";
 import { AllScopes } from "../api/oauth/scopes";
 import { DEFAULT_CLIENT_ID } from "../api/oauth/constants";
 
@@ -79,5 +79,60 @@ describe("readPackageScopeEnum", () => {
       },
     };
     assert.equal(readPackageScopeEnum(pkg), undefined);
+  });
+});
+
+describe("diffScopeListsAgainstPackage", () => {
+  it("returns undefined when the enum is missing", () => {
+    assert.equal(diffScopeListsAgainstPackage({}), undefined);
+  });
+
+  it("returns zero-length diffs when code and package.json match", () => {
+    const pkg = {
+      contributes: {
+        configuration: {
+          properties: {
+            "buildkite.oauth.scopes": { items: { enum: [...AllScopes] } },
+          },
+        },
+      },
+    };
+    const diff = diffScopeListsAgainstPackage(pkg);
+    assert.deepEqual(diff, { missing: [], extra: [] });
+  });
+
+  it("reports scopes that are in code but missing from package.json", () => {
+    const subset = AllScopes.slice(0, 3);
+    const pkg = {
+      contributes: {
+        configuration: {
+          properties: {
+            "buildkite.oauth.scopes": { items: { enum: [...subset] } },
+          },
+        },
+      },
+    };
+    const diff = diffScopeListsAgainstPackage(pkg);
+    assert.ok(diff);
+    assert.deepEqual(diff.missing.sort(), AllScopes.slice(3).slice().sort());
+    assert.deepEqual(diff.extra, []);
+  });
+
+  it("reports scopes that are in package.json but missing from code", () => {
+    const pkg = {
+      contributes: {
+        configuration: {
+          properties: {
+            "buildkite.oauth.scopes": {
+              items: { enum: [...AllScopes, "fictional_scope", "another_made_up"] },
+            },
+          },
+        },
+      },
+    };
+    const diff = diffScopeListsAgainstPackage(pkg);
+    assert.ok(diff);
+    assert.deepEqual(diff.missing, []);
+    assert.deepEqual(diff.extra.sort(), ["another_made_up", "fictional_scope"]);
   });
 });

@@ -7,8 +7,8 @@ import {
   AUTH_TIMEOUT_MS,
   DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_LEEWAY_MS,
-  trimTrailingSlash,
 } from "./constants";
+import { trimTrailingSlash } from "../urls";
 import { getOAuthConfig } from "./config";
 import { OAuthProvider } from "./types";
 import { debug, error, info, redactIfCredentialShaped, warn } from "../../log";
@@ -21,6 +21,20 @@ import { SessionStore, StoredSession } from "./sessionStore";
 const TRANSIENT_REFRESH_RETRY_BASE_MS = 500;
 const TRANSIENT_REFRESH_RETRY_JITTER_MS = 250;
 
+/**
+ * Buildkite OAuth provider for VS Code's authentication API.
+ *
+ * Implements three interfaces:
+ * - vscode.AuthenticationProvider for the standard createSession /
+ *   getSessions / removeSession surface VS Code drives
+ * - vscode.Disposable so the extension host can tear down loopback
+ *   servers and event emitters on deactivate
+ * - OAuthProvider so AuthManager can sign out and clean up sessions
+ *   without reaching into provider internals
+ *
+ * Sessions live in SecretStorage via SessionStore, refresh on demand
+ * via refreshAccessToken, and surface as vscode.AuthenticationSession.
+ */
 export class BuildkiteAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable, OAuthProvider
 {
@@ -33,7 +47,7 @@ export class BuildkiteAuthProvider
   private readonly refreshesInFlight = new Map<string, Promise<StoredSession | undefined>>();
   private readonly activeLoopbacks = new Set<LoopbackHandle>();
   private readonly missingScopeWarnings = new Map<string, Set<string>>();
-  private createSessionInFlight: Promise<vscode.AuthenticationSession> | undefined;
+  private readonly createSessionInFlight = new Map<string, Promise<vscode.AuthenticationSession>>();
   private disposed = false;
   // diffed on each change so we don't double fire on our own secret writes
   private lastFiredById = new Map<string, StoredSession>();
@@ -88,7 +102,7 @@ export class BuildkiteAuthProvider
     }
     debug(
       `[OAuth] Stored session is missing scopes the caller asked for: missing=[${newlyMissing.join(", ")}], ` +
-        `granted=[${session.scopes.join(", ")}]. VS Code will drop the session if its filter is strict, ` +
+        `granted=[${session.scopes.join(", ")}]. Session filtered out of getSessions results, ` +
         `the user's Buildkite role likely doesn't permit the missing scopes`,
     );
   }
@@ -135,33 +149,39 @@ export class BuildkiteAuthProvider
   }
 
   async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
-    // we return every stored session here regardless of scope match because the
-    // server trims grants to the user's role, so asking for X and getting Y back
-    // is normal. VS Code's own session filter will still drop sessions whose
-    // scopes don't satisfy the caller's request, so the warning below is purely
-    // a developer breadcrumb to make scope drift visible in the log
+    // filter to sessions whose granted scopes cover what the caller asked for,
+    // VS Code's session API doesn't filter for us, so handing back a session
+    // with narrower scopes than requested makes write calls 403 at the server
+    // with no recovery path
     const all = await this.store.getAll();
-    if (scopes && scopes.length > 0) {
-      for (const s of all) {
+    const matched: StoredSession[] = [];
+
+    for (const s of all) {
+      if (!scopes || scopes.length === 0 || sessionCoversScopes(s, scopes)) {
+        matched.push(s);
+      } else {
         this.warnAboutMissingScopesOnce(s, scopes);
       }
     }
 
     // refresh in parallel, refreshesInFlight shares one fetch per session
-    const refreshed = await Promise.all(all.map((s) => this.ensureFresh(s)));
+    const refreshed = await Promise.all(matched.map((s) => this.ensureFresh(s)));
     return refreshed.filter((s): s is StoredSession => s !== undefined).map(toSession);
   }
 
 
   async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
     // clicking sign in twice shouldn't open two browser tabs and two loopbacks
-    if (this.createSessionInFlight) {
-      return this.createSessionInFlight;
+    const key = scopeKey(scopes);
+    const existing = this.createSessionInFlight.get(key);
+    if (existing) {
+      return existing;
     }
-    this.createSessionInFlight = this.doCreateSession(scopes).finally(() => {
-      this.createSessionInFlight = undefined;
+    const promise = this.doCreateSession(scopes).finally(() => {
+      this.createSessionInFlight.delete(key);
     });
-    return this.createSessionInFlight;
+    this.createSessionInFlight.set(key, promise);
+    return promise;
   }
 
   private async doCreateSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
@@ -230,6 +250,9 @@ export class BuildkiteAuthProvider
         refreshToken: tokens.refreshToken,
         expiresAt: computeExpiresAt(tokens),
         scopes: grantedScopes(tokens, resolvedScopes),
+        // pin what the caller asked for, future getSessions checks against
+        // this so a role-limited user doesn't get re-prompted forever
+        requestedScopes: [...resolvedScopes],
         account,
       };
       // one account at a time, swap atomically, the secrets.onDidChange
@@ -486,4 +509,22 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function scopeKey(scopes: readonly string[]): string {
+  return [...scopes].sort().join(" ");
+}
+
+// match against requestedScopes not granted scopes, otherwise a role-limited
+// user whose grant came back narrower than the ask gets re-prompted on every
+// getSessions for the same wider request and the server keeps narrowing the
+// grant the same way
+function sessionCoversScopes(session: StoredSession, requested: readonly string[]): boolean {
+  const requestedAtSignIn = new Set(session.requestedScopes);
+  for (const scope of requested) {
+    if (!requestedAtSignIn.has(scope)) {
+      return false;
+    }
+  }
+  return true;
 }

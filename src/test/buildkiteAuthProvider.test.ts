@@ -40,12 +40,16 @@ class FakeSecretStorage implements vscode.SecretStorage {
 }
 
 function session(id: string, overrides: Partial<StoredSession> = {}): StoredSession {
+  const scopes = overrides.scopes ?? ["read_user"];
   return {
     id,
     accessToken: `at-${id}`,
     refreshToken: `rt-${id}`,
     expiresAt: Date.now() + 60_000,
-    scopes: ["read_user"],
+    scopes,
+    // default to whatever scopes is, tests that care about role narrowing
+    // set requestedScopes explicitly to be wider than scopes
+    requestedScopes: scopes,
     account: { id: `acct-${id}`, label: `Account ${id}` },
     ...overrides,
   };
@@ -192,7 +196,7 @@ describe("BuildkiteAuthProvider", () => {
       assert.equal(sessions[0].accessToken, stored.accessToken);
     });
 
-    it("returns the session even when scopes don't match the request", async () => {
+    it("filters out a session whose granted scopes don't cover the request", async () => {
       const stored = session("a", {
         scopes: ["read_pipelines"],
         expiresAt: Date.now() + 60 * 60 * 1000,
@@ -200,7 +204,52 @@ describe("BuildkiteAuthProvider", () => {
       await store.replace(stored);
 
       const sessions = await provider.getSessions(["read_secrets_details"]);
+      assert.equal(sessions.length, 0);
+    });
+
+    it("returns a session whose granted scopes are a superset of the request", async () => {
+      const stored = session("a", {
+        scopes: ["read_user", "read_pipelines", "write_pipelines"],
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      });
+      await store.replace(stored);
+
+      const sessions = await provider.getSessions(["read_pipelines"]);
       assert.equal(sessions.length, 1);
+      assert.equal(sessions[0].id, "a");
+    });
+
+    it("returns a session when granted scopes are narrower than asked-for, as long as the original ask covers the request", async () => {
+      // role-limited user, asked for [read_user, write_secrets] at sign in,
+      // server granted only [read_user] because the user's role doesn't permit
+      // write_secrets, next getSessions for the same ask should still surface
+      // the session rather than loop the user back through sign in
+      const stored = session("a", {
+        scopes: ["read_user"],
+        requestedScopes: ["read_user", "write_secrets"],
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      });
+      await store.replace(stored);
+
+      const sessions = await provider.getSessions(["read_user", "write_secrets"]);
+      assert.equal(sessions.length, 1);
+      assert.equal(sessions[0].id, "a");
+      // the public scopes field reflects what was actually granted, not what
+      // was asked for, so callers can inspect what they really got
+      assert.deepEqual(sessions[0].scopes, ["read_user"]);
+    });
+
+    it("returns every stored session when no scopes are requested", async () => {
+      const a = session("a", { expiresAt: Date.now() + 60 * 60 * 1000 });
+      const b = session("b", {
+        scopes: ["read_pipelines"],
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      });
+      await store.replace(a);
+      await secrets.writeRaw(SESSIONS_SECRET_KEY, JSON.stringify([a, b]));
+
+      const sessions = await provider.getSessions();
+      assert.equal(sessions.length, 2);
     });
   });
 
@@ -379,6 +428,29 @@ describe("BuildkiteAuthProvider", () => {
       provider.dispose();
       provider.dispose();
     });
+
+    it("recovers silently when the initial seed read throws", async () => {
+      const throwingSecrets = new FakeSecretStorage();
+      throwingSecrets.get = async () => {
+        throw new Error("storage corrupted");
+      };
+      const throwingStore = new SessionStore(throwingSecrets);
+
+      let constructorThrew = false;
+      let errorProvider: BuildkiteAuthProvider | undefined;
+      try {
+        errorProvider = new BuildkiteAuthProvider(throwingStore);
+        await settle();
+      } catch {
+        constructorThrew = true;
+      } finally {
+        errorProvider?.dispose();
+        throwingStore.dispose();
+        throwingSecrets.dispose();
+      }
+
+      assert.equal(constructorThrew, false, "constructor + seed must not throw");
+    });
   });
 
   describe("missing scope warning memoization", () => {
@@ -528,6 +600,69 @@ describe("BuildkiteAuthProvider", () => {
       } finally {
         cap.dispose();
       }
+    });
+
+    it("does not collapse concurrent calls with different scope sets", async () => {
+      let openExternalCalls = 0;
+
+      stub(vscode.env as unknown as Record<string, AnyFn>, "openExternal", (async (uri: vscode.Uri) => {
+        openExternalCalls += 1;
+        const params = new URLSearchParams(uri.query);
+        const redirectUri = params.get("redirect_uri")!;
+        const state = params.get("state")!;
+        const target = new URL(redirectUri);
+        target.searchParams.set("code", `code-${openExternalCalls}`);
+        target.searchParams.set("state", state);
+        await new Promise<void>((resolve, reject) => {
+          const req = http.request({
+            hostname: target.hostname,
+            port: target.port,
+            path: target.pathname + target.search,
+            method: "GET",
+          }, (res) => {
+            res.resume();
+            res.on("end", () => resolve());
+          });
+          req.on("error", reject);
+          req.end();
+        });
+        return true;
+      }) as unknown as AnyFn);
+
+      stub(vscode.window as unknown as Record<string, AnyFn>, "withProgress",
+        (async (_opts: unknown, task: (progress: unknown, token: vscode.CancellationToken) => Promise<unknown>) => {
+          const cts = new vscode.CancellationTokenSource();
+          try {
+            return await task({}, cts.token);
+          } finally {
+            cts.dispose();
+          }
+        }) as unknown as AnyFn);
+
+      global.fetch = async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.includes("/oauth/token")) {
+          return new Response(JSON.stringify({
+            access_token: "at",
+            refresh_token: "rt",
+            expires_in: 3600,
+            scope: "read_user",
+            token_type: "Bearer",
+          }), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        if (url.endsWith("/user")) {
+          return new Response(JSON.stringify({ id: "u", name: "U", email: "u@x" }),
+            { status: 200, headers: { "content-type": "application/json" } });
+        }
+        throw new Error(`Unexpected fetch ${url}`);
+      };
+
+      await Promise.all([
+        provider.createSession(["read_user"]),
+        provider.createSession(["read_pipelines"]),
+      ]);
+
+      assert.equal(openExternalCalls, 2, "different scope sets must not share a sign-in flow");
     });
 
     it("collapses concurrent calls so we don't open two browser tabs", async () => {

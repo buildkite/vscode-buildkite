@@ -18,6 +18,17 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Buildkite endpoint URLs cannot be redirected by workspace settings.",
+      "restrictedConfigurations": [
+        "buildkite.webBaseUrl",
+        "buildkite.apiBaseUrl",
+        "buildkite.graphqlUrl"
+      ]
+    }
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -564,6 +575,18 @@
         {
           "command": "buildkite.build.viewError",
           "when": "false"
+        },
+        {
+          "command": "buildkite.signIn",
+          "when": "!buildkite.authenticated"
+        },
+        {
+          "command": "buildkite.signIn.OAuth",
+          "when": "!buildkite.authenticated"
+        },
+        {
+          "command": "buildkite.signOut.OAuth",
+          "when": "buildkite.authenticated"
         }
       ]
     }

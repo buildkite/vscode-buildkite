@@ -148,6 +148,37 @@ describe("AuthManager", () => {
       assert.equal(a, undefined);
       assert.equal(b, undefined);
     });
+
+    it("re-runs the flow on a second call after the first resolves", async () => {
+      stubAuth(async () => undefined);
+      let prompts = 0;
+      stubInfo(async () => {
+        prompts += 1;
+        return undefined;
+      });
+
+      await manager.requireSession();
+      await manager.requireSession();
+
+      assert.equal(prompts, 2);
+    });
+
+    it("clears the in-flight entry when the flow rejects", async () => {
+      let attempts = 0;
+      stubAuth(async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("network down");
+        }
+        return undefined;
+      });
+      stubInfo(async () => undefined);
+
+      await assert.rejects(manager.requireSession());
+      await manager.requireSession();
+
+      assert.equal(attempts, 2);
+    });
   });
 
   describe("setToken / clearToken / hasStoredPat", () => {

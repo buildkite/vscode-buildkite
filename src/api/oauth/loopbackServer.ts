@@ -15,6 +15,66 @@ export interface LoopbackHandle {
 }
 
 
+export interface LoopbackHandlerContext {
+  expectedHost: string;
+  expectedState: string;
+  resolve: (r: LoopbackResult) => void;
+  reject: (err: Error) => void;
+}
+
+export function handleLoopbackRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: LoopbackHandlerContext,
+): void {
+  const remote = req.socket.remoteAddress ?? "";
+  if (remote !== "127.0.0.1") {
+    res.writeHead(403, { "Content-Type": "text/plain" });
+    res.end("Forbidden");
+    return;
+  }
+  if (req.headers.host !== ctx.expectedHost) {
+    res.writeHead(403, { "Content-Type": "text/plain" });
+    res.end("Forbidden");
+    return;
+  }
+  const rawPath = req.url ?? "/";
+  if (rawPath !== "/callback" && !rawPath.startsWith("/callback?")) {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("Not Found");
+    return;
+  }
+  const url = new URL(rawPath, "http://127.0.0.1");
+
+  const code = url.searchParams.get("code") ?? "";
+  const state = url.searchParams.get("state") ?? "";
+  const error = url.searchParams.get("error");
+  const errorDescription = url.searchParams.get("error_description");
+
+  if (error) {
+    respondFailure(res, `${error}${errorDescription ? `: ${errorDescription}` : ""}`);
+    ctx.reject(new Error(`Authorization failed: ${error}${errorDescription ? ` (${errorDescription})` : ""}`));
+    return;
+  }
+
+  if (!code) {
+    respondFailure(res, "Missing authorization code");
+    ctx.reject(new Error("Authorization response did not include a code"));
+    return;
+  }
+
+  if (state !== ctx.expectedState) {
+    respondFailure(res, "State mismatch, refusing to continue");
+    ctx.reject(new Error("OAuth state mismatch, refusing to continue"));
+    return;
+  }
+
+  respondSuccess(res);
+  const settle = () => ctx.resolve({ code, state });
+  res.once("finish", settle);
+  res.once("close", settle);
+}
+
 export async function startLoopbackServer(
   expectedState: string,
   timeoutMs: number,
@@ -36,60 +96,9 @@ export async function startLoopbackServer(
   // sentinel until listen() returns, anything earlier fails Host check
   let expectedHost = "<unset>";
 
-  const server = http.createServer((req, res) => {
-    // any process on this box can hit 127.0.0.1, so check remote + Host
-    // (dual stack ::ffff:127.0.0.1 form too)
-    const remote = req.socket.remoteAddress ?? "";
-    if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
-      res.writeHead(403, { "Content-Type": "text/plain" });
-      res.end("Forbidden");
-      return;
-    }
-    if (req.headers.host !== expectedHost) {
-      res.writeHead(403, { "Content-Type": "text/plain" });
-      res.end("Forbidden");
-      return;
-    }
-    // literal path check before URL parsing, otherwise //x/callback parses
-    // to host x and slips past a pathname-only check
-    const rawPath = req.url ?? "/";
-    if (rawPath !== "/callback" && !rawPath.startsWith("/callback?")) {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("Not Found");
-      return;
-    }
-    const url = new URL(rawPath, "http://127.0.0.1");
-
-    const code = url.searchParams.get("code") ?? "";
-    const state = url.searchParams.get("state") ?? "";
-    const error = url.searchParams.get("error");
-    const errorDescription = url.searchParams.get("error_description");
-
-    if (error) {
-      respondFailure(res, `${error}${errorDescription ? `: ${errorDescription}` : ""}`);
-      reject(new Error(`Authorization failed: ${error}${errorDescription ? ` (${errorDescription})` : ""}`));
-      return;
-    }
-
-    if (!code) {
-      respondFailure(res, "Missing authorization code");
-      reject(new Error("Authorization response did not include a code"));
-      return;
-    }
-
-    if (state !== expectedState) {
-      respondFailure(res, "State mismatch, refusing to continue");
-      reject(new Error("OAuth state mismatch, refusing to continue"));
-      return;
-    }
-
-    respondSuccess(res);
-    // wait for flush before resolving, otherwise dispose can RST the socket
-    // mid-write and the browser shows a connection reset
-    const settle = () => resolve({ code, state });
-    res.once("finish", settle);
-    res.once("close", settle);
-  });
+  const server = http.createServer((req, res) =>
+    handleLoopbackRequest(req, res, { expectedHost, expectedState, resolve, reject }),
+  );
 
   await new Promise<void>((res, rej) => {
     server.once("error", rej);
@@ -112,7 +121,7 @@ export async function startLoopbackServer(
     clearTimeout(timeout);
     server.close();
     // close keepalive sockets so the port releases now, not when idle clients give up
-    server.closeAllConnections?.();
+    server.closeAllConnections();
     if (!settled) {
       reject(new vscode.CancellationError());
     }
@@ -142,7 +151,7 @@ function respondSuccess(res: http.ServerResponse) {
 <html>
 <head><title>Buildkite sign-in successful</title></head>
 <body style="font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 3rem;">
-  <h1>&#10003; Signed in to Buildkite</h1>
+  <h1>✓ Signed in to Buildkite</h1>
   <p>You can close this tab and return to VS Code.</p>
 </body>
 </html>`);
@@ -154,7 +163,7 @@ function respondFailure(res: http.ServerResponse, message: string) {
 <html>
 <head><title>Buildkite sign-in failed</title></head>
 <body style="font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 3rem;">
-  <h1>&#10005; Sign-in failed</h1>
+  <h1>✗ Sign-in failed</h1>
   <p>${escapeHtml(message)}</p>
   <p>You can close this tab and try again from VS Code.</p>
 </body>

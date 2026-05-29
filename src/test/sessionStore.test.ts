@@ -48,6 +48,7 @@ function session(id: string, refreshToken = `r-${id}`): StoredSession {
     refreshToken,
     expiresAt: Date.now() + 60_000,
     scopes: ["read_user"],
+    requestedScopes: ["read_user"],
     account: { id: `account-${id}`, label: `Account ${id}` },
   };
 }
@@ -280,6 +281,25 @@ describe("SessionStore", () => {
       const broken = { ...session("a"), account: undefined };
       await secrets.writeRaw(SESSIONS_SECRET_KEY, JSON.stringify([broken]));
       assert.deepEqual(await store.getAll(), []);
+    });
+
+    it("back-fills requestedScopes from scopes for legacy entries without it", async () => {
+      // sessions stored before requestedScopes existed should still load,
+      // defaulting requestedScopes to scopes preserves their old behaviour
+      const legacy = {
+        id: "old",
+        accessToken: "at",
+        refreshToken: "rt",
+        expiresAt: Date.now() + 60_000,
+        scopes: ["read_user", "read_pipelines"],
+        account: { id: "u", label: "U" },
+      };
+      await secrets.writeRaw(SESSIONS_SECRET_KEY, JSON.stringify([legacy]));
+
+      const all = await store.getAll();
+      assert.equal(all.length, 1);
+      assert.deepEqual(all[0].scopes, ["read_user", "read_pipelines"]);
+      assert.deepEqual(all[0].requestedScopes, ["read_user", "read_pipelines"]);
     });
   });
 });
