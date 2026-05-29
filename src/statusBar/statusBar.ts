@@ -3,7 +3,6 @@ import { GitExtension, API as GitAPI } from "../types/git";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { AuthManager } from "../api/auth";
 import { Pipeline, Build, BuildState } from "../api/types";
-import { getGitUrlVariants } from "../utils/gitUrl";
 import { getIconForBuild, getAggregateIcon } from "../treeViews/icons";
 import { showPipelineQuickPick } from "./statusBarCommands";
 import { error, redactIfCredentialShaped, warn } from "../log";
@@ -178,7 +177,6 @@ export class StatusBarManager {
       const org = await this.client.getOrganization();
       this.orgSlug = org.slug;
 
-      // GraphQL fetches pipelines and builds in a single query per remote URL
       await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
       this.managePolling();
@@ -205,23 +203,11 @@ export class StatusBarManager {
 
     this.pipelineBuilds.clear();
 
-    // Generate URL variants (SSH, HTTPS, with/without .git) to match
-    // pipelines regardless of how they're configured in Buildkite
-    const urlVariants = new Set<string>();
-    for (const remoteUrl of this.workspaceRemoteUrls) {
-      for (const variant of getGitUrlVariants(remoteUrl)) {
-        urlVariants.add(variant);
-      }
-    }
-
     const orgSlug = this.orgSlug;
     const allResults = await Promise.all(
-      [...urlVariants].map(async (repoUrl) => {
+      this.workspaceRemoteUrls.map(async (repoUrl) => {
         try {
-          return await this.client.getPipelinesByRepository(
-            orgSlug,
-            repoUrl,
-          );
+          return await this.client.getPipelinesByRepository(orgSlug, repoUrl);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           warn(`[StatusBar] Failed to fetch pipelines for ${repoUrl}: ${redactIfCredentialShaped(message)}`);
@@ -232,7 +218,7 @@ export class StatusBarManager {
 
     for (const results of allResults) {
       for (const { pipeline, builds } of results) {
-        // Avoid duplicates if multiple URL variants match the same pipeline
+        // Dedupe across remotes that point to the same canonical repo
         if (!seenSlugs.has(pipeline.slug)) {
           seenSlugs.add(pipeline.slug);
           pipelines.push(pipeline);
@@ -373,7 +359,6 @@ export class StatusBarManager {
     }
     this.currentPollInterval = interval;
     this.pollTimer = setInterval(async () => {
-      // Use GraphQL to fetch latest pipelines and builds
       await this.findMatchingPipelinesAndBuilds();
       this.renderStatusBar();
       this.managePolling(); // Adjust interval if build states changed

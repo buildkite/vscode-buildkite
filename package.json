@@ -24,8 +24,7 @@
       "description": "Buildkite endpoint URLs cannot be redirected by workspace settings.",
       "restrictedConfigurations": [
         "buildkite.webBaseUrl",
-        "buildkite.apiBaseUrl",
-        "buildkite.graphqlUrl"
+        "buildkite.apiBaseUrl"
       ]
     }
   },
@@ -300,11 +299,6 @@
           "type": "string",
           "default": "https://api.buildkite.com/v2",
           "description": "Base URL for the Buildkite REST API."
-        },
-        "buildkite.graphqlUrl": {
-          "type": "string",
-          "default": "https://graphql.buildkite.com/v1",
-          "description": "Endpoint for the Buildkite GraphQL API."
         },
         "buildkite.oauth.clientId": {
           "type": "string",

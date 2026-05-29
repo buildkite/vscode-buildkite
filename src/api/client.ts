@@ -2,21 +2,19 @@ import * as vscode from "vscode";
 import { AuthManager, throwIfUnauthorized } from "./auth";
 import { DEFAULT_API_BASE_URL, resolveConfiguredUrl } from "./urls";
 import { redactIfCredentialShaped } from "../log";
+import { gitUrlsMatch, repositorySearchFilter } from "../utils/gitUrl";
 import {
   Pipeline,
   Build,
-  BuildState,
   Job,
   Agent,
   JsonValue,
   Artifact,
   Annotation,
-  PipelinesForRepositoryResponse,
   PipelineWithBuilds,
   CreatePipelineInput,
   UpdatePipelineInput,
 } from "./types";
-import { BuildkiteGraphQLClient } from "./graphqlClient";
 /**
  * Represents a Buildkite organization as returned by;
  * curl -H "Authorization: Bearer $TOKEN" \
@@ -49,11 +47,8 @@ export class BuildkiteClient {
     );
   }
   private organization: Organization | undefined;
-  private readonly graphqlClient: BuildkiteGraphQLClient;
 
-  constructor(private readonly authManager: AuthManager) {
-    this.graphqlClient = new BuildkiteGraphQLClient(authManager);
-  }
+  constructor(private readonly authManager: AuthManager) {}
 
   /**
    * Fetches the organization associated with the API token
@@ -335,101 +330,35 @@ export class BuildkiteClient {
     return response.text();
   }
   /**
-   * Fetches pipelines matching a repository URL using GraphQL.
-   * Returns pipelines with their latest build in a single query.
+   * Fetches pipelines matching a repository URL along with their recent builds.
    */
   async getPipelinesByRepository(
     orgSlug: string,
     repositoryUrl: string,
   ): Promise<PipelineWithBuilds[]> {
-    const query = `
-      query GetPipelinesForRepository($orgSlug: ID!, $repoUrl: String!) {
-        organization(slug: $orgSlug) {
-          pipelines(first: 100, repository: {url: $repoUrl}) {
-            edges {
-              node {
-                slug
-                name
-                archivedAt
-                repository {
-                  url
-                }
-                builds(first: 10) {
-                  edges {
-                    node {
-                      number
-                      state
-                      branch
-                      message
-                      url
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `;
-    const data =
-      await this.graphqlClient.query<PipelinesForRepositoryResponse>(query, {
-        orgSlug,
-        repoUrl: repositoryUrl,
-      });
-    return data.organization.pipelines.edges.map(({ node }) => {
-      const pipeline: Pipeline = {
-        id: "",
-        graphql_id: "",
-        url: "",
-        web_url: "",
-        name: node.name,
-        slug: node.slug,
-        repository: node.repository.url,
-        description: null,
-        default_branch: "",
-        created_at: "",
-        archived_at: node.archivedAt ?? null,
-        scheduled_builds_count: 0,
-        running_builds_count: 0,
-        scheduled_jobs_count: 0,
-        running_jobs_count: 0,
-        waiting_jobs_count: 0,
+    // The REST repository= filter is a case-insensitive substring match, so a
+    // single query narrowed to "owner/repo" matches any URL format the pipeline
+    // could be configured with (SSH/HTTPS, with or without .git). Post-filter
+    // canonically to drop substring false positives like `acme/web` matching
+    // `acme/web-frontend`.
+    const filter = repositorySearchFilter(repositoryUrl);
+    const candidates = await this.getAllPages<Pipeline>(
+      `/organizations/${orgSlug}/pipelines?repository=${encodeURIComponent(filter)}&per_page=100`,
+    );
+    const pipelines = candidates.filter((p) =>
+      gitUrlsMatch(p.repository, repositoryUrl),
+    );
+    // allSettled so one archived/deleted pipeline (404 from getBuilds) or a
+    // transient 5xx doesn't blank the whole result
+    const buildResults = await Promise.allSettled(
+      pipelines.map((pipeline) => this.getBuilds(orgSlug, pipeline.slug, 10)),
+    );
+    return pipelines.map((pipeline, i) => {
+      const result = buildResults[i];
+      return {
+        pipeline,
+        builds: result.status === "fulfilled" ? result.value : [],
       };
-      const builds: Build[] = node.builds.edges.map(({ node: buildNode }) => ({
-        id: "",
-        graphql_id: "",
-        url: "",
-        web_url: buildNode.url,
-        number: buildNode.number,
-        state: buildNode.state.toLowerCase() as BuildState,
-        blocked: false,
-        message: buildNode.message || "",
-        commit: "",
-        branch: buildNode.branch,
-        env: {},
-        source: "",
-        creator: {
-          id: "",
-          name: "",
-          email: "",
-          avatar_url: "",
-          created_at: "",
-        },
-        created_at: "",
-        scheduled_at: "",
-        started_at: null,
-        finished_at: null,
-        meta_data: {},
-        pull_request: null,
-        pipeline: {
-          id: "",
-          graphql_id: "",
-          url: "",
-          name: node.name,
-          slug: node.slug,
-        },
-      }));
-      return { pipeline, builds };
     });
   }
 
