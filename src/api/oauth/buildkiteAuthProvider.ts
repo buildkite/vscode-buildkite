@@ -481,7 +481,7 @@ async function fetchAccount(accessToken: string): Promise<StoredSession["account
 
     const body = (await response.json()) as { id?: unknown; email?: unknown; name?: unknown };
     // pin to the stable id, email changes orphan sessions
-    // REST returns id as a number, GraphQL as a string, normalise to string
+    // REST returns id as a number, normalise to string
     const id = typeof body.id === "string"
       ? body.id
       : typeof body.id === "number"
