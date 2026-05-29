@@ -165,4 +165,16 @@ describe("CachedApiClient", () => {
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
     assert.equal(fake.pipelinesByRepoCalls, 2, "stopAgent should have cleared the repo-search cache");
   });
+
+  it("shares one cache entry across a repo's SSH and HTTPS remotes", async () => {
+    await client.getPipelinesByRepository("acme", "git@github.com:foo/bar.git");
+    await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
+    assert.equal(fake.pipelinesByRepoCalls, 1, "same repo in two URL forms should hit one entry");
+  });
+
+  it("does not conflate the same owner/repo on different hosts", async () => {
+    await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
+    await client.getPipelinesByRepository("acme", "https://gitlab.com/foo/bar");
+    assert.equal(fake.pipelinesByRepoCalls, 2, "github and gitlab repos must not share an entry");
+  });
 });

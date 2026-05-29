@@ -1,6 +1,7 @@
 import { BuildkiteClient, Organization } from "../api/client";
 import { CacheProvider } from "./cacheProvider";
 import { Pipeline, Build, Job, Agent, Artifact, Annotation, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
+import { repositoryCacheKey } from "../utils/gitUrl";
 
 /**
  * Cached API client wrapper that adds caching layer to BuildkiteClient
@@ -199,7 +200,10 @@ export class CachedApiClient {
    * Get pipelines by repository with caching
    */
   async getPipelinesByRepository(orgSlug: string, repositoryUrl: string): Promise<PipelineWithBuilds[]> {
-    const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines?repository=${repositoryUrl}`);
+    // Key on a canonical host/owner/repo identity so a repo's SSH and HTTPS
+    // remotes share one entry, while the same owner/repo on a different host
+    // (e.g. a github/gitlab mirror) stays distinct.
+    const cacheKey = this.generateCacheKey("GET", `/organizations/${orgSlug}/pipelines?repository=${repositoryCacheKey(repositoryUrl)}`);
 
     let result = this.cache.get<PipelineWithBuilds[]>(cacheKey);
     if (result !== null) {
