@@ -1,23 +1,18 @@
 import * as vscode from "vscode";
 import { searchAlgolia } from "../api/algoliaClient";
 import { track } from "../analytics/analytics";
-import { info } from "../log";
 
 export async function searchDocs(): Promise<void> {
-  info("[searchDocs] command invoked");
   const query = await vscode.window.showInputBox({
     prompt: "Search Buildkite Docs",
     placeHolder: "e.g. pipeline configuration",
   });
 
-  info(`[searchDocs] query entered: "${query}"`);
   const trimmedQuery = query?.trim();
   if (!trimmedQuery) {
-    info("[searchDocs] empty query, returning");
     return;
   }
 
-  info(`[searchDocs] firing track for query: "${trimmedQuery}"`);
   track("support.search_docs", { query: trimmedQuery });
 
   const results = await vscode.window.withProgress(
