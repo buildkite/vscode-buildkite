@@ -45,6 +45,13 @@ export class CachedApiClient {
     this.cache.clearMatching((key) => key.startsWith(prefix));
   }
 
+  // drop only the org's cached agents list so the agents-view poll can refresh
+  // without invalidating the pipeline/build caches
+  clearAgentsCache(orgSlug: string): void {
+    const key = this.generateCacheKey("GET", `/organizations/${orgSlug}/agents`);
+    this.cache.clearMatching((k) => k === key);
+  }
+
   /**
    * Drop the underlying client's org cache and every cached response
    */
