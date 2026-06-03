@@ -38,14 +38,12 @@ export class JobNode extends vscode.TreeItem implements JobLogContext {
   }
 
   private getContextValue(): string {
-    const isRetriable = canRetryJob(this.job);
-    const isUnblockable = canUnblockJob(this.job);
-
-    if (isRetriable && isUnblockable) {
-      return "job.retriable.unblockable";
-    } else if (isRetriable) {
+    // Retriable (script) and unblockable (manual block step) are mutually
+    // exclusive job types on the backend, so a job matches at most one.
+    if (canRetryJob(this.job)) {
       return "job.retriable";
-    } else if (isUnblockable) {
+    }
+    if (canUnblockJob(this.job)) {
       return "job.unblockable";
     }
     return "job";
