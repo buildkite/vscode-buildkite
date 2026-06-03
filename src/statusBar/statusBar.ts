@@ -435,6 +435,12 @@ export function initStatusBar(
         await statusBarManagerInstance?.showQuickPick();
       },
     ),
+    vscode.commands.registerCommand(
+      "buildkite.statusBar.refresh",
+      async () => {
+        await statusBarManagerInstance?.refresh();
+      },
+    ),
   );
 }
 
