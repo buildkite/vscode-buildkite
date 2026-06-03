@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
+import { track } from "../analytics/analytics";
 
 export async function resumeAgent(client: CachedApiClient, node: AgentNode): Promise<void> {
   if (!node || !(node instanceof AgentNode)) {
@@ -21,6 +22,7 @@ export async function resumeAgent(client: CachedApiClient, node: AgentNode): Pro
 
   try {
     await client.resumeAgent(node.orgSlug, node.agent.id);
+    track("agent.resumed");
 
     vscode.window.showInformationMessage(
       `Agent "${node.agent.name || node.agent.hostname}" has been resumed.`,

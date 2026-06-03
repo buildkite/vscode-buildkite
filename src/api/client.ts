@@ -22,6 +22,13 @@ import {
  *
  * A token can only be associated with a single org, so we can use this interface safely
  */
+export interface User {
+  id: string;
+  graphql_id: string;
+  name: string;
+  email: string;
+}
+
 export interface Organization {
   id: string;
   graphql_id: string;
@@ -70,6 +77,10 @@ export class BuildkiteClient {
   // call after signout / signin / org switch so we don't serve stale slug
   clearCachedOrganization(): void {
     this.organization = undefined;
+  }
+
+  async getUser(): Promise<User> {
+    return this.get<User>("/user");
   }
 
   /**

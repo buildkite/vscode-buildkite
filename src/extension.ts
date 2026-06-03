@@ -37,6 +37,7 @@ import { pickPipeline } from "./commands/pickPipeline";
 import { searchDocs } from "./commands/searchDocs";
 import { viewBuildError } from "./commands/viewBuildError";
 import { initBuildNotifications } from "./notifications/buildNotifications";
+import { initAnalytics, identifyUser, resetIdentity, track, shutdownAnalytics } from "./analytics/analytics";
 
 /**
  * Activates the Buildkite VS Code extension.
@@ -46,6 +47,7 @@ import { initBuildNotifications } from "./notifications/buildNotifications";
  */
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(initLogger());
+  initAnalytics();
 
   const sessionStore = new SessionStore(context.secrets);
   const authProvider = new BuildkiteAuthProvider(sessionStore);
@@ -85,15 +87,32 @@ export function activate(context: vscode.ExtensionContext) {
   void vscode.commands.executeCommand("setContext", "buildkite.authenticated", false);
   void updateAuthContext();
 
+  // Identify the user on startup if already signed in (onDidChangeCredential won't fire)
+  void (async () => {
+    const session = await authManager.resolveSession();
+    if (session) {
+      try {
+        const [user, org] = await Promise.all([client.getUser(), client.getOrganization()]);
+        identifyUser(user.id, org.slug);
+      } catch {
+        // non-fatal
+      }
+    }
+  })();
+
   context.subscriptions.push(
-    vscode.commands.registerCommand("buildkite.signIn.OAuth", () => authManager.signIn()),
+    vscode.commands.registerCommand("buildkite.signIn.OAuth", () => {
+      track("auth.sign_in_clicked", { method: "browser" });
+      return authManager.signIn();
+    }),
     // status bar and viewsWelcome both route through this so we don't drift
     vscode.commands.registerCommand("buildkite.signIn", () => authManager.requireSession()),
-    vscode.commands.registerCommand("buildkite.signUp", () =>
-      vscode.env.openExternal(
+    vscode.commands.registerCommand("buildkite.signUp", () => {
+      track("auth.sign_up_clicked");
+      return vscode.env.openExternal(
         vscode.Uri.parse("https://buildkite.com/platform/get-started/"),
-      ),
-    ),
+      );
+    }),
     vscode.commands.registerCommand("buildkite.signOut.OAuth", () => authManager.signOut()),
     // skip refresh-token rotations, those only update the session, no tree refresh needed
     authProvider.onDidChangeSessions((e) => {
@@ -103,14 +122,27 @@ export function activate(context: vscode.ExtensionContext) {
       authManager.notifyCredentialChanged();
     }),
     // one subscriber for both OAuth and PAT changes so the UI stays consistent
-    authManager.onDidChangeCredential(() => {
+    authManager.onDidChangeCredential(async () => {
       void updateAuthContext();
       client.clearAll();
       void getPipelinesTreeProvider().refresh();
       void getAgentsTreeProvider().refresh();
       void getStatusBarManager()?.refresh();
+
+      const session = await authManager.resolveSession();
+      if (session) {
+        try {
+          const [user, org] = await Promise.all([client.getUser(), client.getOrganization()]);
+          identifyUser(user.id, org.slug);
+        } catch {
+          // non-fatal — analytics identification best-effort
+        }
+      } else {
+        resetIdentity();
+      }
     }),
     vscode.commands.registerCommand("buildkite.setToken", async () => {
+      track("auth.sign_in_clicked", { method: "api_token" });
       const token = await authManager.promptForApiToken();
       if (token) {
         vscode.window.showInformationMessage("Buildkite API Token saved securely.");
@@ -196,6 +228,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (query === undefined) {
           return;
         }
+        track("agent.filter_clicked");
         provider.setFilter(query);
         await vscode.commands.executeCommand(
           "setContext",
@@ -222,6 +255,7 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   disposeJobLogWebview();
   disposeAnnotationsWebview();
+  void shutdownAnalytics();
 }
 
 // catches drift between AllScopes and package.json on activation

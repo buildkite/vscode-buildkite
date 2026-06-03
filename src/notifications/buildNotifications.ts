@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { Build, BuildState } from "../api/types";
+import { track } from "../analytics/analytics";
 
 /**
  * Build states that are considered "completed" and should trigger notifications
@@ -31,6 +32,7 @@ const MAX_INDIVIDUAL_NOTIFICATIONS = 3;
  * Minimal pipeline info needed for notifications
  */
 interface PipelineInfo {
+  id: string;
   name: string;
   slug: string;
 }
@@ -70,6 +72,16 @@ export class BuildNotificationService {
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("buildkite.notifications")) {
+          const config = vscode.workspace.getConfiguration("buildkite.notifications");
+          if (e.affectsConfiguration("buildkite.notifications.enabled")) {
+            track(config.get<boolean>("enabled", true) ? "notification.all_enabled" : "notification.all_disabled");
+          }
+          if (e.affectsConfiguration("buildkite.notifications.notifyOnPass")) {
+            track(config.get<boolean>("notifyOnPass", true) ? "notification.pass_enabled" : "notification.pass_disabled");
+          }
+          if (e.affectsConfiguration("buildkite.notifications.notifyOnFail")) {
+            track(config.get<boolean>("notifyOnFail", true) ? "notification.fail_enabled" : "notification.fail_disabled");
+          }
           this.clearTrackedBuilds();
         }
       }),
@@ -339,6 +351,8 @@ export class BuildNotificationService {
       return;
     }
 
+    const eventProps = { pipeline_uuid: pipeline.id, build_uuid: build.id };
+
     switch (selection) {
       case "View Error":
         await vscode.commands.executeCommand("buildkite.build.viewError", {
@@ -349,7 +363,12 @@ export class BuildNotificationService {
         break;
 
       case "Open in Buildkite":
+        track("notification.view_build_clicked", eventProps);
         await vscode.env.openExternal(vscode.Uri.parse(build.web_url));
+        break;
+
+      case "Dismiss":
+        track("notification.dismissed", eventProps);
         break;
     }
   }

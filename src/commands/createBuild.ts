@@ -3,6 +3,7 @@ import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 import { error, redactIfCredentialShaped } from "../log";
+import { track } from "../analytics/analytics";
 
 export async function createBuild(client: CachedApiClient, node: PipelineNode): Promise<void> {
   try {
@@ -48,6 +49,7 @@ export async function createBuild(client: CachedApiClient, node: PipelineNode): 
 
     // create build
     const build = await client.createBuild(node.orgSlug, node.pipeline.slug, buildPayload);
+    track("pipeline.create_build", { pipeline_uuid: node.pipeline.id, build_uuid: build.id });
 
     const action = await vscode.window.showInformationMessage(
       `Build #${build.number} created`,
@@ -59,6 +61,7 @@ export async function createBuild(client: CachedApiClient, node: PipelineNode): 
     await treeProvider.refresh();
 
     if (action === "View Build") {
+      track("build.view_web_ui", { pipeline_uuid: node.pipeline.id, build_uuid: build.id });
       vscode.env.openExternal(vscode.Uri.parse(build.web_url));
     }
   }

@@ -2,7 +2,14 @@ import * as vscode from "vscode";
 import { Artifact } from "../../api/types";
 
 export class ArtifactNode extends vscode.TreeItem {
-  constructor(public readonly artifact: Artifact) {
+  constructor(
+    public readonly artifact: Artifact,
+    public readonly orgSlug: string,
+    public readonly pipelineSlug: string,
+    public readonly pipelineUuid: string,
+    public readonly buildNumber: number,
+    public readonly buildUuid: string,
+  ) {
     super(artifact.filename, vscode.TreeItemCollapsibleState.None);
 
     this.iconPath = new vscode.ThemeIcon("file");

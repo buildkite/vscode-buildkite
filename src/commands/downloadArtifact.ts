@@ -6,6 +6,7 @@ import * as os from "os";
 import * as fs from "fs";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { ArtifactNode } from "../treeViews/nodes/artifactNode";
+import { track } from "../analytics/analytics";
 
 const PREVIEWABLE_MIME_PREFIXES = ["text/", "image/", "application/json"];
 
@@ -22,6 +23,7 @@ export async function downloadArtifact(client: CachedApiClient, node: ArtifactNo
   }
 
   const artifact = node.artifact;
+  track("build.download_artifacts", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid });
 
   try {
 

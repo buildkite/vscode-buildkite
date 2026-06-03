@@ -592,7 +592,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "ts-node scripts/generate-analytics-config.ts && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint",
@@ -606,6 +606,7 @@
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.0"
   },
@@ -615,6 +616,7 @@
     }
   },
   "dependencies": {
-    "ansi-to-html": "^0.7.2"
+    "ansi-to-html": "^0.7.2",
+    "posthog-node": "^5.35.12"
   }
 }

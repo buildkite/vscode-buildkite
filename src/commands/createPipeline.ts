@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
+import { track } from "../analytics/analytics";
 
 export async function createPipeline(client: CachedApiClient): Promise<void> {
   let org;
@@ -52,22 +53,21 @@ export async function createPipeline(client: CachedApiClient): Promise<void> {
   });
 
   try {
-    await vscode.window.withProgress(
+    const pipeline = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
         title: `Creating pipeline "${name}"...`,
         cancellable: false,
       },
-      async () => {
-        await client.createPipeline(org.slug, {
-          name: name.trim(),
-          repository: repository.trim(),
-          ...(description?.trim() && { description: description.trim() }),
-          ...(defaultBranch?.trim() && { default_branch: defaultBranch.trim() }),
-        });
-      },
+      () => client.createPipeline(org.slug, {
+        name: name.trim(),
+        repository: repository.trim(),
+        ...(description?.trim() && { description: description.trim() }),
+        ...(defaultBranch?.trim() && { default_branch: defaultBranch.trim() }),
+      }),
     );
 
+    track("pipeline.created", { pipeline_uuid: pipeline.id });
     vscode.window.showInformationMessage(`Pipeline "${name}" created successfully.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {

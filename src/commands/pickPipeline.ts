@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { getPipelinesTreeProvider, getPipelinesTreeView } from "../treeViews/treeViews";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { ErrorNode } from "../treeViews/nodes/errorNode";
+import { track } from "../analytics/analytics";
 
 export async function pickPipeline(): Promise<void> {
   const provider = getPipelinesTreeProvider();
@@ -64,5 +65,6 @@ export async function pickPipeline(): Promise<void> {
     return;
   }
 
+  track("pipeline.switch_clicked", { pipeline_uuid: picked.node.pipeline.id });
   await getPipelinesTreeView().reveal(picked.node, { focus: true, select: true, expand: true });
 }

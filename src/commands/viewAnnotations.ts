@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { AnnotationsWebview } from "../build/annotationsWebview";
+import { track } from "../analytics/analytics";
 
 let annotationsWebview: AnnotationsWebview | undefined;
 
@@ -38,6 +39,7 @@ export async function viewAnnotations(client: CachedApiClient, node: BuildNode):
           pipeline.slug,
           build.number,
         );
+        track("build.view_annotations", { pipeline_uuid: pipeline.id, build_uuid: build.id });
         getAnnotationsWebview().show(buildKey, buildLabel, annotations);
       },
     );

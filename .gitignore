@@ -12,6 +12,9 @@ node_modules/
 # Build artifacts
 .vscode-test/
 
+# Generated analytics config (contains PostHog API key baked in at build time)
+src/analytics/posthogConfig.generated.ts
+
 # OS files
 .DS_Store
 Thumbs.db

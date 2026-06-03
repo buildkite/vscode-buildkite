@@ -6,6 +6,7 @@ export class ArtifactsFolderNode extends vscode.TreeItem {
     public readonly buildNumber: number,
     public readonly pipeline: Pipeline,
     public readonly orgSlug: string,
+    public readonly buildUuid: string,
   ) {
     super("Artifacts", vscode.TreeItemCollapsibleState.Collapsed);
 
