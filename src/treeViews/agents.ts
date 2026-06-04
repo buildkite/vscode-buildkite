@@ -54,15 +54,15 @@ export class AgentsTreeProvider
   // Drop only the cached agents list and re-render. Skips work while signed out
   // so we don't churn, and leaves the pipeline/build caches alone.
   private async poll(): Promise<void> {
-    const session = await this.authManager.resolveSession();
-    if (!session) {
-      return;
-    }
     try {
+      const session = await this.authManager.resolveSession();
+      if (!session) {
+        return;
+      }
       const org = await this.client.getOrganization();
       this.client.clearAgentsCache(org.slug);
     } catch {
-      // transient (network / org lookup); try again on the next tick
+      // transient (auth / network / org lookup); try again on the next tick
       return;
     }
     this._onDidChangeTreeData.fire(null);
