@@ -175,6 +175,44 @@ The `BuildkiteClient` automatically:
 - **Test thoroughly** in the Extension Development Host before committing
 - **Follow VS Code's UX patterns** for consistency (see [VS Code Extension UX Guidelines](https://code.visualstudio.com/api/ux-guidelines/overview))
 
+### Analytics build key
+
+Product analytics are compiled in at build time. `npm run compile` (and `npm run watch`) first run `scripts/generate-analytics-config.ts`, which reads the `POSTHOG_API_KEY` environment variable and writes the gitignored `src/analytics/posthogConfig.generated.ts`. With no key set, an empty key is baked in and analytics are disabled, which is the expected default for local development and open-source builds.
+
+To build with analytics enabled, set the key before compiling:
+
+```bash
+POSTHOG_API_KEY=phc_... npm run compile
+```
+
+Release builds must set `POSTHOG_API_KEY` in the publishing environment; otherwise the published extension ships with analytics disabled.
+
+When testing analytics in the Extension Development Host, note that pressing `F5` runs the `npm: watch` pre-launch task, which regenerates the config in VS Code's own environment. A key you set in a separate terminal (`POSTHOG_API_KEY=phc_... npm run compile`) is overwritten the moment you launch, so the running extension sees an empty key. To test with a key, launch VS Code from a shell where the variable is already exported:
+
+```bash
+export POSTHOG_API_KEY=phc_...
+code .
+```
+
+The watch task inherits that environment, so `F5` bakes the key into each rebuild.
+
+## Telemetry
+
+This extension sends product analytics to Buildkite (using PostHog) so we can see which features are used and decide what to improve.
+
+Collection follows VS Code's global telemetry setting and only happens when `telemetry.telemetryLevel` is set to `all`. Any lower level (`error`, `crash`, or `off`) stops product-analytics events immediately, without a reload. Builds with no analytics key configured (local development and open-source builds) send nothing.
+
+What we collect:
+
+- The extension actions you take (for example, signing in, retrying a job, rebuilding a build, viewing logs), as one event per action.
+- The Buildkite organization slug and the pipeline, build, or job an action relates to.
+- Your Buildkite user ID after you sign in. Beforehand, events are attributed to VS Code's anonymous machine identifier and linked to your user ID once you sign in.
+- The text you enter into Buildkite docs search.
+
+We do not collect API tokens, repository contents, or build logs.
+
+To turn collection off, set `telemetry.telemetryLevel` to `off` in your VS Code settings; this is the same setting that governs VS Code's own telemetry.
+
 ## Useful Resources
 
 - [VS Code Extension API](https://code.visualstudio.com/api)
