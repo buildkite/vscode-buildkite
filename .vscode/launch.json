@@ -18,9 +18,9 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}",
-        "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+        "--extensionDevelopmentPath=${workspaceFolder}"
       ],
+      "testConfiguration": "${workspaceFolder}/.vscode-test.mjs",
       "outFiles": [
         "${workspaceFolder}/out/test/**/*.js"
       ],

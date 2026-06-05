@@ -435,7 +435,7 @@
         },
         {
           "command": "buildkite.build.cancel",
-          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)$/",
+          "when": "viewItem =~ /^build-(creating|scheduled|running|failing|blocked)/ || viewItem =~ /:blocked$/",
           "group": "inline"
         },
         {

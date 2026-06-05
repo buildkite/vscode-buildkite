@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { BuildkiteClient, Organization } from "../api/client";
-import { Build, Pipeline, PipelineWithBuilds } from "../api/types";
+import { Agent, Build, Pipeline, PipelineWithBuilds } from "../api/types";
 
 class FakeClient {
   org: Organization = {
@@ -22,6 +22,7 @@ class FakeClient {
   clearCachedOrganizationCalls = 0;
   rebuildCalls = 0;
   pipelinesByRepoCalls = 0;
+  agentsCalls = 0;
 
   async getOrganization(): Promise<Organization> {
     this.orgCalls += 1;
@@ -53,6 +54,12 @@ class FakeClient {
     void org;
     void repo;
     this.pipelinesByRepoCalls += 1;
+    return [];
+  }
+
+  async getAgents(org: string): Promise<Agent[]> {
+    void org;
+    this.agentsCalls += 1;
     return [];
   }
 
@@ -170,6 +177,44 @@ describe("CachedApiClient", () => {
     await client.getPipelinesByRepository("acme", "git@github.com:foo/bar.git");
     await client.getPipelinesByRepository("acme", "https://github.com/foo/bar");
     assert.equal(fake.pipelinesByRepoCalls, 1, "same repo in two URL forms should hit one entry");
+  });
+
+  it("caches getAgents per org, and clearAgentsCache forces a refetch", async () => {
+    await client.getAgents("acme");
+    await client.getAgents("acme");
+    assert.equal(fake.agentsCalls, 1, "second read should be a cache hit");
+
+    client.clearAgentsCache("acme");
+
+    await client.getAgents("acme");
+    assert.equal(fake.agentsCalls, 2, "clearAgentsCache should force a refetch");
+  });
+
+  it("clearAgentsCache leaves the pipeline list and build caches intact", async () => {
+    await client.getPipelines("acme");
+    await client.getBuilds("acme", "deploy");
+    await client.getAgents("acme");
+
+    client.clearAgentsCache("acme");
+
+    await client.getPipelines("acme");
+    await client.getBuilds("acme", "deploy");
+    assert.equal(fake.pipelinesCalls, 1, "pipeline list should still be cached");
+    assert.equal(fake.buildsCalls, 1, "builds should still be cached");
+
+    await client.getAgents("acme");
+    assert.equal(fake.agentsCalls, 2, "only the agents list should have been dropped");
+  });
+
+  it("clearing agents for `acme` does not drop the agents cache for `acme-staging`", async () => {
+    await client.getAgents("acme");
+    await client.getAgents("acme-staging");
+    assert.equal(fake.agentsCalls, 2);
+
+    client.clearAgentsCache("acme");
+
+    await client.getAgents("acme-staging");
+    assert.equal(fake.agentsCalls, 2, "acme-staging agents should still be cached");
   });
 
   it("does not conflate the same owner/repo on different hosts", async () => {

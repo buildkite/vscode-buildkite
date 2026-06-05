@@ -200,8 +200,7 @@ export class StatusBarManager {
 
     const seenSlugs = new Set<string>();
     const pipelines: Pipeline[] = [];
-
-    this.pipelineBuilds.clear();
+    const pipelineBuilds = new Map<string, Build[]>();
 
     const orgSlug = this.orgSlug;
     const allResults = await Promise.all(
@@ -223,13 +222,17 @@ export class StatusBarManager {
           seenSlugs.add(pipeline.slug);
           pipelines.push(pipeline);
           if (builds.length > 0) {
-            this.pipelineBuilds.set(pipeline.slug, builds);
+            pipelineBuilds.set(pipeline.slug, builds);
           }
         }
       }
     }
 
+    // Assign atomically once fully built so a concurrent refresh or a render
+    // landing mid-fetch never observes a half-cleared map (the old code cleared
+    // this.pipelineBuilds up front, then awaited the network).
     this.matchedPipelines = pipelines;
+    this.pipelineBuilds = pipelineBuilds;
   }
 
   private renderStatusBar(): void {
@@ -430,6 +433,12 @@ export function initStatusBar(
       "buildkite.statusBar.showPipelines",
       async () => {
         await statusBarManagerInstance?.showQuickPick();
+      },
+    ),
+    vscode.commands.registerCommand(
+      "buildkite.statusBar.refresh",
+      async () => {
+        await statusBarManagerInstance?.refresh();
       },
     ),
   );
