@@ -7,6 +7,8 @@
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
+    // posthog-node's bundled types reference DOM/express globals this Node
+    // extension doesn't have; skip checking .d.ts files in node_modules.
     "skipLibCheck": true,
     "esModuleInterop": true,
     "types": ["node", "mocha"]

@@ -593,7 +593,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "ts-node scripts/generate-analytics-config.ts && tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "watch": "ts-node scripts/generate-analytics-config.ts && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint",
     "test": "vscode-test"

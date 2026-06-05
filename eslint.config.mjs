@@ -23,7 +23,7 @@ export default tseslint.config(
         ...globals.es2026,
       },
       parserOptions: {
-        project: true,
+        project: ["./tsconfig.json", "./tsconfig.scripts.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },

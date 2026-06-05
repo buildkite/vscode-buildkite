@@ -16,7 +16,7 @@ const outPath = join(__dirname, "../src/analytics/posthogConfig.generated.ts");
 
 writeFileSync(
   outPath,
-  `// AUTO-GENERATED — do not edit. See scripts/generate-analytics-config.ts\nexport const POSTHOG_API_KEY = ${JSON.stringify(key)};\n`,
+  `// AUTO-GENERATED - do not edit. See scripts/generate-analytics-config.ts\nexport const POSTHOG_API_KEY = ${JSON.stringify(key)};\n`,
 );
 
 console.log(`[generate-analytics-config] Written posthogConfig.generated.ts (key ${key ? "set" : "empty"})`);
