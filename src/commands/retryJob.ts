@@ -36,7 +36,7 @@ export async function retryJob(client: CachedApiClient, node: JobNode): Promise<
       node.buildNumber,
       node.job.id,
     );
-    track("job.retry", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid, job_uuid: node.job.id });
+    track("job retry", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid, job_uuid: node.job.id });
 
     vscode.window.showInformationMessage(
       `Job "${jobLabel}" has been queued for retry`,

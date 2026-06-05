@@ -29,6 +29,17 @@ const BATCH_DELAY_MS = 500;
 const MAX_INDIVIDUAL_NOTIFICATIONS = 3;
 
 /**
+ * Notification settings tracked on change: config key, analytics label, and the
+ * default that must match package.json so the reported value is accurate.
+ */
+const NOTIFICATION_SETTINGS = [
+  { key: "enabled", label: "all", def: true },
+  { key: "notifyOnPass", label: "pass", def: true },
+  { key: "notifyOnFail", label: "fail", def: true },
+  { key: "notifyOnAllBuilds", label: "all_builds", def: false },
+] as const;
+
+/**
  * Minimal pipeline info needed for notifications
  */
 interface PipelineInfo {
@@ -73,14 +84,10 @@ export class BuildNotificationService {
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("buildkite.notifications")) {
           const config = vscode.workspace.getConfiguration("buildkite.notifications");
-          if (e.affectsConfiguration("buildkite.notifications.enabled")) {
-            track(config.get<boolean>("enabled", true) ? "notification.all_enabled" : "notification.all_disabled");
-          }
-          if (e.affectsConfiguration("buildkite.notifications.notifyOnPass")) {
-            track(config.get<boolean>("notifyOnPass", true) ? "notification.pass_enabled" : "notification.pass_disabled");
-          }
-          if (e.affectsConfiguration("buildkite.notifications.notifyOnFail")) {
-            track(config.get<boolean>("notifyOnFail", true) ? "notification.fail_enabled" : "notification.fail_disabled");
+          for (const { key, label, def } of NOTIFICATION_SETTINGS) {
+            if (e.affectsConfiguration(`buildkite.notifications.${key}`)) {
+              track("notification configure", { setting: label, enabled: config.get<boolean>(key, def) });
+            }
           }
           this.clearTrackedBuilds();
         }
@@ -301,6 +308,9 @@ export class BuildNotificationService {
           selected.orgSlug,
         );
       }
+    } else if (selection === "Dismiss") {
+      // Summary spans multiple builds, so track the count rather than a single build_uuid
+      track("notification dismiss", { build_count: allNotifications.length });
     }
   }
 
@@ -363,12 +373,8 @@ export class BuildNotificationService {
         break;
 
       case "Open in Buildkite":
-        track("notification.view_build_clicked", eventProps);
+        track("build view", { ...eventProps, source: "notification" });
         await vscode.env.openExternal(vscode.Uri.parse(build.web_url));
-        break;
-
-      case "Dismiss":
-        track("notification.dismissed", eventProps);
         break;
     }
   }

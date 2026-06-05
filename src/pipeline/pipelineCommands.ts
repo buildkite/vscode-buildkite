@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
+import { track } from "../analytics/analytics";
 
 /**
  * Command handler that fetches and displays the number of pipelines
@@ -12,6 +13,7 @@ export async function listPipelines(client: CachedApiClient) {
     const org = await client.getOrganization();
     // This is a basic call and doesn't factor in pagination, it's just to demonstrate making an API call to an endpoint
     const pipelines = await client.getPipelines(org.slug);
+    track("pipeline list");
     vscode.window.showInformationMessage(
       `Found ${Array.isArray(pipelines) ? pipelines.length : 0} pipelines`,
     );

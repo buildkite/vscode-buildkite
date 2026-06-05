@@ -22,7 +22,7 @@ export async function pauseAgent(client: CachedApiClient, node: AgentNode): Prom
 
   try {
     await client.pauseAgent(node.orgSlug, node.agent.id);
-    track("agent.paused");
+    track("agent pause");
 
     vscode.window.showInformationMessage(
       `Agent "${node.agent.name || node.agent.hostname}" has been paused.`,

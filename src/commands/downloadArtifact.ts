@@ -23,7 +23,7 @@ export async function downloadArtifact(client: CachedApiClient, node: ArtifactNo
   }
 
   const artifact = node.artifact;
-  track("build.download_artifacts", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid });
+  track("artifacts download", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid });
 
   try {
 

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
+import { track } from "../analytics/analytics";
 
 export async function archivePipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
@@ -32,6 +33,7 @@ export async function archivePipeline(client: CachedApiClient, node: PipelineNod
       },
     );
 
+    track("pipeline archive", { pipeline_uuid: pipeline.id });
     vscode.window.showInformationMessage(`Pipeline "${pipeline.name}" archived.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {
@@ -60,6 +62,7 @@ export async function unarchivePipeline(client: CachedApiClient, node: PipelineN
       },
     );
 
+    track("pipeline unarchive", { pipeline_uuid: pipeline.id });
     vscode.window.showInformationMessage(`Pipeline "${pipeline.name}" unarchived.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {
@@ -97,6 +100,7 @@ export async function deletePipeline(client: CachedApiClient, node: PipelineNode
       },
     );
 
+    track("pipeline delete", { pipeline_uuid: pipeline.id });
     vscode.window.showInformationMessage(`Pipeline "${pipeline.name}" deleted.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {

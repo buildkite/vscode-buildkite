@@ -65,6 +65,6 @@ export async function pickPipeline(): Promise<void> {
     return;
   }
 
-  track("pipeline.switch_clicked", { pipeline_uuid: picked.node.pipeline.id });
+  track("pipeline switch", { pipeline_uuid: picked.node.pipeline.id });
   await getPipelinesTreeView().reveal(picked.node, { focus: true, select: true, expand: true });
 }

@@ -10,9 +10,13 @@ export class SupportViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.getHtml();
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       if (msg.command === "search") {
-        track("support.search_docs", { query: msg.query });
+        const query = msg.query?.trim();
+        if (!query) {
+          return;
+        }
+        track("docs search", { query });
         try {
-          const results = await searchAlgolia(msg.query);
+          const results = await searchAlgolia(query);
           webviewView.webview.postMessage({ command: "results", results });
         } catch {
           webviewView.webview.postMessage({ command: "error" });

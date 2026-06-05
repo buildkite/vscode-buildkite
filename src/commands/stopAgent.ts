@@ -23,7 +23,7 @@ export async function stopAgent(client: CachedApiClient, node: AgentNode): Promi
 
   try {
     await client.stopAgent(node.orgSlug, node.agent.id);
-    track("agent.stopped");
+    track("agent stop");
 
     vscode.window.showInformationMessage(
       `Agent "${node.agent.name || node.agent.hostname}" has been instructed to stop.`,

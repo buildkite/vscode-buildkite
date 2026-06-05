@@ -23,8 +23,8 @@ export interface JobLogContext {
   pipelineSlug: string;
   buildNumber: number;
   orgSlug?: string;
-  pipelineUuid?: string;
-  buildUuid?: string;
+  pipelineUuid: string;
+  buildUuid: string;
 }
 
 /**
@@ -48,7 +48,7 @@ export async function viewJobLog(client: CachedApiClient, context: JobLogContext
         const logContent = await client.getJobLog(context.job);
 
         if (logContent && logContent.trim().length > 0) {
-          track("job.view_logs", { pipeline_uuid: context.pipelineUuid, build_uuid: context.buildUuid, job_uuid: context.job.id });
+          track("job log", { target: "editor", pipeline_uuid: context.pipelineUuid, build_uuid: context.buildUuid, job_uuid: context.job.id });
           const webview = getJobLogWebview();
           const jobDetails = `${context.pipelineSlug} > ${context.buildNumber} > Log for ${jobName}`;
           webview.show(jobId, jobName, jobDetails, logContent);

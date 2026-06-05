@@ -36,7 +36,7 @@ export function initTreeViews(
     vscode.commands.registerCommand(
       "buildkite.pipelines.refresh",
       async () => {
-        track("pipelines.manually_refreshed");
+        track("pipeline refresh");
         await pipelinesTreeProvider.refresh();
       },
     ),
@@ -44,7 +44,7 @@ export function initTreeViews(
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.agents.refresh", async () => {
-      track("agents.manually_refreshed");
+      track("agent refresh");
       await agentsTreeProvider.refresh();
     }),
   );
@@ -58,11 +58,11 @@ export function initTreeViews(
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.openSupportEmail", () => {
-      track("support.contact_support_clicked");
+      track("support contact");
       vscode.env.openExternal(vscode.Uri.parse("mailto:support@buildkite.com"));
     }),
     vscode.commands.registerCommand("buildkite.raiseIssue", () => {
-      track("support.raise_issue_clicked");
+      track("support issue");
       vscode.env.openExternal(
         vscode.Uri.parse("https://github.com/buildkite/vscode-buildkite/issues/new"),
       );

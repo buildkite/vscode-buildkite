@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { BuildNode } from "../treeViews/nodes/buildNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
+import { track } from "../analytics/analytics";
 
 export async function cancelBuild(client: CachedApiClient, node: BuildNode): Promise<void> {
   if (!node || !(node instanceof BuildNode)) {
@@ -39,6 +40,8 @@ export async function cancelBuild(client: CachedApiClient, node: BuildNode): Pro
         await client.cancelBuild(node.orgSlug, node.pipeline.slug, node.build.number);
       },
     );
+
+    track("build cancel", { pipeline_uuid: node.pipeline.id, build_uuid: node.build.id });
 
     vscode.window.showInformationMessage(
       `Build #${node.build.number} has been canceled`,

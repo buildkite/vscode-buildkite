@@ -22,7 +22,7 @@ export async function rebuildBuild(client: CachedApiClient, node: BuildNode): Pr
 
   try {
     await client.rebuildBuild(node.orgSlug, node.pipeline.slug, node.build.number);
-    track("build.rebuild", { pipeline_uuid: node.pipeline.id, build_uuid: node.build.id });
+    track("build rebuild", { pipeline_uuid: node.pipeline.id, build_uuid: node.build.id });
 
     vscode.window.showInformationMessage(
       `Build #${node.build.number} has been queued for rebuild`,

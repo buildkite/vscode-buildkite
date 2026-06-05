@@ -67,7 +67,7 @@ export async function createPipeline(client: CachedApiClient): Promise<void> {
       }),
     );
 
-    track("pipeline.created", { pipeline_uuid: pipeline.id });
+    track("pipeline create", { pipeline_uuid: pipeline.id });
     vscode.window.showInformationMessage(`Pipeline "${name}" created successfully.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {

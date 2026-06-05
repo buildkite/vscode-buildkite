@@ -76,7 +76,7 @@ describe("build cancel menu visibility (5ed)", () => {
 
 describe("job action menu visibility (7sp)", () => {
   const job = (overrides: Partial<Job>) =>
-    new JobNode({ type: "script", state: "running", ...overrides } as Job, 1, "deploy", "acme");
+    new JobNode({ type: "script", state: "running", ...overrides } as Job, 1, "deploy", "acme", "pipeline-uuid", "build-uuid");
 
   it("shows Retry, not Unblock, on a retriable job", () => {
     const node = job({ state: "failed" });

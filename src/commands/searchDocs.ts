@@ -13,7 +13,7 @@ export async function searchDocs(): Promise<void> {
     return;
   }
 
-  track("support.search_docs", { query: trimmedQuery });
+  track("docs search", { query: trimmedQuery });
 
   const results = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: "Searching docs…" },

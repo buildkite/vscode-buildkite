@@ -47,7 +47,7 @@ import { initAnalytics, identifyUser, resetIdentity, track, shutdownAnalytics } 
  */
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(initLogger());
-  initAnalytics();
+  context.subscriptions.push(initAnalytics());
 
   const sessionStore = new SessionStore(context.secrets);
   const authProvider = new BuildkiteAuthProvider(sessionStore);
@@ -87,33 +87,45 @@ export function activate(context: vscode.ExtensionContext) {
   void vscode.commands.executeCommand("setContext", "buildkite.authenticated", false);
   void updateAuthContext();
 
-  // Identify the user on startup if already signed in (onDidChangeCredential won't fire)
-  void (async () => {
+  // Identify the signed-in user for analytics, or clear identity when signed out.
+  const syncAnalyticsIdentity = async (): Promise<void> => {
     const session = await authManager.resolveSession();
-    if (session) {
-      try {
-        const [user, org] = await Promise.all([client.getUser(), client.getOrganization()]);
-        identifyUser(user.id, org.slug);
-      } catch {
-        // non-fatal
-      }
+    if (!session) {
+      resetIdentity();
+      return;
     }
-  })();
+    try {
+      const [user, org] = await Promise.all([client.getUser(), client.getOrganization()]);
+      identifyUser(user.id, org.slug);
+    } catch {
+      // identify failed; clear identity so events aren't misattributed to a stale user
+      resetIdentity();
+    }
+  };
+
+  // Identify on startup if already signed in (onDidChangeCredential won't fire)
+  void syncAnalyticsIdentity();
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.signIn.OAuth", () => {
-      track("auth.sign_in_clicked", { method: "browser" });
+      track("auth login", { method: "browser" });
       return authManager.signIn();
     }),
     // status bar and viewsWelcome both route through this so we don't drift
-    vscode.commands.registerCommand("buildkite.signIn", () => authManager.requireSession()),
+    vscode.commands.registerCommand("buildkite.signIn", () => {
+      track("auth login", { method: "browser" });
+      return authManager.requireSession();
+    }),
     vscode.commands.registerCommand("buildkite.signUp", () => {
-      track("auth.sign_up_clicked");
+      track("auth signup");
       return vscode.env.openExternal(
         vscode.Uri.parse("https://buildkite.com/platform/get-started/"),
       );
     }),
-    vscode.commands.registerCommand("buildkite.signOut.OAuth", () => authManager.signOut()),
+    vscode.commands.registerCommand("buildkite.signOut.OAuth", () => {
+      track("auth logout", { method: "browser" });
+      return authManager.signOut();
+    }),
     // skip refresh-token rotations, those only update the session, no tree refresh needed
     authProvider.onDidChangeSessions((e) => {
       if (!e.added?.length && !e.removed?.length) {
@@ -129,27 +141,18 @@ export function activate(context: vscode.ExtensionContext) {
       void getAgentsTreeProvider().refresh();
       void getStatusBarManager()?.refresh();
 
-      const session = await authManager.resolveSession();
-      if (session) {
-        try {
-          const [user, org] = await Promise.all([client.getUser(), client.getOrganization()]);
-          identifyUser(user.id, org.slug);
-        } catch {
-          // non-fatal — analytics identification best-effort
-        }
-      } else {
-        resetIdentity();
-      }
+      await syncAnalyticsIdentity();
     }),
     vscode.commands.registerCommand("buildkite.setToken", async () => {
-      track("auth.sign_in_clicked", { method: "api_token" });
       const token = await authManager.promptForApiToken();
       if (token) {
+        track("auth login", { method: "api_token" });
         vscode.window.showInformationMessage("Buildkite API Token saved securely.");
       }
     }),
     vscode.commands.registerCommand("buildkite.clearToken", async () => {
       await authManager.clearToken();
+      track("auth logout", { method: "api_token" });
       vscode.window.showInformationMessage("Buildkite API Token cleared.");
     }),
   );
@@ -228,7 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (query === undefined) {
           return;
         }
-        track("agent.filter_clicked");
+        track("agent filter");
         provider.setFilter(query);
         await vscode.commands.executeCommand(
           "setContext",
@@ -242,6 +245,7 @@ export function activate(context: vscode.ExtensionContext) {
       async () => {
         const provider = getAgentsTreeProvider();
         provider.setFilter("");
+        track("agent filter", { cleared: true });
         await vscode.commands.executeCommand(
           "setContext",
           "buildkite.agents.filterActive",
@@ -252,10 +256,10 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-export function deactivate() {
+export async function deactivate(): Promise<void> {
   disposeJobLogWebview();
   disposeAnnotationsWebview();
-  void shutdownAnalytics();
+  await shutdownAnalytics();
 }
 
 // catches drift between AllScopes and package.json on activation
