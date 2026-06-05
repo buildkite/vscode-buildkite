@@ -22,13 +22,6 @@ import {
  *
  * A token can only be associated with a single org, so we can use this interface safely
  */
-export interface User {
-  id: string;
-  graphql_id: string;
-  name: string;
-  email: string;
-}
-
 export interface Organization {
   id: string;
   graphql_id: string;
@@ -40,6 +33,14 @@ export interface Organization {
   agents_url: string;
   emojis_url: string;
   created_at: string;
+}
+
+/** Buildkite user as returned by GET /user */
+export interface User {
+  id: string;
+  graphql_id: string;
+  name: string;
+  email: string;
 }
 /**
  * Client for interacting with the Buildkite REST API.
