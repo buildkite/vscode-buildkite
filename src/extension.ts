@@ -88,18 +88,28 @@ export function activate(context: vscode.ExtensionContext) {
   void updateAuthContext();
 
   // Identify the signed-in user for analytics, or clear identity when signed out.
+  // A monotonic token ensures a slow in-flight sync can't clobber a newer one
+  // (e.g. a startup getUser resolving after a sign-out has already reset identity).
+  let identitySyncSeq = 0;
   const syncAnalyticsIdentity = async (): Promise<void> => {
+    const seq = ++identitySyncSeq;
     const session = await authManager.resolveSession();
     if (!session) {
-      resetIdentity();
+      if (seq === identitySyncSeq) {
+        resetIdentity();
+      }
       return;
     }
     try {
       const [user, org] = await Promise.all([client.getUser(), client.getOrganization()]);
-      identifyUser(user.id, org.slug);
+      if (seq === identitySyncSeq) {
+        identifyUser(user.id, org.slug);
+      }
     } catch {
       // identify failed; clear identity so events aren't misattributed to a stale user
-      resetIdentity();
+      if (seq === identitySyncSeq) {
+        resetIdentity();
+      }
     }
   };
 
@@ -108,12 +118,12 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.signIn.OAuth", () => {
-      track("auth login", { method: "browser" });
+      track("auth login", { method: "browser", entry: "command" });
       return authManager.signIn();
     }),
     // status bar and viewsWelcome both route through this so we don't drift
     vscode.commands.registerCommand("buildkite.signIn", () => {
-      track("auth login", { method: "browser" });
+      track("auth login", { method: "browser", entry: "ui" });
       return authManager.requireSession();
     }),
     vscode.commands.registerCommand("buildkite.signUp", () => {
@@ -144,9 +154,9 @@ export function activate(context: vscode.ExtensionContext) {
       await syncAnalyticsIdentity();
     }),
     vscode.commands.registerCommand("buildkite.setToken", async () => {
+      track("auth login", { method: "api_token" });
       const token = await authManager.promptForApiToken();
       if (token) {
-        track("auth login", { method: "api_token" });
         vscode.window.showInformationMessage("Buildkite API Token saved securely.");
       }
     }),

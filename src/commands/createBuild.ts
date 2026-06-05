@@ -61,7 +61,7 @@ export async function createBuild(client: CachedApiClient, node: PipelineNode): 
     await treeProvider.refresh();
 
     if (action === "View Build") {
-      track("build view", { pipeline_uuid: node.pipeline.id, build_uuid: build.id });
+      track("build view", { pipeline_uuid: node.pipeline.id, build_uuid: build.id, source: "post_create" });
       vscode.env.openExternal(vscode.Uri.parse(build.web_url));
     }
   }

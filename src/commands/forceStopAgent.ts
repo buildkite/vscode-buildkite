@@ -26,7 +26,7 @@ export async function forceStopAgent(client: CachedApiClient, node: AgentNode): 
 
   try {
     await client.forceStopAgent(node.orgSlug, node.agent.id);
-    track("agent stop", { force: true });
+    track("agent stop", { force: true, agent_uuid: node.agent.id });
 
     vscode.window.showInformationMessage(
       `Agent "${agentLabel}" has been force stopped.`,

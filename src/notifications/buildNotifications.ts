@@ -33,10 +33,10 @@ const MAX_INDIVIDUAL_NOTIFICATIONS = 3;
  * default that must match package.json so the reported value is accurate.
  */
 const NOTIFICATION_SETTINGS = [
-  { key: "enabled", label: "all", def: true },
-  { key: "notifyOnPass", label: "pass", def: true },
-  { key: "notifyOnFail", label: "fail", def: true },
-  { key: "notifyOnAllBuilds", label: "all_builds", def: false },
+  { key: "enabled", label: "all", defaultValue: true },
+  { key: "notifyOnPass", label: "pass", defaultValue: true },
+  { key: "notifyOnFail", label: "fail", defaultValue: true },
+  { key: "notifyOnAllBuilds", label: "all_builds", defaultValue: false },
 ] as const;
 
 /**
@@ -84,9 +84,9 @@ export class BuildNotificationService {
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("buildkite.notifications")) {
           const config = vscode.workspace.getConfiguration("buildkite.notifications");
-          for (const { key, label, def } of NOTIFICATION_SETTINGS) {
+          for (const { key, label, defaultValue } of NOTIFICATION_SETTINGS) {
             if (e.affectsConfiguration(`buildkite.notifications.${key}`)) {
-              track("notification configure", { setting: label, enabled: config.get<boolean>(key, def) });
+              track("notification configure", { setting: label, enabled: config.get<boolean>(key, defaultValue) });
             }
           }
           this.clearTrackedBuilds();

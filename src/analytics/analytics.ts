@@ -45,8 +45,9 @@ function syncClientToTelemetrySetting(): void {
 
 export function identifyUser(userUuid: string, slug: string): void {
   // Stitch the anonymous pre-auth events (captured against the machine id) onto
-  // the user, at most once per session. Re-aliasing after a sign-out would point
-  // the same machine id at a second user and merge them in PostHog irreversibly.
+  // the user, at most once per session. PostHog refuses to re-alias a machine id
+  // already linked to another user, so re-aliasing after sign-out is a no-op that
+  // just logs an ingestion warning; the guard avoids it.
   if (!hasAliased && client) {
     client.alias({ distinctId: userUuid, alias: vscode.env.machineId });
     hasAliased = true;
@@ -67,7 +68,9 @@ export function resetIdentity(): void {
 // One PostHog event per action, named '<object> <action>' to match the
 // established Buildkite CLI taxonomy. channel mirrors the CLI's own property
 // (it sets channel: 'cli') so extension and CLI events can be compared in the
-// same project.
+// same project. A few actions keep a compound name or a discriminator prop
+// rather than contort into two tokens: 'job log' (target: web|editor),
+// 'build view error', and 'support issue' (files a GitHub issue).
 export function track(event: string, properties?: Record<string, unknown>): void {
   if (!client) {
     return;

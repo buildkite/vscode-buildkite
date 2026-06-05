@@ -39,7 +39,7 @@ export async function viewAnnotations(client: CachedApiClient, node: BuildNode):
           pipeline.slug,
           build.number,
         );
-        track("annotations view", { pipeline_uuid: pipeline.id, build_uuid: build.id });
+        track("annotation view", { pipeline_uuid: pipeline.id, build_uuid: build.id });
         getAnnotationsWebview().show(buildKey, buildLabel, annotations);
       },
     );

@@ -22,7 +22,7 @@ export async function resumeAgent(client: CachedApiClient, node: AgentNode): Pro
 
   try {
     await client.resumeAgent(node.orgSlug, node.agent.id);
-    track("agent resume");
+    track("agent resume", { agent_uuid: node.agent.id });
 
     vscode.window.showInformationMessage(
       `Agent "${node.agent.name || node.agent.hostname}" has been resumed.`,

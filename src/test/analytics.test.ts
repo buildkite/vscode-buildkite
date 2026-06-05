@@ -108,8 +108,9 @@ describe("analytics", () => {
       assert.equal(fake.aliases.length, 1);
     });
 
-    // Sign-out clears the user but must NOT re-open the alias: aliasing the same
-    // machine id onto a second user would merge the two in PostHog irreversibly.
+    // Sign-out clears the user but must NOT re-open the alias: PostHog refuses to
+    // alias the same machine id onto a second user (the call is dropped with an
+    // ingestion warning), so re-aliasing is pointless.
     it("does not re-alias after sign-out and sign-in as a different user", () => {
       identifyUser("user-1", "acme");
       resetIdentity();
