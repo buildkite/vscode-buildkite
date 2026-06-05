@@ -274,10 +274,7 @@ export class PipelinesTreeProvider
 
           return artifacts.map((artifact) => new ArtifactNode(
             artifact,
-            element.orgSlug,
-            element.pipelineSlug,
             element.pipelineUuid,
-            element.buildNumber,
             element.buildUuid,
           ));
         } catch (error) {
@@ -302,10 +299,7 @@ export class PipelinesTreeProvider
 
           return artifacts.map((artifact) => new ArtifactNode(
             artifact,
-            element.orgSlug,
-            element.pipeline.slug,
             element.pipeline.id,
-            element.buildNumber,
             element.buildUuid,
           ));
         } catch (error) {
