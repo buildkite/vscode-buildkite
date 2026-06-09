@@ -18,12 +18,6 @@
       "automerge": true
     },
     {
-      "description": "Group GitHub Actions updates",
-      "matchManagers": ["github-actions"],
-      "groupName": "github-actions",
-      "automerge": true
-    },
-    {
       "description": "Keep VS Code tooling separate",
       "matchPackageNames": [
         "@vscode/test-cli",
