@@ -39,6 +39,11 @@ function syncClientToTelemetrySetting(): void {
       if (!hasAliased) {
         client.alias({ distinctId: userId, alias: vscode.env.machineId });
         hasAliased = true;
+    if (userId) {
+      // Replay the alias if identifyUser was called while telemetry was off
+      if (!hasAliased) {
+        client.alias({ distinctId: userId, alias: vscode.env.machineId });
+        hasAliased = true;
       }
       client.identify({ distinctId: userId, properties: { organization: orgSlug } });
     }
