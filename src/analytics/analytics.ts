@@ -31,16 +31,8 @@ function syncClientToTelemetrySetting(): void {
   }
   if (vscode.env.isTelemetryEnabled && !client) {
     client = new PostHog(POSTHOG_API_KEY, { host: "https://us.i.posthog.com", flushAt: 1, flushInterval: 0 });
-    // Re-identify an already-known user so a client created after a mid-session
-    // toggle-on behaves like one created at startup. Alias is server-side and
-    // guarded by hasAliased, so it must not be replayed here.
     if (userId) {
-      // Replay the alias if identifyUser was called while telemetry was off
-      if (!hasAliased) {
-        client.alias({ distinctId: userId, alias: vscode.env.machineId });
-        hasAliased = true;
-    if (userId) {
-      // Replay the alias if identifyUser was called while telemetry was off
+      // Replay the alias if identifyUser was called while telemetry was off.
       if (!hasAliased) {
         client.alias({ distinctId: userId, alias: vscode.env.machineId });
         hasAliased = true;

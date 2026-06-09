@@ -105,7 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (seq === identitySyncSeq) {
         identifyUser(user.id, org.slug);
       }
-    } catch {
+    } catch (error) {
       // identify failed; clear identity so events aren't misattributed to a stale user
       warn(`[Analytics] Failed to sync identity: ${error instanceof Error ? error.message : String(error)}`);
       if (seq === identitySyncSeq) {
