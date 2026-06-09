@@ -45,7 +45,27 @@ export async function downloadArtifact(client: CachedApiClient, node: ArtifactNo
           await vscode.commands.executeCommand("vscode.open", uri);
         },
       );
-    } else {
+try {
+  if (isPreviewable(artifact.mime_type)) {
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `Downloading ${artifact.filename}...`,
+      },
+      async () => {
+        const response = await client.downloadArtifact(artifact.download_url);
+        const tmpDir = path.join(os.tmpdir(), "buildkite-artifacts");
+        fs.mkdirSync(tmpDir, { recursive: true });
+        const sanitizedName = path.basename(artifact.filename);
+        const tmpFile = path.join(tmpDir, sanitizedName);
+        const nodeStream = Readable.fromWeb(response.body!);
+        await pipeline(nodeStream, fs.createWriteStream(tmpFile));
+        const uri = vscode.Uri.file(tmpFile);
+        await vscode.commands.executeCommand("vscode.open", uri);
+        track("artifact download", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid });
+      },
+    );
+  } else {
       const defaultUri = vscode.Uri.file(
         path.join(os.homedir(), "Downloads", path.basename(artifact.filename)),
       );
