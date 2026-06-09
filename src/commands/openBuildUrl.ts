@@ -8,7 +8,8 @@ export async function openBuildUrl(node: BuildNode): Promise<void> {
     return;
   }
 
-  track("build view", { pipeline_uuid: node.pipeline.id, build_uuid: node.build.id, source: "tree" });
   const uri = vscode.Uri.parse(node.build.web_url);
   await vscode.env.openExternal(uri);
+  track("build view", { pipeline_uuid: node.pipeline.id, build_uuid: node.build.id, source: "tree" });
+
 }
