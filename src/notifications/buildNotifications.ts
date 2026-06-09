@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { Build, BuildState } from "../api/types";
+import { track } from "../analytics/analytics";
 
 /**
  * Build states that are considered "completed" and should trigger notifications
@@ -28,9 +29,21 @@ const BATCH_DELAY_MS = 500;
 const MAX_INDIVIDUAL_NOTIFICATIONS = 3;
 
 /**
+ * Notification settings tracked on change: config key, analytics label, and the
+ * default that must match package.json so the reported value is accurate.
+ */
+const NOTIFICATION_SETTINGS = [
+  { key: "enabled", label: "all", defaultValue: true },
+  { key: "notifyOnPass", label: "pass", defaultValue: true },
+  { key: "notifyOnFail", label: "fail", defaultValue: true },
+  { key: "notifyOnAllBuilds", label: "all_builds", defaultValue: false },
+] as const;
+
+/**
  * Minimal pipeline info needed for notifications
  */
 interface PipelineInfo {
+  id: string;
   name: string;
   slug: string;
 }
@@ -70,6 +83,12 @@ export class BuildNotificationService {
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("buildkite.notifications")) {
+          const config = vscode.workspace.getConfiguration("buildkite.notifications");
+          for (const { key, label, defaultValue } of NOTIFICATION_SETTINGS) {
+            if (e.affectsConfiguration(`buildkite.notifications.${key}`)) {
+              track("notification configure", { setting: label, enabled: config.get<boolean>(key, defaultValue) });
+            }
+          }
           this.clearTrackedBuilds();
         }
       }),
@@ -289,6 +308,9 @@ export class BuildNotificationService {
           selected.orgSlug,
         );
       }
+    } else if (selection === "Dismiss") {
+      // Summary spans multiple builds, so track the count rather than a single build_uuid
+      track("notification dismiss", { build_count: allNotifications.length });
     }
   }
 
@@ -339,6 +361,8 @@ export class BuildNotificationService {
       return;
     }
 
+    const eventProps = { pipeline_uuid: pipeline.id, build_uuid: build.id };
+
     switch (selection) {
       case "View Error":
         await vscode.commands.executeCommand("buildkite.build.viewError", {
@@ -349,6 +373,7 @@ export class BuildNotificationService {
         break;
 
       case "Open in Buildkite":
+        track("build view", { ...eventProps, source: "notification" });
         await vscode.env.openExternal(vscode.Uri.parse(build.web_url));
         break;
     }

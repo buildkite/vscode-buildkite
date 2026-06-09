@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { PipelineNode } from "../treeViews/nodes/pipelineNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
+import { track } from "../analytics/analytics";
 
 export async function editPipeline(client: CachedApiClient, node: PipelineNode): Promise<void> {
   if (!node || !(node instanceof PipelineNode)) {
@@ -69,6 +70,7 @@ export async function editPipeline(client: CachedApiClient, node: PipelineNode):
       },
     );
 
+    track("pipeline update", { pipeline_uuid: pipeline.id });
     vscode.window.showInformationMessage(`Pipeline "${name}" updated successfully.`);
     await getPipelinesTreeProvider().refresh();
   } catch (error) {

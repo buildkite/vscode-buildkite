@@ -4,6 +4,7 @@ import { canUnblockJob, getJobDisplayName } from "../api/types";
 import { JobNode } from "../treeViews/nodes/jobNode";
 import { getPipelinesTreeProvider } from "../treeViews/treeViews";
 import { buildConfirmationMessage, collectFieldValues, normalizeFieldValues } from "./blockStepHelpers";
+import { track } from "../analytics/analytics";
 
 export async function unblockJob(client: CachedApiClient, node: JobNode): Promise<void> {
   if (!node || !(node instanceof JobNode)) {
@@ -61,6 +62,8 @@ export async function unblockJob(client: CachedApiClient, node: JobNode): Promis
         );
       },
     );
+
+    track("job unblock", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid, job_uuid: node.job.id });
 
     vscode.window.showInformationMessage(
       `Job "${jobName}" has been unblocked`,

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { searchAlgolia } from "../api/algoliaClient";
+import { track } from "../analytics/analytics";
 
 export async function searchDocs(): Promise<void> {
   const query = await vscode.window.showInputBox({
@@ -7,17 +8,20 @@ export async function searchDocs(): Promise<void> {
     placeHolder: "e.g. pipeline configuration",
   });
 
-  if (!query?.trim()) {
+  const trimmedQuery = query?.trim();
+  if (!trimmedQuery) {
     return;
   }
 
+  track("docs search", { query: trimmedQuery });
+
   const results = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: "Searching docs…" },
-    () => searchAlgolia(query.trim())
+    () => searchAlgolia(trimmedQuery)
   );
 
   if (!results.length) {
-    vscode.window.showInformationMessage(`No results found for "${query}"`);
+    vscode.window.showInformationMessage(`No results found for "${trimmedQuery}"`);
     return;
   }
 
@@ -30,6 +34,6 @@ export async function searchDocs(): Promise<void> {
     const uri = vscode.Uri.parse(picked.url);
     if (uri.scheme === "https") {
       vscode.env.openExternal(uri);
-    }    
+    }
   }
 }

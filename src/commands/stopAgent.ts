@@ -3,6 +3,7 @@ import { CachedApiClient } from "../cache/cachedApiClient";
 import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
 import { pollUntilAgentGone } from "./agentStopPoller";
+import { track } from "../analytics/analytics";
 
 export async function stopAgent(client: CachedApiClient, node: AgentNode): Promise<void> {
   if (!node || !(node instanceof AgentNode)) {
@@ -22,6 +23,7 @@ export async function stopAgent(client: CachedApiClient, node: AgentNode): Promi
 
   try {
     await client.stopAgent(node.orgSlug, node.agent.id);
+    track("agent stop", { agent_uuid: node.agent.id });
 
     vscode.window.showInformationMessage(
       `Agent "${node.agent.name || node.agent.hostname}" has been instructed to stop.`,

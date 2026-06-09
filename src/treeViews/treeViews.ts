@@ -5,6 +5,7 @@ import { PipelineTreeNode } from "./pipelines";
 import { SupportViewProvider } from "./support";
 import { AuthManager } from "../api/auth";
 import { CachedApiClient } from "../cache/cachedApiClient";
+import { track } from "../analytics/analytics";
 
 let pipelinesTreeProvider: PipelinesTreeProvider;
 let agentsTreeProvider: AgentsTreeProvider;
@@ -35,6 +36,7 @@ export function initTreeViews(
     vscode.commands.registerCommand(
       "buildkite.pipelines.refresh",
       async () => {
+        track("pipeline refresh");
         await pipelinesTreeProvider.refresh();
       },
     ),
@@ -42,6 +44,7 @@ export function initTreeViews(
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.agents.refresh", async () => {
+      track("agent refresh");
       await agentsTreeProvider.refresh();
     }),
   );
@@ -55,9 +58,11 @@ export function initTreeViews(
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.openSupportEmail", () => {
+      track("support contact");
       vscode.env.openExternal(vscode.Uri.parse("mailto:support@buildkite.com"));
     }),
     vscode.commands.registerCommand("buildkite.raiseIssue", () => {
+      track("support issue");
       vscode.env.openExternal(
         vscode.Uri.parse("https://github.com/buildkite/vscode-buildkite/issues/new"),
       );

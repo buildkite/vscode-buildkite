@@ -6,6 +6,7 @@ import * as os from "os";
 import * as fs from "fs";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { ArtifactNode } from "../treeViews/nodes/artifactNode";
+import { track } from "../analytics/analytics";
 
 const PREVIEWABLE_MIME_PREFIXES = ["text/", "image/", "application/json"];
 
@@ -24,7 +25,6 @@ export async function downloadArtifact(client: CachedApiClient, node: ArtifactNo
   const artifact = node.artifact;
 
   try {
-
     if (isPreviewable(artifact.mime_type)) {
       await vscode.window.withProgress(
         {
@@ -41,6 +41,7 @@ export async function downloadArtifact(client: CachedApiClient, node: ArtifactNo
           await pipeline(nodeStream, fs.createWriteStream(tmpFile));
           const uri = vscode.Uri.file(tmpFile);
           await vscode.commands.executeCommand("vscode.open", uri);
+          track("artifact download", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid });
         },
       );
     } else {
@@ -68,6 +69,7 @@ export async function downloadArtifact(client: CachedApiClient, node: ArtifactNo
           vscode.window.showInformationMessage(
             `Artifact saved to ${saveUri.fsPath}`,
           );
+          track("artifact download", { pipeline_uuid: node.pipelineUuid, build_uuid: node.buildUuid });
         },
       );
     }

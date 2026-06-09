@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { searchAlgolia } from "../api/algoliaClient";
+import { track } from "../analytics/analytics";
 
 export class SupportViewProvider implements vscode.WebviewViewProvider {
   static readonly viewId = "buildkite.support";
@@ -9,8 +10,13 @@ export class SupportViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.getHtml();
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       if (msg.command === "search") {
+        const query = msg.query?.trim();
+        if (!query) {
+          return;
+        }
+        track("docs search", { query });
         try {
-          const results = await searchAlgolia(msg.query);
+          const results = await searchAlgolia(query);
           webviewView.webview.postMessage({ command: "results", results });
         } catch {
           webviewView.webview.postMessage({ command: "error" });

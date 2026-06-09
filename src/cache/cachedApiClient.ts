@@ -1,4 +1,4 @@
-import { BuildkiteClient, Organization } from "../api/client";
+import { BuildkiteClient, Organization, User } from "../api/client";
 import { CacheProvider } from "./cacheProvider";
 import { Pipeline, Build, Job, Agent, Artifact, Annotation, PipelineWithBuilds, CreatePipelineInput, UpdatePipelineInput } from "../api/types";
 import { repositoryCacheKey } from "../utils/gitUrl";
@@ -74,6 +74,10 @@ export class CachedApiClient {
     result = await this.client.getOrganization();
     this.cache.set(cacheKey, result);
     return result;
+  }
+
+  async getUser(): Promise<User> {
+    return this.client.getUser();
   }
 
   /**

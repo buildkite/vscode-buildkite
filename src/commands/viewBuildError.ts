@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { Build, Pipeline } from "../api/types";
+import { track } from "../analytics/analytics";
 
 interface ViewBuildErrorArgs {
   build: Build;
@@ -14,6 +15,7 @@ interface ViewBuildErrorArgs {
  */
 export async function viewBuildError(client: CachedApiClient, args: ViewBuildErrorArgs): Promise<void> {
   const { build, pipeline, orgSlug } = args;
+  track("build view error", { pipeline_uuid: pipeline.id, build_uuid: build.id });
 
   // Use existing jobs from the build, or fetch them fresh
   let jobs = build.jobs;
@@ -49,6 +51,8 @@ export async function viewBuildError(client: CachedApiClient, args: ViewBuildErr
       buildNumber: build.number,
       pipelineSlug: pipeline.slug,
       orgSlug,
+      pipelineUuid: pipeline.id,
+      buildUuid: build.id,
     });
     return;
   }
@@ -76,6 +80,8 @@ export async function viewBuildError(client: CachedApiClient, args: ViewBuildErr
       buildNumber: build.number,
       pipelineSlug: pipeline.slug,
       orgSlug,
+      pipelineUuid: pipeline.id,
+      buildUuid: build.id,
     });
   }
 }

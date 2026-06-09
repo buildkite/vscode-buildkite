@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { AgentNode } from "../treeViews/nodes/agentNode";
 import { getAgentsTreeProvider } from "../treeViews/treeViews";
+import { track } from "../analytics/analytics";
 
 export async function pauseAgent(client: CachedApiClient, node: AgentNode): Promise<void> {
   if (!node || !(node instanceof AgentNode)) {
@@ -21,6 +22,7 @@ export async function pauseAgent(client: CachedApiClient, node: AgentNode): Prom
 
   try {
     await client.pauseAgent(node.orgSlug, node.agent.id);
+    track("agent pause", { agent_uuid: node.agent.id });
 
     vscode.window.showInformationMessage(
       `Agent "${node.agent.name || node.agent.hostname}" has been paused.`,

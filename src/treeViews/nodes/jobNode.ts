@@ -9,6 +9,8 @@ export class JobNode extends vscode.TreeItem implements JobLogContext {
     public readonly buildNumber: number,
     public readonly pipelineSlug: string,
     public readonly orgSlug: string,
+    public readonly pipelineUuid: string,
+    public readonly buildUuid: string,
   ) {
     super(JobNode.getLabel(job), vscode.TreeItemCollapsibleState.Collapsed);
 

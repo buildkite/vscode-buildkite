@@ -34,6 +34,14 @@ export interface Organization {
   emojis_url: string;
   created_at: string;
 }
+
+/** Buildkite user as returned by GET /user */
+export interface User {
+  id: string;
+  graphql_id: string;
+  name: string;
+  email: string;
+}
 /**
  * Client for interacting with the Buildkite REST API.
  * Handles authentication and API requests.
@@ -70,6 +78,10 @@ export class BuildkiteClient {
   // call after signout / signin / org switch so we don't serve stale slug
   clearCachedOrganization(): void {
     this.organization = undefined;
+  }
+
+  async getUser(): Promise<User> {
+    return this.get<User>("/user");
   }
 
   /**

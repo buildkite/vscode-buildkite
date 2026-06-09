@@ -200,6 +200,8 @@ export class PipelinesTreeProvider
                       element.build.number,
                       element.pipeline.slug,
                       element.orgSlug,
+                      element.pipeline.id,
+                      element.build.id,
                   ))
                 );
               } else if (element.build.blocked) {
@@ -211,6 +213,8 @@ export class PipelinesTreeProvider
                       element.build.number,
                       element.pipeline.slug,
                       element.orgSlug,
+                      element.pipeline.id,
+                      element.build.id,
                     ))
                 );
               } else {
@@ -226,6 +230,8 @@ export class PipelinesTreeProvider
                       element.build.number,
                       element.pipeline.slug,
                       element.orgSlug,
+                      element.pipeline.id,
+                      element.build.id,
                     ),
                 ),
               );
@@ -237,6 +243,7 @@ export class PipelinesTreeProvider
               element.build.number,
               element.pipeline,
               element.orgSlug,
+              element.build.id,
             ),
           );
 
@@ -265,7 +272,11 @@ export class PipelinesTreeProvider
             return [new ErrorNode("No artifacts for this job")];
           }
 
-          return artifacts.map((artifact) => new ArtifactNode(artifact));
+          return artifacts.map((artifact) => new ArtifactNode(
+            artifact,
+            element.pipelineUuid,
+            element.buildUuid,
+          ));
         } catch (error) {
           if (error instanceof Error) {
             return [new ErrorNode(`Failed to load artifacts: ${error.message}`)];
@@ -286,7 +297,11 @@ export class PipelinesTreeProvider
             return [new ErrorNode("No artifacts found")];
           }
 
-          return artifacts.map((artifact) => new ArtifactNode(artifact));
+          return artifacts.map((artifact) => new ArtifactNode(
+            artifact,
+            element.pipeline.id,
+            element.buildUuid,
+          ));
         } catch (error) {
           if (error instanceof Error) {
             return [new ErrorNode(`Failed to load artifacts: ${error.message}`)];
