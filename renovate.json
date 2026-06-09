@@ -1,0 +1,97 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":disableDependencyDashboard",
+    ":semanticCommits",
+    "schedule:nonOfficeHours"
+  ],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    {
+      "description": "Group Buildkite dependencies",
+      "matchSourceUrls": ["https://github.com/buildkite/**"],
+      "groupName": "buildkite",
+      "automerge": true
+    },
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "automerge": true
+    },
+    {
+      "description": "Keep VS Code tooling separate",
+      "matchPackageNames": [
+        "@vscode/test-cli",
+        "@vscode/test-electron",
+        "@types/vscode"
+      ],
+      "groupName": "vscode tooling",
+      "separateMultipleMajor": true,
+      "separateMinorPatch": true,
+      "automerge": false
+    },
+    {
+      "description": "Keep TypeScript tooling separate",
+      "matchPackageNames": [
+        "typescript",
+        "ts-node",
+        "@types/node"
+      ],
+      "groupName": "typescript tooling",
+      "separateMultipleMajor": true,
+      "separateMinorPatch": true,
+      "automerge": false
+    },
+    {
+      "description": "Keep linting packages separate",
+      "matchPackageNames": [
+        "eslint",
+        "@eslint/**",
+        "typescript-eslint",
+        "globals"
+      ],
+      "groupName": "linting",
+      "separateMultipleMajor": true,
+      "separateMinorPatch": true,
+      "automerge": false
+    },
+    {
+      "description": "Group type definitions",
+      "matchPackageNames": ["@types/**"],
+      "groupName": "type definitions",
+      "automerge": true
+    },
+    {
+      "description": "Automerge patch updates for production dependencies",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge minor and patch updates for development dependencies",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Do not automerge major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ],
+  "automerge": false,
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["dependencies", "security"],
+    "minimumReleaseAge": "0"
+  }
+}
