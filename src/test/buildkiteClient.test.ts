@@ -290,3 +290,63 @@ describe("BuildkiteClient.getPipelinesByRepository", () => {
     }
   });
 });
+
+describe("BuildkiteClient credential origin guard", () => {
+  it("sends the bearer token for absolute URLs on the API origin", async () => {
+    const stub = withFetch(() => new Response("log output", { status: 200 }));
+
+    try {
+      const text = await new BuildkiteClient(fakeAuth).getJobLog({
+        raw_log_url: "https://api.buildkite.com/v2/organizations/acme/pipelines/web/builds/1/jobs/j1/log.txt",
+      } as never);
+
+      assert.equal(text, "log output");
+      const headers = stub.calls[0].init?.headers as Record<string, string>;
+      assert.equal(headers.Authorization, "Bearer test-token");
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("refuses to send credentials to an absolute URL on a different origin", async () => {
+    const stub = withFetch(() => new Response("should never be fetched", { status: 200 }));
+
+    try {
+      await assert.rejects(
+        new BuildkiteClient(fakeAuth).downloadArtifact("https://evil.example.com/artifact"),
+        /Refusing to send Buildkite credentials to https:\/\/evil\.example\.com/,
+      );
+      assert.equal(stub.calls.length, 0, "no request should have been made");
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("refuses to send credentials to a same-host URL with a different scheme", async () => {
+    const stub = withFetch(() => new Response("should never be fetched", { status: 200 }));
+
+    try {
+      await assert.rejects(
+        new BuildkiteClient(fakeAuth).downloadArtifact("http://api.buildkite.com/v2/artifact"),
+        /Refusing to send Buildkite credentials/,
+      );
+      assert.equal(stub.calls.length, 0, "no request should have been made");
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("refuses malformed absolute URLs", async () => {
+    const stub = withFetch(() => new Response("should never be fetched", { status: 200 }));
+
+    try {
+      await assert.rejects(
+        new BuildkiteClient(fakeAuth).downloadArtifact("https://"),
+        /Refusing to send credentials to malformed URL/,
+      );
+      assert.equal(stub.calls.length, 0, "no request should have been made");
+    } finally {
+      stub.restore();
+    }
+  });
+});

@@ -106,6 +106,13 @@ export class BuildkiteClient {
     const url = endpoint.startsWith("http")
       ? endpoint
       : `${this.baseUrl}${endpoint}`;
+    // Absolute URLs come back from the API itself (artifact download_url,
+    // raw_log_url, Link-header pagination). Only ever attach the bearer
+    // token to the configured API origin so a poisoned response or proxy
+    // can't redirect credentials elsewhere. Cross-origin redirects (e.g.
+    // artifact downloads bouncing to S3) are fine: fetch strips the
+    // Authorization header when the redirect leaves the origin.
+    this.assertSameApiOrigin(url);
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -136,6 +143,22 @@ export class BuildkiteClient {
     }
     return response;
   }
+
+  private assertSameApiOrigin(url: string): void {
+    const apiOrigin = new URL(this.baseUrl).origin;
+    let requestOrigin: string;
+    try {
+      requestOrigin = new URL(url).origin;
+    } catch {
+      throw new Error(`Refusing to send credentials to malformed URL: ${url}`);
+    }
+    if (requestOrigin !== apiOrigin) {
+      throw new Error(
+        `Refusing to send Buildkite credentials to ${requestOrigin}: requests must stay on the configured API origin (${apiOrigin}).`,
+      );
+    }
+  }
+
   /**
    * Fetches all pages of a paginated endpoint.
    * Uses the Link header to find the next page URL.
