@@ -24,7 +24,8 @@
       "description": "Buildkite endpoint URLs cannot be redirected by workspace settings.",
       "restrictedConfigurations": [
         "buildkite.webBaseUrl",
-        "buildkite.apiBaseUrl"
+        "buildkite.apiBaseUrl",
+        "buildkite.oauth.clientId"
       ]
     }
   },
@@ -293,17 +294,20 @@
         "buildkite.webBaseUrl": {
           "type": "string",
           "default": "https://buildkite.com",
-          "description": "Base URL for the Buildkite web UI."
+          "scope": "machine",
+          "description": "Base URL for the Buildkite web UI. Must be https (http is only allowed for localhost). Machine-scoped so workspace settings cannot redirect credentials."
         },
         "buildkite.apiBaseUrl": {
           "type": "string",
           "default": "https://api.buildkite.com/v2",
-          "description": "Base URL for the Buildkite REST API."
+          "scope": "machine",
+          "description": "Base URL for the Buildkite REST API. Must be https (http is only allowed for localhost). Machine-scoped so workspace settings cannot redirect credentials."
         },
         "buildkite.oauth.clientId": {
           "type": "string",
           "default": "85bcd1d92d30dcb5e074",
-          "description": "OAuth client ID to use when signing in with the browser."
+          "scope": "machine",
+          "description": "OAuth client ID to use when signing in with the browser. Machine-scoped so workspace settings cannot override it."
         },
         "buildkite.oauth.scopePreset": {
           "type": "string",
