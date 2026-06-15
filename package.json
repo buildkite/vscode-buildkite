@@ -1,5 +1,5 @@
 {
-  "name": "buildkite-vscode",
+  "name": "buildkite-vscode-extension",
   "displayName": "Buildkite",
   "description": "VS Code extension for Buildkite",
   "icon": "icon.png",
