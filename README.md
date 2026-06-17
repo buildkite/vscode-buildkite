@@ -1,4 +1,4 @@
-# Buildkite Pipelines
+# Buildkite
 
 Manage your Buildkite pipelines, builds, jobs, and agents directly from Visual Studio Code — without switching to the Buildkite web interface.
 
