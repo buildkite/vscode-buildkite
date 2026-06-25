@@ -16,4 +16,4 @@ steps:
     depends_on: ["lint", "compile"]
     plugins:
       - mise#v1.1.0: ~
-    command: npm run vscode:package
+    command: npm ci && npm run vscode:package
