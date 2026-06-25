@@ -17,3 +17,5 @@ steps:
     plugins:
       - mise#v1.1.0: ~
     command: npm ci && npm run vscode:package
+    artifact_paths:
+      - "buildkite-*.vsix"
