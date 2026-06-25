@@ -10,3 +10,10 @@ steps:
     plugins:
       - mise#v1.1.0: ~
     command: npm ci && npm run compile
+
+  - label: ":vscode: Build package"
+    key: build
+    depends_on: ["lint", "compile"]
+    plugins:
+      - mise#v1.1.0: ~
+    command: npm run vscode:package

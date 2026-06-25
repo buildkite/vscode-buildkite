@@ -1,7 +1,8 @@
 {
-  "name": "buildkite-vscode",
+  "name": "buildkite",
   "displayName": "Buildkite",
   "description": "VS Code extension for Buildkite",
+  "publisher": "buildkite",
   "icon": "icon.png",
   "version": "0.0.1",
   "engines": {
@@ -11,6 +12,10 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildkite/vscode-buildkite.git"
+  },
   "extensionDependencies": [
     "vscode.git",
     "redhat.vscode-yaml"
@@ -596,12 +601,14 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
     "compile": "ts-node scripts/generate-analytics-config.ts && tsc -p ./",
-    "watch": "ts-node scripts/generate-analytics-config.ts && tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
     "lint": "eslint",
-    "test": "vscode-test"
+    "pretest": "npm run compile && npm run lint",
+    "test": "vscode-test",
+    "watch": "ts-node scripts/generate-analytics-config.ts && tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "vscode:package": "vsce package",
+    "vscode:publish": "vsce publish"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -609,6 +616,7 @@
     "@types/vscode": "^1.106.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "ts-node": "^10.9.2",
