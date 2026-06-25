@@ -3,10 +3,10 @@
   "displayName": "Buildkite",
   "description": "VS Code extension for Buildkite",
   "icon": "icon.png",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.106.0",
-    "node": ">=18.2.0"
+    "node": ">=22"
   },
   "publisher": "buildkite",
   "repository": {
@@ -23,7 +23,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
@@ -601,12 +601,19 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "ts-node scripts/generate-analytics-config.ts && tsc -p ./",
-    "watch": "ts-node scripts/generate-analytics-config.ts && tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "gen:analytics": "ts-node scripts/generate-analytics-config.ts",
+    "compile": "npm run gen:analytics && tsc -p ./",
+    "check-types": "tsc -p ./ --noEmit",
+    "bundle": "npm run gen:analytics && node esbuild.js",
+    "compile-tests": "npm run compile && npm run bundle",
     "lint": "eslint",
-    "test": "vscode-test"
+    "pretest": "npm run compile-tests && npm run lint",
+    "test": "vscode-test",
+    "watch:tsc": "npm run gen:analytics && tsc -p ./ --watch",
+    "watch:esbuild": "npm run gen:analytics && node esbuild.js --watch",
+    "vscode:prepublish": "npm run gen:analytics && npm run check-types && npm run lint && node esbuild.js --production",
+    "vscode:package": "vsce package",
+    "vscode:publish": "vsce publish"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -614,6 +621,8 @@
     "@types/vscode": "^1.106.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.1",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "ts-node": "^10.9.2",
