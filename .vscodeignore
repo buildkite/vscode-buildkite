@@ -2,9 +2,12 @@
 .vscode-test/**
 .vscode-test.mjs
 src/**
+out/**
 scripts/**
 .github/**
 .buildkite/**
+node_modules/**
+esbuild.js
 **/*.ts
 **/*.map
 **/tsconfig*.json
@@ -12,7 +15,3 @@ eslint.config.mjs
 .gitignore
 .gitattributes
 mise.toml
-**/.eslintrc.json
-out/test/**
-out/**/*.test.js
-node_modules/.bin/**
