@@ -49,16 +49,19 @@
       "buildkite": [
         {
           "id": "buildkite.pipelines",
-          "name": "Pipelines"
+          "name": "Pipelines",
+          "icon": "icon.png"
         },
         {
           "id": "buildkite.agents",
-          "name": "Agents"
+          "name": "Agents",
+          "icon": "icon.png"
         },
         {
           "id": "buildkite.support",
           "name": "Support",
-          "type": "webview"
+          "type": "webview",
+          "icon": "icon.png"
         }
       ]
     },
