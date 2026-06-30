@@ -50,18 +50,18 @@
         {
           "id": "buildkite.pipelines",
           "name": "Pipelines",
-          "icon": "icon.png"
+          "icon": "resources/buildkite-icon.svg"
         },
         {
           "id": "buildkite.agents",
           "name": "Agents",
-          "icon": "icon.png"
+          "icon": "resources/buildkite-icon.svg"
         },
         {
           "id": "buildkite.support",
           "name": "Support",
           "type": "webview",
-          "icon": "icon.png"
+          "icon": "resources/buildkite-icon.svg"
         }
       ]
     },
