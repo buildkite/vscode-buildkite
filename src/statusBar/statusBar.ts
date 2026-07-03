@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
-import { GitExtension, API as GitAPI } from "../types/git";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { AuthManager } from "../api/auth";
 import { Pipeline, Build, BuildState } from "../api/types";
 import { getIconForBuild, getAggregateIcon } from "../treeViews/icons";
 import { showPipelineQuickPick } from "./statusBarCommands";
 import { error, redactIfCredentialShaped, warn } from "../log";
+import { getGitApi, getWorkspaceRemoteUrls } from "../utils/workspaceRemotes";
 
 const ACTIVE_POLL_INTERVAL_MS = 60000; // 60 seconds when builds are running
 const IDLE_POLL_INTERVAL_MS = 60000; // 60 seconds when idle (to catch new builds)
@@ -62,7 +62,7 @@ export class StatusBarManager {
     );
 
     // Get git API and set up repository listeners
-    const gitApi = await this.getGitApi();
+    const gitApi = await getGitApi();
     if (gitApi) {
       this.disposables.push(
         gitApi.onDidOpenRepository(async () => {
@@ -86,80 +86,8 @@ export class StatusBarManager {
     await this.refresh();
   }
 
-  private async getGitApi(): Promise<GitAPI | undefined> {
-    const gitExtension =
-      vscode.extensions.getExtension<GitExtension>("vscode.git");
-    if (!gitExtension) {
-      return undefined;
-    }
-    if (!gitExtension.isActive) {
-      await gitExtension.activate();
-    }
-    const api = gitExtension.exports.getAPI(1);
-
-    // Wait for the Git API to be fully initialized (repositories discovered)
-    if (api.state === "uninitialized") {
-      await new Promise<void>((resolve) => {
-        const disposable = api.onDidChangeState((state) => {
-          if (state === "initialized") {
-            disposable.dispose();
-            resolve();
-          }
-        });
-      });
-    }
-
-    return api;
-  }
-
   private async detectWorkspaceRemotes(): Promise<void> {
-    const gitApi = await this.getGitApi();
-    if (!gitApi) {
-      this.workspaceRemoteUrls = [];
-      return;
-    }
-
-    const remotes: string[] = [];
-    for (const repo of gitApi.repositories) {
-      // Wait for repository state to be populated if remotes are empty
-      if (repo.state.remotes.length === 0) {
-        await this.waitForRepositoryState(repo);
-      }
-
-      for (const remote of repo.state.remotes) {
-        if (remote.fetchUrl) {
-          remotes.push(remote.fetchUrl);
-        }
-        if (remote.pushUrl && remote.pushUrl !== remote.fetchUrl) {
-          remotes.push(remote.pushUrl);
-        }
-      }
-    }
-    this.workspaceRemoteUrls = remotes;
-  }
-
-  private waitForRepositoryState(repo: import("../types/git").Repository): Promise<void> {
-    return new Promise((resolve) => {
-      // If already has remotes, resolve immediately
-      if (repo.state.remotes.length > 0) {
-        resolve();
-        return;
-      }
-
-      const disposable = repo.state.onDidChange(() => {
-        if (repo.state.remotes.length > 0) {
-          clearTimeout(timer);
-          disposable.dispose();
-          resolve();
-        }
-      });
-
-      const timer = setTimeout(() => {
-        disposable.dispose();
-        warn("[StatusBar] timed out waiting for git repository remotes");
-        resolve();
-      }, 5000);
-    });
+    this.workspaceRemoteUrls = await getWorkspaceRemoteUrls();
   }
 
   async refresh(): Promise<void> {

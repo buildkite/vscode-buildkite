@@ -7,11 +7,13 @@ import { JobNode } from "./nodes/jobNode";
 import { ArtifactsFolderNode } from "./nodes/artifactsFolderNode";
 import { ArtifactNode } from "./nodes/artifactNode";
 import { ErrorNode } from "./nodes/errorNode";
-import { Build, BuildState, canUnblockJob, JobState } from "../api/types";
-import { debug, error, redactIfCredentialShaped } from "../log";
+import { Build, BuildState, canUnblockJob, JobState, Pipeline } from "../api/types";
+import { debug, error, redactIfCredentialShaped, warn } from "../log";
 import { getBuildNotificationService } from "../notifications/buildNotifications";
 import { ViewAllStepsNode } from "./nodes/viewAllStepsNode";
 import { SummaryNode } from "./nodes/summaryNode";
+import { ShowAllPipelinesNode } from "./nodes/showAllPipelinesNode";
+import { getWorkspaceRemoteUrls } from "../utils/workspaceRemotes";
 
 export type PipelineTreeNode =
   | PipelineNode
@@ -21,7 +23,8 @@ export type PipelineTreeNode =
   | ArtifactNode
   | ErrorNode
   | ViewAllStepsNode
-  | SummaryNode;
+  | SummaryNode
+  | ShowAllPipelinesNode;
 
 // Polling interval for running builds (in milliseconds)
 const RUNNING_BUILD_POLL_INTERVAL = 60000; // 60 seconds
@@ -68,16 +71,39 @@ export class PipelinesTreeProvider
   private activePollers = new Map<string, PollingContext>();
   private buildCache = new Map<string, Build>();
   private pipelineNodes: PipelineNode[] = [];
+  private workspaceFilterEnabled = false;
 
   constructor(
     private readonly authManager: AuthManager,
     client: CachedApiClient,
+    // Injectable so tests can drive the filter without the vscode.git extension
+    private readonly detectRemoteUrls: () => Promise<string[]> = getWorkspaceRemoteUrls,
   ) {
     this.client = client;
   }
 
   getPipelineNodes(): PipelineNode[] {
     return this.pipelineNodes;
+  }
+
+  setWorkspaceFilter(enabled: boolean): void {
+    if (this.workspaceFilterEnabled === enabled) {
+      return;
+    }
+    this.workspaceFilterEnabled = enabled;
+    this._onDidChangeTreeData.fire(null);
+  }
+
+  isWorkspaceFilterEnabled(): boolean {
+    return this.workspaceFilterEnabled;
+  }
+
+  // Re-resolve the root when repositories open/close, but only if the filter
+  // depends on them
+  onWorkspaceChanged(): void {
+    if (this.workspaceFilterEnabled) {
+      this._onDidChangeTreeData.fire(null);
+    }
   }
 
   getParent(element: PipelineTreeNode): vscode.ProviderResult<PipelineTreeNode> {
@@ -119,6 +145,11 @@ export class PipelinesTreeProvider
         }
 
         const org = await this.client.getOrganization();
+
+        if (this.workspaceFilterEnabled) {
+          return await this.getWorkspaceFilteredRoot(org.slug);
+        }
+
         const pipelines = await this.client.getPipelines(org.slug);
 
         if (pipelines.length === 0) {
@@ -317,6 +348,57 @@ export class PipelinesTreeProvider
       }
       return [new ErrorNode("Unknown error occurred")];
     }
+  }
+
+  // Root children when the workspace filter is on: only pipelines whose
+  // repository matches one of the workspace's git remotes. Mirrors the status
+  // bar's matching (same API call, so they share the client's cache bucket).
+  private async getWorkspaceFilteredRoot(
+    orgSlug: string,
+  ): Promise<PipelineTreeNode[]> {
+    this.pipelineNodes = [];
+
+    const remoteUrls = await this.detectRemoteUrls();
+    if (remoteUrls.length === 0) {
+      return [
+        new ErrorNode("No git repository found in this workspace"),
+        new ShowAllPipelinesNode(),
+      ];
+    }
+
+    const allResults = await Promise.all(
+      remoteUrls.map(async (repoUrl) => {
+        try {
+          return await this.client.getPipelinesByRepository(orgSlug, repoUrl);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          warn(`[Pipelines] Failed to fetch pipelines for ${repoUrl}: ${redactIfCredentialShaped(message)}`);
+          return [];
+        }
+      }),
+    );
+
+    // Dedupe across remotes that point to the same canonical repo
+    const seenSlugs = new Set<string>();
+    const pipelines: Pipeline[] = [];
+    for (const results of allResults) {
+      for (const { pipeline } of results) {
+        if (!seenSlugs.has(pipeline.slug)) {
+          seenSlugs.add(pipeline.slug);
+          pipelines.push(pipeline);
+        }
+      }
+    }
+
+    if (pipelines.length === 0) {
+      return [
+        new ErrorNode("No pipelines match this workspace's repository"),
+        new ShowAllPipelinesNode(),
+      ];
+    }
+
+    this.pipelineNodes = pipelines.map((p) => new PipelineNode(p, orgSlug));
+    return this.pipelineNodes;
   }
 
   private startPolling(

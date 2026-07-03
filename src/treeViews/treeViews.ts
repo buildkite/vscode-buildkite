@@ -6,6 +6,10 @@ import { SupportViewProvider } from "./support";
 import { AuthManager } from "../api/auth";
 import { CachedApiClient } from "../cache/cachedApiClient";
 import { track } from "../analytics/analytics";
+import { getGitApi } from "../utils/workspaceRemotes";
+
+// workspaceState key remembering the pipelines view's workspace-filter toggle
+const WORKSPACE_FILTER_STATE_KEY = "buildkite.pipelines.workspaceFilter";
 
 let pipelinesTreeProvider: PipelinesTreeProvider;
 let agentsTreeProvider: AgentsTreeProvider;
@@ -41,6 +45,66 @@ export function initTreeViews(
       },
     ),
   );
+
+  // Workspace filter: per-workspace persistence, falling back to the setting
+  // for the initial default in workspaces where it was never toggled
+  const applyWorkspaceFilter = async (enabled: boolean): Promise<void> => {
+    pipelinesTreeProvider.setWorkspaceFilter(enabled);
+    await vscode.commands.executeCommand(
+      "setContext",
+      "buildkite.pipelines.workspaceFilterActive",
+      enabled,
+    );
+  };
+
+  // Only the toolbar commands persist: writing the resolved default here would
+  // mark every workspace as explicitly toggled and pin it against later
+  // changes to the filterToWorkspaceByDefault setting
+  const toggleWorkspaceFilter = async (enabled: boolean): Promise<void> => {
+    await applyWorkspaceFilter(enabled);
+    await context.workspaceState.update(WORKSPACE_FILTER_STATE_KEY, enabled);
+  };
+
+  const initialFilter = context.workspaceState.get<boolean>(
+    WORKSPACE_FILTER_STATE_KEY,
+    vscode.workspace
+      .getConfiguration("buildkite.pipelines")
+      .get<boolean>("filterToWorkspaceByDefault", false),
+  );
+  void applyWorkspaceFilter(initialFilter);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "buildkite.pipelines.filterToWorkspace",
+      async () => {
+        track("pipeline workspace filter", { enabled: true });
+        await toggleWorkspaceFilter(true);
+      },
+    ),
+    vscode.commands.registerCommand(
+      "buildkite.pipelines.showAll",
+      async () => {
+        track("pipeline workspace filter", { enabled: false });
+        await toggleWorkspaceFilter(false);
+      },
+    ),
+  );
+
+  // Repositories opening/closing change what the filter matches
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() =>
+      pipelinesTreeProvider.onWorkspaceChanged(),
+    ),
+  );
+  void getGitApi().then((gitApi) => {
+    if (!gitApi) {
+      return;
+    }
+    context.subscriptions.push(
+      gitApi.onDidOpenRepository(() => pipelinesTreeProvider.onWorkspaceChanged()),
+      gitApi.onDidCloseRepository(() => pipelinesTreeProvider.onWorkspaceChanged()),
+    );
+  });
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildkite.agents.refresh", async () => {
