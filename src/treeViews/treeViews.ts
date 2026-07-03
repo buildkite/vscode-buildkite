@@ -48,14 +48,21 @@ export function initTreeViews(
 
   // Workspace filter: per-workspace persistence, falling back to the setting
   // for the initial default in workspaces where it was never toggled
-  const setWorkspaceFilter = async (enabled: boolean): Promise<void> => {
+  const applyWorkspaceFilter = async (enabled: boolean): Promise<void> => {
     pipelinesTreeProvider.setWorkspaceFilter(enabled);
-    await context.workspaceState.update(WORKSPACE_FILTER_STATE_KEY, enabled);
     await vscode.commands.executeCommand(
       "setContext",
       "buildkite.pipelines.workspaceFilterActive",
       enabled,
     );
+  };
+
+  // Only the toolbar commands persist: writing the resolved default here would
+  // mark every workspace as explicitly toggled and pin it against later
+  // changes to the filterToWorkspaceByDefault setting
+  const toggleWorkspaceFilter = async (enabled: boolean): Promise<void> => {
+    await applyWorkspaceFilter(enabled);
+    await context.workspaceState.update(WORKSPACE_FILTER_STATE_KEY, enabled);
   };
 
   const initialFilter = context.workspaceState.get<boolean>(
@@ -64,21 +71,21 @@ export function initTreeViews(
       .getConfiguration("buildkite.pipelines")
       .get<boolean>("filterToWorkspaceByDefault", false),
   );
-  void setWorkspaceFilter(initialFilter);
+  void applyWorkspaceFilter(initialFilter);
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "buildkite.pipelines.filterToWorkspace",
       async () => {
         track("pipeline workspace filter", { enabled: true });
-        await setWorkspaceFilter(true);
+        await toggleWorkspaceFilter(true);
       },
     ),
     vscode.commands.registerCommand(
       "buildkite.pipelines.showAll",
       async () => {
         track("pipeline workspace filter", { enabled: false });
-        await setWorkspaceFilter(false);
+        await toggleWorkspaceFilter(false);
       },
     ),
   );
