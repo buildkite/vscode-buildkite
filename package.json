@@ -127,6 +127,18 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "buildkite.pipelines.filterToWorkspace",
+        "title": "Filter Pipelines to Current Repository",
+        "category": "Buildkite",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "buildkite.pipelines.showAll",
+        "title": "Show All Pipelines",
+        "category": "Buildkite",
+        "icon": "$(filter-filled)"
+      },
+      {
         "command": "buildkite.build.open",
         "title": "View on Buildkite",
         "category": "Buildkite",
@@ -292,6 +304,11 @@
     "configuration": {
       "title": "Buildkite",
       "properties": {
+        "buildkite.pipelines.filterToWorkspaceByDefault": {
+          "type": "boolean",
+          "default": false,
+          "description": "Filter the pipelines view to pipelines matching this workspace's git repository by default. Once toggled from the view's toolbar, the choice is remembered per workspace."
+        },
         "buildkite.statusBar.showWhenNoMatch": {
           "type": "boolean",
           "default": false,
@@ -410,6 +427,16 @@
           "command": "buildkite.pipelines.refresh",
           "group": "navigation",
           "when": "view == buildkite.pipelines"
+        },
+        {
+          "command": "buildkite.pipelines.filterToWorkspace",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines && !buildkite.pipelines.workspaceFilterActive"
+        },
+        {
+          "command": "buildkite.pipelines.showAll",
+          "group": "navigation",
+          "when": "view == buildkite.pipelines && buildkite.pipelines.workspaceFilterActive"
         },
         {
           "command": "buildkite.agents.refresh",
