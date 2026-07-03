@@ -3,7 +3,7 @@
   "displayName": "Buildkite",
   "description": "VS Code extension for Buildkite",
   "icon": "icon.png",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "engines": {
     "vscode": "^1.106.0",
     "node": ">=22"
