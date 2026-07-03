@@ -37,9 +37,35 @@ export async function getGitApi(): Promise<GitAPI | undefined> {
 }
 
 /**
- * Collects the fetch/push URLs of every remote across all open repositories.
- * Duplicate URLs within a repository are collapsed; the same remote appearing
- * in multiple repositories is not.
+ * Removes userinfo from http(s) URLs. Git returns remotes exactly as
+ * configured, and HTTPS remotes can embed credentials
+ * (https://x-access-token:...@github.com/org/repo.git); left in place they
+ * break gitUrlsMatch's host comparison and can leak into logs. SSH forms are
+ * returned unchanged: their user (git@) is structural, not a secret.
+ */
+export function stripUrlCredentials(url: string): string {
+  if (!/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  try {
+    const parsed = new URL(url);
+    if (!parsed.username && !parsed.password) {
+      // Avoid WHATWG normalization side effects when there is nothing to strip
+      return url;
+    }
+    parsed.username = "";
+    parsed.password = "";
+    return parsed.toString();
+  } catch {
+    // Not WHATWG-parseable; drop a userinfo section by pattern instead
+    return url.replace(/^(https?:\/\/)[^@/]+@/i, "$1");
+  }
+}
+
+/**
+ * Collects the fetch/push URLs of every remote across all open repositories,
+ * with embedded credentials stripped. Duplicate URLs within a repository are
+ * collapsed; the same remote appearing in multiple repositories is not.
  */
 export async function getWorkspaceRemoteUrls(): Promise<string[]> {
   const gitApi = await getGitApi();
@@ -55,11 +81,19 @@ export async function getWorkspaceRemoteUrls(): Promise<string[]> {
     }
 
     for (const remote of repo.state.remotes) {
-      if (remote.fetchUrl) {
-        remotes.push(remote.fetchUrl);
+      const fetchUrl = remote.fetchUrl
+        ? stripUrlCredentials(remote.fetchUrl)
+        : undefined;
+      const pushUrl = remote.pushUrl
+        ? stripUrlCredentials(remote.pushUrl)
+        : undefined;
+      if (fetchUrl) {
+        remotes.push(fetchUrl);
       }
-      if (remote.pushUrl && remote.pushUrl !== remote.fetchUrl) {
-        remotes.push(remote.pushUrl);
+      // Compare after stripping so fetch/push URLs differing only by
+      // credentials collapse to one entry
+      if (pushUrl && pushUrl !== fetchUrl) {
+        remotes.push(pushUrl);
       }
     }
   }
