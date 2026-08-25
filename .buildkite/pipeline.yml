@@ -2,20 +2,20 @@ steps:
   - label: ":eslint: Lint"
     key: lint
     plugins:
-      - mise#v1.1.0: ~
+      - mise#v1.1.5: ~
     command: npm ci && npm run lint
 
   - label: ":typescript: Compile"
     key: compile
     plugins:
-      - mise#v1.1.0: ~
+      - mise#v1.1.5: ~
     command: npm ci && npm run compile
 
   - label: ":vscode: Build package"
     key: build
     depends_on: ["lint", "compile"]
     plugins:
-      - mise#v1.1.0: ~
+      - mise#v1.1.5: ~
     command: npm ci && npm run vscode:package
     artifact_paths:
       - "buildkite-*.vsix"
