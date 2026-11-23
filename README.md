@@ -19,7 +19,7 @@ Visual Studio Code 1.60 or later.
 
 ## Getting Started
 
-1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=buildkite.buildkite-vscode)
+1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=buildkite.buildkite)
 2. Open the Command Palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Windows/Linux)
 3. Run **Buildkite: Sign In** to authenticate via OAuth
 
